@@ -10,6 +10,16 @@ import Scheduling from "./pages/app/Scheduling";
 import Budgets from "./pages/app/Budgets";
 import Announcements from "./pages/app/Announcements";
 import Account from "./pages/app/Account";
+import supabase from './config/supabaseClient';
+
+// Test connection on app load
+supabase.auth.getSession().then(({ data, error }) => {
+  if (error) {
+    console.error('❌ Supabase error:', error.message);
+  } else {
+    console.log('✅ Supabase connected successfully!');
+  }
+});
 
 export default function App() {
   return (
