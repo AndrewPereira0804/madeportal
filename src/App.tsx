@@ -11,6 +11,8 @@ import Budgets from "./pages/app/Budgets";
 import Announcements from "./pages/app/Announcements";
 import Account from "./pages/app/Account";
 import supabase from './config/supabaseClient';
+import { useAuth } from "./auth/authProvider";
+import RequireAuth from "./auth/requireAuth";
 
 // Test connection on app load
 supabase.auth.getSession().then(({ data, error }) => {
@@ -22,6 +24,8 @@ supabase.auth.getSession().then(({ data, error }) => {
 });
 
 export default function App() {
+  const { session, loading } = useAuth();
+  if (loading) return <div>Loading...</div>;
   return (
     <Routes>
       <Route path="/" element={<Home />} />
@@ -31,12 +35,14 @@ export default function App() {
       <Route path="/admin" element={<Admin />} />
 
       {/* /app/* section with navbar */}
+      <Route element={<RequireAuth />}>
       <Route path="/app" element={<AppLayout />}>
         <Route index element={<Navigate to="scheduling" replace />} />
         <Route path="scheduling" element={<Scheduling />} />
         <Route path="budgets" element={<Budgets />} />
         <Route path="announcements" element={<Announcements />} />
         <Route path="account" element={<Account />} />
+      </Route>
       </Route>
 
       <Route path="*" element={<NotFound />} />
