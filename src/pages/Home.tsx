@@ -1,16 +1,14 @@
-// at the top of Home.tsx
-import { useAuth } from "../auth/authProvider";   // <-- grab the hook
-import { Link } from "react-router-dom";         // <-- for navigation links
+import { useAuth } from "../auth/authProvider";
+import { Link, Navigate } from "react-router-dom";
 import useRoles from "../auth/useRoles";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 export default function Home() {
-  const { session, signOut } = useAuth();        // session==null when no user
-  const roles = useRoles();                         // now an array
-  const nav = useNavigate();
-  const location = useLocation() as any;
-  const from = location.state?.from || "/";
+  const { session, signOut } = useAuth();
+  const { roles, loading: rolesLoading } = useRoles();
   
+  if (!rolesLoading && roles.includes("admin")) {
+    return <Navigate to="/admin" replace />;
+  }
 
   return (
     <>

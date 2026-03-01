@@ -3,8 +3,9 @@
   line-height: 1.5;
   font-weight: 400;
 
+  /* default to dark text; most pages will inherit this unless overridden */
+  color: #000;
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
   background-color: whitesmoke;
 
   font-synthesis: none;
@@ -26,6 +27,9 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+
+  /* enforce default black text unless another rule overrides */
+  color: inherit;
 }
 
 #root {
@@ -68,6 +72,7 @@ nav {
 
 @media (prefers-color-scheme: light) {
   :root {
+    /* light mode can still use dark text */
     color: #213547;
     background-color: #ffffff;
   }
@@ -78,3 +83,4 @@ nav {
     background-color: #f9f9f9;
   }
 }
+

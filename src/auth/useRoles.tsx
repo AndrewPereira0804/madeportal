@@ -5,14 +5,13 @@ import { useAuth } from "./authProvider";
 
 export default function useRoles() {
   const { session } = useAuth();
-  // return an array of zero-or-more role slugs; empty when not logged in or no
-  // roles assigned
+  // return an object containing the list and a loading flag
   const [roles, setRoles] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (session?.user?.id) {
-      // select every linked role's slug. `!inner` makes the joined rows appear
-      // at the top level, which simplifies mapping.
+      setLoading(true);
       supabase
         .from("user_roles")
         .select("roles!inner(slug)")
@@ -26,13 +25,15 @@ export default function useRoles() {
               data?.map((r: any) => r.roles.slug as string) ?? []
             );
           }
+          setLoading(false);
         });
     } else {
       setRoles([]);
+      setLoading(false);
     }
   }, [session]);
 
   console.log("User session:", session);
-  console.log("useRoles (array):", { session, roles });
-  return roles;
+  console.log("useRoles (array):", { session, roles, loading });
+  return { roles, loading };
 }

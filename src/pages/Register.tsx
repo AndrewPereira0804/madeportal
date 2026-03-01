@@ -11,6 +11,24 @@ type FormValues = {
   repeatPassword: string;
 };
 
+async function createPendingProfile(userId: string) {
+  const byUserId = await supabase.from("profiles").insert({
+    user_id: userId,
+    status: "pending",
+  });
+
+  if (!byUserId.error) {
+    return null;
+  }
+
+  const byId = await supabase.from("profiles").insert({
+    id: userId,
+    status: "pending",
+  });
+
+  return byId.error;
+}
+
 export default function Register() {
   const { session } = useAuth();
   const navigate = useNavigate();
@@ -41,10 +59,11 @@ export default function Register() {
 
     // if a profiles table exists and you want to mark the account pending
     if (data.user) {
-      await supabase.from("profiles").insert({
-        id: data.user.id,
-        status: "pending",
-      });
+      const profileError = await createPendingProfile(data.user.id);
+      if (profileError) {
+        setErrorMessage(profileError.message);
+        return;
+      }
     }
 
     // redirect or show a message; supabase sends confirmation email by default
