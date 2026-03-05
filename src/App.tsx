@@ -16,11 +16,6 @@ import { useStatus } from "./auth/useStatus";
 import Suspended from "./pages/Suspended";
 import Accounts from "./pages/admin/Accounts";
 
-// (the earlier test code used useAuth incorrectly and ran at module scope;
-// drop it – you can add runtime checks in a useEffect inside a component if
-// you really need to verify connectivity)
-
-
 export default function App() {
   const { session, loading: authLoading } = useAuth();
   const { status, loading: statusLoading } = useStatus();

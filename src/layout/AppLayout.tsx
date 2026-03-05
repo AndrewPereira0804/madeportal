@@ -1,41 +1,36 @@
-import { NavLink, Outlet } from "react-router-dom";
+// src/layout/AppLayout.tsx
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useAuth } from "../auth/authProvider";
+import useRoles from "../auth/useRoles";
 
-const linkStyle = ({ isActive }: { isActive: boolean }) => ({
-  padding: "8px 12px",
-  borderRadius: 8,
-  textDecoration: "none",
-  color: "inherit",
-  background: isActive ? "rgba(0,0,0,0.08)" : "transparent",
-});
+const linkClass = ({ isActive }: { isActive: boolean }) =>
+  `app-nav-link${isActive ? " is-active" : ""}`;
+
+
 
 export default function AppLayout() {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      <nav
-        style={{
-          display: "flex",
-          gap: 8,
-          padding: 12,
-          borderBottom: "1px solid rgba(0,0,0,0.1)",
-        }}
-      >
-        <NavLink to="/app/scheduling" style={linkStyle}>
-          Scheduling
-        </NavLink>
-        <NavLink to="/app/budgets" style={linkStyle}>
-          Budgets
-        </NavLink>
-        <NavLink to="/app/announcements" style={linkStyle}>
-          Announcements
-        </NavLink>
-        <NavLink to="/app/account" style={linkStyle}>
-          Account
-        </NavLink>
-      </nav>
+  const { roles, loading } = useRoles();
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
 
-      <main style={{ padding: 16 }}>
-        <Outlet />
-      </main>
+  async function handleLogout() {
+    await signOut();
+    navigate("/login", { replace: true });
+  }
+
+  return (
+    <div className="app-layout">
+      <nav className="app-nav">
+        <NavLink to="/app/scheduling" className={linkClass}>Scheduling</NavLink>
+        <NavLink to="/app/budgets" className={linkClass}>Budgets</NavLink>
+        <NavLink to="/app/announcements" className={linkClass}>Announcements</NavLink>
+        <NavLink to="/app/account" className={linkClass}>Account</NavLink>
+        <button type="button" className="app-nav-link" onClick={handleLogout}>
+          Logout
+        </button>
+        <div style={{ color: "white" }}>Roles: { roles.join(", ") }</div>
+      </nav>
+      <main className="app-main"><Outlet /></main>
     </div>
   );
 }

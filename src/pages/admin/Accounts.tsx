@@ -1,9 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
-import  supabase  from "../../config/supabaseClient";
+import { useEffect, useMemo, useState } from "react";
+import supabase from "../../config/supabaseClient";
 import useRoles from "../../auth/useRoles";
 import { Navigate } from "react-router-dom";
-
-// don't call hooks at module scope – we'll grab roles inside the component
 
 type AccountStatus = "pending" | "active" | "suspended";
 
@@ -35,6 +33,7 @@ type RawProfileRow = {
   email?: string | null;
   status?: string | null;
   created_at?: string | null;
+  [key: string]: unknown;
 };
 
 const TABS: { key: AccountStatus; label: string }[] = [
@@ -47,6 +46,15 @@ function isAccountStatus(value: string | null | undefined): value is AccountStat
   return value === "pending" || value === "active" || value === "suspended";
 }
 
+function toCleanString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 function normalizeProfiles(rows: RawProfileRow[]): ProfileRow[] {
   return rows
     .map((row) => {
@@ -54,12 +62,15 @@ function normalizeProfiles(rows: RawProfileRow[]): ProfileRow[] {
         return null;
       }
 
+      const email = toCleanString(row.email);
+      const name = toCleanString(row.name);
+
       return {
         user_id: row.user_id,
-        name: row.name ?? null,
-        email: row.email ?? null,
+        name,
+        email,
         status: row.status,
-        created_at: row.created_at ?? null,
+        created_at: toCleanString(row.created_at),
       };
     })
     .filter((row): row is ProfileRow => row !== null)
@@ -74,10 +85,13 @@ function formatCreatedAt(value: string | null) {
   return value ? new Date(value).toLocaleString() : "Unknown creation date";
 }
 
+function statusPillClass(status: AccountStatus) {
+  return `status-pill status-${status}`;
+}
+
 export default function Accounts() {
   const { roles, loading: rolesLoading } = useRoles();
 
-  // always declare hooks in the same order on every render
   const [tab, setTab] = useState<AccountStatus>("pending");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -88,7 +102,6 @@ export default function Accounts() {
   const [rolesLookup, setRolesLookup] = useState<Record<string, string>>({});
   const [userRoles, setUserRoles] = useState<UserRoleRow[]>([]);
 
-  // role editing UI state
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [draftRoleSlugs, setDraftRoleSlugs] = useState<string[]>([]);
 
@@ -96,7 +109,6 @@ export default function Accounts() {
     setLoading(true);
     setErrorMsg(null);
 
-    // 1) Fetch roles lookup (slug -> name)
     const { data: rolesData, error: rolesErr } = await supabase
       .from("roles")
       .select("slug,name")
@@ -109,12 +121,13 @@ export default function Accounts() {
       return;
     }
 
-    const roles = (rolesData ?? []) as RoleRow[];
+    const roleRows = (rolesData ?? []) as RoleRow[];
     const lookup: Record<string, string> = {};
-    for (const r of roles) lookup[r.slug] = r.name;
+    for (const role of roleRows) {
+      lookup[role.slug] = role.name;
+    }
     setRolesLookup(lookup);
 
-    // 2) Fetch profiles
     const { data: profilesData, error: profilesErr } = await supabase
       .from("profiles")
       .select("user_id,name,email,status,created_at")
@@ -130,7 +143,6 @@ export default function Accounts() {
     const profs = normalizeProfiles((profilesData ?? []) as RawProfileRow[]);
     setProfiles(profs);
 
-    // 3) Fetch user_roles for these users
     const userIds = profs.map((p) => p.user_id);
     if (userIds.length === 0) {
       setUserRoles([]);
@@ -138,7 +150,6 @@ export default function Accounts() {
       return;
     }
 
-    // Supabase has limits on long IN lists; for typical fraternity size this is fine.
     const { data: userRolesData, error: urErr } = await supabase
       .from("user_roles")
       .select("user_id,role_slug")
@@ -178,15 +189,11 @@ export default function Accounts() {
     return users
       .filter((u) => u.status === tab)
       .filter((u) => {
-        if (!q) return true;
-        const hay = [
-          u.name ?? "",
-          u.email ?? "",
-          u.user_id,
-          ...(u.roleSlugs ?? []),
-        ]
-          .join(" ")
-          .toLowerCase();
+        if (!q) {
+          return true;
+        }
+
+        const hay = [u.name ?? "", u.email ?? "", u.user_id, ...u.roleSlugs].join(" ").toLowerCase();
         return hay.includes(q);
       });
   }, [users, tab, search]);
@@ -211,14 +218,6 @@ export default function Accounts() {
       return;
     }
 
-    // Optional: log to audit_log if you want (and your RLS allows it)
-    // const { data: me } = await supabase.auth.getUser();
-    // await supabase.from("audit_log").insert({
-    //   actor_id: me?.user?.id ?? null,
-    //   target_user_id: userId,
-    //   action: `status:${status}`,
-    // });
-
     await loadData();
     setSaving(false);
   }
@@ -234,7 +233,6 @@ export default function Accounts() {
     const toAdd = [...nextSet].filter((r) => !currentSet.has(r));
     const toRemove = [...currentSet].filter((r) => !nextSet.has(r));
 
-    // Delete removed roles
     if (toRemove.length > 0) {
       const { error: delErr } = await supabase
         .from("user_roles")
@@ -250,7 +248,6 @@ export default function Accounts() {
       }
     }
 
-    // Insert added roles
     if (toAdd.length > 0) {
       const rows = toAdd.map((role_slug) => ({ user_id: userId, role_slug }));
       const { error: insErr } = await supabase.from("user_roles").insert(rows);
@@ -285,76 +282,67 @@ export default function Accounts() {
     [rolesLookup]
   );
 
-  // gating now that all hooks have been declared
-  if (rolesLoading) return <div>Loading…</div>;
+  if (rolesLoading) {
+    return <div className="accounts-loading">Loading...</div>;
+  }
+
   if (!roles.includes("admin")) {
     return <Navigate to="/" replace />;
   }
 
   return (
-    <div style={{ padding: 16, maxWidth: 1200 }}>
-      <h2 style={{ margin: 0 }}>Admin · Account Management</h2>
-      <div style={{ marginTop: 6, opacity: 0.8 }}>
-        Approve/deny pending accounts, and manage roles for active members.
-      </div>
+    <div className="page-card accounts-page">
+      <h2 className="accounts-title">Admin Account Management</h2>
+      <p className="accounts-subtitle">
+        Approve or deny pending accounts, and manage roles for active members.
+      </p>
 
-      <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center" }}>
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            disabled={tab === t.key}
-            style={{
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: "1px solid #ddd",
-              background: tab === t.key ? "#f3f3f3" : "white",
-              cursor: tab === t.key ? "default" : "pointer",
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="accounts-toolbar">
+        <div className="accounts-tabs">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              disabled={tab === t.key}
+              className={`accounts-tab${tab === t.key ? " is-active" : ""}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-        <div style={{ flex: 1 }} />
+        <div className="accounts-toolbar-spacer" />
 
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search name/email/id/role…"
-          style={{
-            padding: "8px 10px",
-            borderRadius: 8,
-            border: "1px solid #ddd",
-            minWidth: 280,
-          }}
+          placeholder="Search name/email/id/role..."
+          className="accounts-search"
         />
         <button
+          type="button"
           onClick={loadData}
           disabled={loading || saving}
-          style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #ddd" }}
+          className="btn-secondary"
         >
           Refresh
         </button>
       </div>
 
-      {errorMsg && (
-        <div style={{ marginTop: 12, padding: 10, borderRadius: 8, background: "#fff3f3" }}>
-          {errorMsg}
-        </div>
-      )}
+      {errorMsg && <div className="accounts-alert">{errorMsg}</div>}
 
       {loading ? (
-        <div style={{ marginTop: 16 }}>Loading…</div>
+        <div className="accounts-loading">Loading...</div>
       ) : (
-        <div style={{ marginTop: 14, border: "1px solid #e6e6e6", borderRadius: 10 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div className="accounts-table-wrap">
+          <table className="accounts-table">
             <thead>
-              <tr style={{ background: "#fafafa" }}>
-                <Th>User</Th>
-                <Th>Status</Th>
-                <Th>Roles</Th>
-                <Th>Actions</Th>
+              <tr>
+                <th className="accounts-th">User</th>
+                <th className="accounts-th">Status</th>
+                <th className="accounts-th">Roles</th>
+                <th className="accounts-th">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -362,38 +350,28 @@ export default function Accounts() {
                 const isEditing = editingUserId === u.user_id;
 
                 return (
-                  <tr key={u.user_id} style={{ borderTop: "1px solid #eee" }}>
-                    <Td>
-                      <div style={{ fontWeight: 600 }}>{u.name ?? "(no name)"}</div>
-                      <div style={{ opacity: 0.85 }}>{u.email ?? "(no email)"}</div>
-                      <div style={{ fontSize: 12, opacity: 0.65, marginTop: 2 }}>
-                        {u.user_id} · {formatCreatedAt(u.created_at)}
+                  <tr key={u.user_id}>
+                    <td className="accounts-td">
+                      <div className="accounts-user-name">{u.name ?? "(no name)"}</div>
+                      <div className="accounts-user-email">{u.email ?? "(no email)"}</div>
+                      <div className="accounts-user-meta">
+                        {u.user_id} - {formatCreatedAt(u.created_at)}
                       </div>
-                    </Td>
+                    </td>
 
-                    <Td>{u.status}</Td>
+                    <td className="accounts-td">
+                      <span className={statusPillClass(u.status)}>{u.status}</span>
+                    </td>
 
-                    <Td>
+                    <td className="accounts-td">
                       {!isEditing ? (
                         <div>
-                          {(u.roleSlugs?.length ?? 0) > 0
-                            ? u.roleSlugs.map(roleLabel).join(", ")
-                            : "(none)"}
+                          {u.roleSlugs.length > 0 ? u.roleSlugs.map(roleLabel).join(", ") : "(none)"}
                         </div>
                       ) : (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                        <div className="accounts-role-editor">
                           {allRoleSlugs.map((slug) => (
-                            <label
-                              key={slug}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6,
-                                border: "1px solid #eee",
-                                padding: "6px 8px",
-                                borderRadius: 10,
-                              }}
-                            >
+                            <label key={slug} className="accounts-role-option">
                               <input
                                 type="checkbox"
                                 checked={draftRoleSlugs.includes(slug)}
@@ -404,26 +382,29 @@ export default function Accounts() {
                           ))}
                         </div>
                       )}
-                    </Td>
+                    </td>
 
-                    <Td>
+                    <td className="accounts-td">
                       {tab === "pending" && (
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <div className="accounts-actions">
                           <button
+                            type="button"
                             disabled={saving}
                             onClick={() => updateStatus(u.user_id, "active")}
-                            style={primaryBtn}
+                            className="btn-primary"
                           >
                             Approve
                           </button>
                           <button
+                            type="button"
                             disabled={saving}
                             onClick={() => {
-                              if (!window.confirm("Deny this account? (status → suspended)"))
+                              if (!window.confirm("Deny this account? (status -> suspended)")) {
                                 return;
+                              }
                               updateStatus(u.user_id, "suspended");
                             }}
-                            style={dangerBtn}
+                            className="btn-danger"
                           >
                             Deny
                           </button>
@@ -431,23 +412,27 @@ export default function Accounts() {
                       )}
 
                       {tab === "active" && (
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <div className="accounts-actions">
                           {!isEditing ? (
                             <>
                               <button
+                                type="button"
                                 disabled={saving}
                                 onClick={() => startEditing(u)}
-                                style={secondaryBtn}
+                                className="btn-secondary"
                               >
                                 Edit roles
                               </button>
                               <button
+                                type="button"
                                 disabled={saving}
                                 onClick={() => {
-                                  if (!window.confirm("Suspend this account?")) return;
+                                  if (!window.confirm("Suspend this account?")) {
+                                    return;
+                                  }
                                   updateStatus(u.user_id, "suspended");
                                 }}
-                                style={dangerBtn}
+                                className="btn-danger"
                               >
                                 Suspend
                               </button>
@@ -455,19 +440,21 @@ export default function Accounts() {
                           ) : (
                             <>
                               <button
+                                type="button"
                                 disabled={saving}
                                 onClick={() => saveRoles(u.user_id, draftRoleSlugs)}
-                                style={primaryBtn}
+                                className="btn-primary"
                               >
                                 Save
                               </button>
                               <button
+                                type="button"
                                 disabled={saving}
                                 onClick={() => {
                                   setEditingUserId(null);
                                   setDraftRoleSlugs([]);
                                 }}
-                                style={secondaryBtn}
+                                className="btn-secondary"
                               >
                                 Cancel
                               </button>
@@ -477,26 +464,27 @@ export default function Accounts() {
                       )}
 
                       {tab === "suspended" && (
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <div className="accounts-actions">
                           <button
+                            type="button"
                             disabled={saving}
                             onClick={() => updateStatus(u.user_id, "active")}
-                            style={primaryBtn}
+                            className="btn-primary"
                           >
                             Reinstate
                           </button>
                         </div>
                       )}
-                    </Td>
+                    </td>
                   </tr>
                 );
               })}
 
               {filtered.length === 0 && (
-                <tr style={{ borderTop: "1px solid #eee" }}>
-                  <Td colSpan={4} style={{ opacity: 0.75 }}>
+                <tr>
+                  <td className="accounts-td accounts-empty" colSpan={4}>
                     No users in this view.
-                  </Td>
+                  </td>
                 </tr>
               )}
             </tbody>
@@ -504,56 +492,9 @@ export default function Accounts() {
         </div>
       )}
 
-      <div style={{ marginTop: 12, fontSize: 12, opacity: 0.75 }}>
-        Tip: If you want “Deny removes from page”, that’s exactly what happens—once status becomes
-        <code> suspended</code>, they move to the Suspended tab.
-      </div>
+      <p className="accounts-tip">
+        Tip: when you deny an account, it moves to the Suspended tab.
+      </p>
     </div>
   );
 }
-
-function Th(props: React.PropsWithChildren) {
-  return (
-    <th
-      style={{
-        textAlign: "left",
-        padding: 12,
-        fontSize: 13,
-        borderBottom: "1px solid #eee",
-      }}
-    >
-      {props.children}
-    </th>
-  );
-}
-
-function Td(
-  props: React.PropsWithChildren<{ colSpan?: number; style?: React.CSSProperties }>
-) {
-  return (
-    <td style={{ padding: 12, verticalAlign: "top", ...props.style }} colSpan={props.colSpan}>
-      {props.children}
-    </td>
-  );
-}
-
-const primaryBtn: React.CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: 8,
-  border: "1px solid #ddd",
-  background: "#f3f3f3",
-};
-
-const secondaryBtn: React.CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: 8,
-  border: "1px solid #ddd",
-  background: "white",
-};
-
-const dangerBtn: React.CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: 8,
-  border: "1px solid #ddd",
-  background: "#fff5f5",
-};

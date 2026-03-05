@@ -6,9 +6,13 @@ import { Navigate } from "react-router-dom";
 
 export default function Admin() {
   const { signOut } = useAuth();
-  const { user } = useRoles();
+  const { roles, loading } = useRoles();
 
-  if (!user?.user_roles.includes("admin")) {
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!roles.includes("admin")) {
     return <Navigate to="/" replace />;
   }
   return (
