@@ -1,8 +1,16 @@
 import { Link, Outlet } from "react-router-dom";
+import useRoles from "../../auth/useRoles";
 import { useAuth } from "../../auth/authProvider";
+import { Navigate } from "react-router-dom";
+
 
 export default function Admin() {
   const { signOut } = useAuth();
+  const { user } = useRoles();
+
+  if (!user?.user_roles.includes("admin")) {
+    return <Navigate to="/" replace />;
+  }
   return (
     <>
       <h1>Admin</h1>

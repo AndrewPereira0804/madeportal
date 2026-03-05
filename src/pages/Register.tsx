@@ -6,27 +6,21 @@ import { useAuth } from "../auth/authProvider";
 import { Navigate, useNavigate } from "react-router-dom";
 
 type FormValues = {
+  name: string;
   email: string;
   password: string;
   repeatPassword: string;
 };
 
-async function createPendingProfile(userId: string) {
-  const byUserId = await supabase.from("profiles").insert({
+async function createPendingProfile(userId: string, name: string, email: string) {
+  const { error } = await supabase.from("profiles").insert({
     user_id: userId,
+    name,
+    email,
     status: "pending",
   });
 
-  if (!byUserId.error) {
-    return null;
-  }
-
-  const byId = await supabase.from("profiles").insert({
-    id: userId,
-    status: "pending",
-  });
-
-  return byId.error;
+  return error;
 }
 
 export default function Register() {
@@ -42,14 +36,32 @@ export default function Register() {
 
   const onSubmit: SubmitHandler<FormValues> = async (values) => {
     setErrorMessage(null);
+    const name = values.name.trim();
+    const email = values.email.trim();
+
+    if (!name) {
+      setErrorMessage("Name is required");
+      return;
+    }
+
+    if (!email) {
+      setErrorMessage("Email is required");
+      return;
+    }
+
     if (values.password !== values.repeatPassword) {
       setErrorMessage("Passwords do not match");
       return;
     }
 
     const { data, error } = await supabase.auth.signUp({
-      email: values.email,
+      email,
       password: values.password,
+      options: {
+        data: {
+          name,
+        },
+      },
     });
 
     if (error) {
@@ -59,7 +71,7 @@ export default function Register() {
 
     // if a profiles table exists and you want to mark the account pending
     if (data.user) {
-      const profileError = await createPendingProfile(data.user.id);
+      const profileError = await createPendingProfile(data.user.id, name, email);
       if (profileError) {
         setErrorMessage(profileError.message);
         return;
@@ -80,6 +92,14 @@ export default function Register() {
       <h1>Register</h1>
       {errorMessage && <p style={{ color: "red" }}>{errorMessage}</p>}
       <form className="App" onSubmit={handleSubmit(onSubmit)}>
+        <input 
+          type='text'
+          {...register("name", { required: "Name is required" })}
+          placeholder="Name"
+        />
+        {errors.name && (
+          <span style={{ color: "red" }}>{errors.name.message}</span>
+        )}
         <input
           type="email"
           {...register("email", { required: "Email is required" })}

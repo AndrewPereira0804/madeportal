@@ -5,20 +5,10 @@ import { useAuth } from "./authProvider";
 // hook returns the `status` field from the profiles table for the current
 // session user. `null` means not logged in or row not found.
 async function fetchProfileStatus(userId: string) {
-  const byUserId = await supabase
-    .from("profiles")
-    .select("status")
-    .eq("user_id", userId)
-    .single();
-
-  if (!byUserId.error) {
-    return byUserId;
-  }
-
   return supabase
     .from("profiles")
     .select("status")
-    .eq("id", userId)
+    .eq("user_id", userId)
     .single();
 }
 

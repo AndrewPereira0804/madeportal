@@ -1,5 +1,3 @@
--- Adjust profiles.user_id below if your table uses a different key column.
-
 create or replace function public.is_admin(check_user_id uuid)
 returns boolean
 language sql

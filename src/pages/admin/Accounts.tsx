@@ -30,7 +30,6 @@ type UserVM = ProfileRow & {
 };
 
 type RawProfileRow = {
-  id?: string | null;
   user_id?: string | null;
   name?: string | null;
   email?: string | null;
@@ -51,14 +50,12 @@ function isAccountStatus(value: string | null | undefined): value is AccountStat
 function normalizeProfiles(rows: RawProfileRow[]): ProfileRow[] {
   return rows
     .map((row) => {
-      const userId = row.user_id ?? row.id;
-
-      if (!userId || !isAccountStatus(row.status)) {
+      if (!row.user_id || !isAccountStatus(row.status)) {
         return null;
       }
 
       return {
-        user_id: userId,
+        user_id: row.user_id,
         name: row.name ?? null,
         email: row.email ?? null,
         status: row.status,
@@ -120,7 +117,8 @@ export default function Accounts() {
     // 2) Fetch profiles
     const { data: profilesData, error: profilesErr } = await supabase
       .from("profiles")
-      .select("*");
+      .select("user_id,name,email,status,created_at")
+      .order("created_at", { ascending: false });
 
     if (profilesErr) {
       console.error(profilesErr);
@@ -201,23 +199,10 @@ export default function Accounts() {
     setSaving(true);
     setErrorMsg(null);
 
-    const primaryUpdate = await supabase
+    const { error } = await supabase
       .from("profiles")
       .update({ status })
-      .eq("user_id", userId)
-      .select("user_id");
-
-    let error = primaryUpdate.error;
-
-    if (!error && (primaryUpdate.data?.length ?? 0) === 0) {
-      const fallbackUpdate = await supabase
-        .from("profiles")
-        .update({ status })
-        .eq("id", userId)
-        .select("id");
-
-      error = fallbackUpdate.error;
-    }
+      .eq("user_id", userId);
 
     if (error) {
       console.error(error);
@@ -380,9 +365,7 @@ export default function Accounts() {
                   <tr key={u.user_id} style={{ borderTop: "1px solid #eee" }}>
                     <Td>
                       <div style={{ fontWeight: 600 }}>{u.name ?? "(no name)"}</div>
-                      {typeof u.email !== "undefined" && (
-                        <div style={{ opacity: 0.85 }}>{u.email ?? "(no email)"}</div>
-                      )}
+                      <div style={{ opacity: 0.85 }}>{u.email ?? "(no email)"}</div>
                       <div style={{ fontSize: 12, opacity: 0.65, marginTop: 2 }}>
                         {u.user_id} · {formatCreatedAt(u.created_at)}
                       </div>
