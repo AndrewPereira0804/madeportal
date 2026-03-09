@@ -16,15 +16,24 @@ export default function Admin() {
     return <Navigate to="/" replace />;
   }
   return (
-    <>
-      <h1>Admin</h1>
-      <p>This is the admin page.</p>
-      {/* relative link so it works in nested routes */}
-      <Link to="accounts">Manage Accounts</Link>
-      <Outlet />
-      <button onClick={signOut}>
-          Logout
-        </button>
-    </>
+    <div className="theme-shell">
+      <section className="theme-card p-4 p-md-5">
+        <h1 className="page-title">Admin</h1>
+        <p className="page-subtitle mt-2">Manage membership and account access.</p>
+
+        <div className="d-flex flex-wrap gap-2 mt-4">
+          <Link to="accounts" className="btn btn-primary">
+            Manage Accounts
+          </Link>
+          <button type="button" className="btn btn-outline-dark" onClick={signOut}>
+            Logout
+          </button>
+        </div>
+
+        <div className="mt-4">
+          <Outlet />
+        </div>
+      </section>
+    </div>
   );
 }
