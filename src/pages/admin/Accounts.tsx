@@ -291,7 +291,7 @@ export default function Accounts() {
   }
 
   return (
-    <div className="page-card accounts-page">
+    <div className="theme-card accounts-page p-4 p-md-5">
       <h2 className="accounts-title">Admin Account Management</h2>
       <p className="accounts-subtitle">
         Approve or deny pending accounts, and manage roles for active members.
@@ -324,7 +324,7 @@ export default function Accounts() {
           type="button"
           onClick={loadData}
           disabled={loading || saving}
-          className="btn-secondary"
+          className="btn btn-outline-secondary"
         >
           Refresh
         </button>
@@ -391,7 +391,7 @@ export default function Accounts() {
                             type="button"
                             disabled={saving}
                             onClick={() => updateStatus(u.user_id, "active")}
-                            className="btn-primary"
+                            className="btn btn-primary btn-sm"
                           >
                             Approve
                           </button>
@@ -404,7 +404,7 @@ export default function Accounts() {
                               }
                               updateStatus(u.user_id, "suspended");
                             }}
-                            className="btn-danger"
+                            className="btn btn-dark btn-sm"
                           >
                             Deny
                           </button>
@@ -419,7 +419,7 @@ export default function Accounts() {
                                 type="button"
                                 disabled={saving}
                                 onClick={() => startEditing(u)}
-                                className="btn-secondary"
+                                className="btn btn-outline-secondary btn-sm"
                               >
                                 Edit roles
                               </button>
@@ -432,7 +432,7 @@ export default function Accounts() {
                                   }
                                   updateStatus(u.user_id, "suspended");
                                 }}
-                                className="btn-danger"
+                                className="btn btn-dark btn-sm"
                               >
                                 Suspend
                               </button>
@@ -443,7 +443,7 @@ export default function Accounts() {
                                 type="button"
                                 disabled={saving}
                                 onClick={() => saveRoles(u.user_id, draftRoleSlugs)}
-                                className="btn-primary"
+                                className="btn btn-primary btn-sm"
                               >
                                 Save
                               </button>
@@ -454,7 +454,7 @@ export default function Accounts() {
                                   setEditingUserId(null);
                                   setDraftRoleSlugs([]);
                                 }}
-                                className="btn-secondary"
+                                className="btn btn-outline-secondary btn-sm"
                               >
                                 Cancel
                               </button>
@@ -469,7 +469,7 @@ export default function Accounts() {
                             type="button"
                             disabled={saving}
                             onClick={() => updateStatus(u.user_id, "active")}
-                            className="btn-primary"
+                            className="btn btn-primary btn-sm"
                           >
                             Reinstate
                           </button>

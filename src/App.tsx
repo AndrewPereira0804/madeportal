@@ -21,26 +21,27 @@ export default function App() {
   const { status, loading: statusLoading } = useStatus();
   const location = useLocation();
 
-  // don't render anything until we know the profile status as well as auth
-  if (authLoading || statusLoading) return <div>Loading...</div>;
+  if (authLoading || statusLoading) {
+    return (
+      <div className="theme-shell">
+        <div className="theme-card p-4">
+          <div className="d-flex align-items-center gap-2">
+            <div className="spinner-border spinner-border-sm text-primary" role="status" />
+            <span>Loading...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  // if the authenticated user's profile has a pending status, redirect (but
-  // don't redirect if we're already on the pending page or there is no session)
-  if (
-    session &&
-    status === "pending" &&
-    location.pathname !== "/pending"
-  ) {
+  if (session && status === "pending" && location.pathname !== "/pending") {
     return <Navigate to="/pending" replace />;
   }
 
-  if (
-    session &&
-    status === "suspended" &&
-    location.pathname !== "/suspended"
-  ) {
+  if (session && status === "suspended" && location.pathname !== "/suspended") {
     return <Navigate to="/suspended" replace />;
   }
+
   return (
     <Routes>
       <Route path="/" element={<Home />} />
@@ -48,26 +49,19 @@ export default function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/pending" element={<Pending />} />
       <Route path="/suspended" element={<Suspended />} />
-      <Route path="/admin" element={<Admin />}>                      
-        {/* show something when /admin is visited; avoid re‑rendering <Admin /> inside
-            itself which caused the double render. */}
-        <Route
-          index
-          element={<h2 style={{ padding: "1rem" }}>Select an admin section</h2>}
-        />
+      <Route path="/admin" element={<Admin />}>
+        <Route index element={<h2 className="h4 mb-0">Select an admin section</h2>} />
         <Route path="accounts" element={<Accounts />} />
       </Route>
 
-      {/* /app/* section with navbar */}
       <Route element={<RequireAuth />}>
-      <Route path="/app" element={<AppLayout />}>
-        <Route index element={<Navigate to="scheduling" replace />} />
-        <Route path="scheduling" element={<Scheduling />} />
-        <Route path="budgets" element={<Budgets />} />
-        <Route path="announcements" element={<Announcements />} />
-        <Route path="account" element={<Account />} />
-      </Route>
-      
+        <Route path="/app" element={<AppLayout />}>
+          <Route index element={<Navigate to="scheduling" replace />} />
+          <Route path="scheduling" element={<Scheduling />} />
+          <Route path="budgets" element={<Budgets />} />
+          <Route path="announcements" element={<Announcements />} />
+          <Route path="account" element={<Account />} />
+        </Route>
       </Route>
 
       <Route path="*" element={<NotFound />} />

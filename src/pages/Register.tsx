@@ -88,52 +88,63 @@ export default function Register() {
   }
 
   return (
-    <>
-      <h1>Register</h1>
-      {errorMessage && <p style={{ color: "red" }}>{errorMessage}</p>}
-      <form className="App" onSubmit={handleSubmit(onSubmit)}>
-        <input 
-          type='text'
-          {...register("name", { required: "Name is required" })}
-          placeholder="Name"
-        />
-        {errors.name && (
-          <span style={{ color: "red" }}>{errors.name.message}</span>
-        )}
-        <input
-          type="email"
-          {...register("email", { required: "Email is required" })}
-          placeholder="Email"
-        />
-        {errors.email && (
-          <span style={{ color: "red" }}>{errors.email.message}</span>
-        )}
+    <div className="theme-shell d-flex justify-content-center">
+      <section className="theme-card auth-wrap p-4 p-md-5 w-100">
+        <h1 className="page-title">Register</h1>
+        <p className="page-subtitle mt-2">Create an account for portal access.</p>
+        {errorMessage && <div className="alert alert-danger mt-3 mb-0">{errorMessage}</div>}
 
-        <input
-          type="password"
-          {...register("password", { required: "Password is required" })}
-          placeholder="Password"
-        />
-        {errors.password && (
-          <span style={{ color: "red" }}>{errors.password.message}</span>
-        )}
+        <form className="mt-4 d-grid gap-3" onSubmit={handleSubmit(onSubmit)}>
+          <div>
+            <input
+              type="text"
+              className="form-control"
+              {...register("name", { required: "Name is required" })}
+              placeholder="Name"
+            />
+            {errors.name && <div className="form-error mt-1">{errors.name.message}</div>}
+          </div>
 
-        <input
-          type="password"
-          {...register("repeatPassword", {
-            required: "Repeat password is required",
-          })}
-          placeholder="Repeat Password"
-        />
-        {errors.repeatPassword && (
-          <span style={{ color: "red" }}>{errors.repeatPassword.message}</span>
-        )}
+          <div>
+            <input
+              type="email"
+              className="form-control"
+              {...register("email", { required: "Email is required" })}
+              placeholder="Email"
+            />
+            {errors.email && <div className="form-error mt-1">{errors.email.message}</div>}
+          </div>
 
-        <button type="submit" disabled={isSubmitting}>
-          Register
-        </button>
-      </form>
-    </>
+          <div>
+            <input
+              type="password"
+              className="form-control"
+              {...register("password", { required: "Password is required" })}
+              placeholder="Password"
+            />
+            {errors.password && <div className="form-error mt-1">{errors.password.message}</div>}
+          </div>
+
+          <div>
+            <input
+              type="password"
+              className="form-control"
+              {...register("repeatPassword", {
+                required: "Repeat password is required",
+              })}
+              placeholder="Repeat Password"
+            />
+            {errors.repeatPassword && (
+              <div className="form-error mt-1">{errors.repeatPassword.message}</div>
+            )}
+          </div>
+
+          <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+            Register
+          </button>
+        </form>
+      </section>
+    </div>
   );
 }
 
