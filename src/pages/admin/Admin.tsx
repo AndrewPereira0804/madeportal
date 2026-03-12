@@ -25,6 +25,9 @@ export default function Admin() {
           <Link to="accounts" className="btn btn-primary">
             Manage Accounts
           </Link>
+          <Link to="events" className="btn btn-primary">
+            Manage Events
+          </Link>
           <button type="button" className="btn btn-outline-dark" onClick={signOut}>
             Logout
           </button>

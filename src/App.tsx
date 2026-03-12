@@ -15,6 +15,7 @@ import RequireAuth from "./auth/requireAuth";
 import { useStatus } from "./auth/useStatus";
 import Suspended from "./pages/Suspended";
 import Accounts from "./pages/admin/Accounts";
+import CreateEvent from "./pages/admin/CreateEvent"
 
 export default function App() {
   const { session, loading: authLoading } = useAuth();
@@ -52,6 +53,7 @@ export default function App() {
       <Route path="/admin" element={<Admin />}>
         <Route index element={<h2 className="h4 mb-0">Select an admin section</h2>} />
         <Route path="accounts" element={<Accounts />} />
+        <Route path="events" element= {<CreateEvent />} />
       </Route>
 
       <Route element={<RequireAuth />}>
