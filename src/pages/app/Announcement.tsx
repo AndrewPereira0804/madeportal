@@ -1,6 +1,9 @@
+import { useEffect, useState } from "react";
 import Likes from "./Likes";
+import supabase from "../../config/supabaseClient";
+import { useAuth } from "../../auth/authProvider";
 
-export type AnnouncementProps = {
+export type AnnouncementData = {
     id: number | string;
     title: string;
     body: string;
@@ -10,16 +13,93 @@ export type AnnouncementProps = {
     likes: number;
 };
 
-export default function Announcement({ id, title, body, date, author_id, visibility, likes }: AnnouncementProps) {
+type AnnouncementProps = AnnouncementData & {
+    onDelete: (announcementId: AnnouncementData["id"]) => Promise<void>;
+    isDeleting?: boolean;
+};
+
+
+async function getAuthorName(authorId: string | null): Promise<string> {
+    if (!authorId) {
+        return "Unknown";
+    }
+
+    const { data, error } = await supabase
+        .from("profiles")
+        .select("name")
+        .eq("user_id", authorId)
+        .single();
+
+    if (error) {
+        console.log("Error fetching author name:", error);
+        return "Unknown";
+    }
+
+    return data?.name ?? "Unknown";
+}
+
+export default function Announcement({
+    id,
+    title,
+    body,
+    date,
+    author_id,
+    visibility,
+    likes,
+    onDelete,
+    isDeleting = false,
+}: AnnouncementProps) {
+    const [authorName, setAuthorName] = useState("Unknown");
+    const { session } = useAuth();
+    const userId = session?.user?.id;
+
+    useEffect(() => {
+        let ignore = false;
+
+        async function loadAuthorName() {
+            const name = await getAuthorName(author_id);
+            if (!ignore) {
+                setAuthorName(name);
+            }
+        }
+
+        loadAuthorName();
+
+        return () => {
+            ignore = true;
+        };
+    }, [author_id]);
+
     return (
-        <div className="announcement-card">
-            <h2 className="announcement-title">{title}</h2>
+        <article className="announcement-card">
+            <div className="announcement-card-top">
+                <h2 className="announcement-title">{title}</h2>
+                <span className="announcement-visibility">{visibility}</span>
+            </div>
+
             <p className="announcement-content">{body}</p>
-            <p className="announcement-date">{date}</p>
-            <p className="announcement-author">By: {author_id ?? "Unknown"}</p>
-            <p className="announcement-visibility">Visibility: {visibility}</p>
-            <Likes announcementId={id} initialLikes={likes} />
-        </div>
-    )
-    
+
+            <div className="announcement-meta">
+                <p className="announcement-date">{date}</p>
+                <p className="announcement-author">By: {authorName ?? "Unknown"}</p>
+            </div>
+
+            <div className="announcement-actions">
+                <Likes announcementId={id} initialLikes={likes} />
+                {userId === author_id && (
+                    <button
+                        type="button"
+                        className="delete-button"
+                        onClick={() => {
+                            void onDelete(id);
+                        }}
+                        disabled={isDeleting}
+                    >
+                        {isDeleting ? "Deleting..." : "Delete"}
+                    </button>
+                )}
+            </div>
+            
+        </article>
+    );
 }

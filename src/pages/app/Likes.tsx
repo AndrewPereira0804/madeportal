@@ -40,7 +40,12 @@ export default function Likes({ announcementId, initialLikes }: LikesProps) {
     }
 
     return (
-        <button type="button" className="like-btn" disabled={saving} onClick={toggleLike}>
+        <button
+            type="button"
+            className={`like-btn${liked ? " is-liked" : ""}`}
+            disabled={saving}
+            onClick={toggleLike}
+        >
             Likes: {likes}
         </button>
     );
