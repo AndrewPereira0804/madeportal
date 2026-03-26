@@ -357,6 +357,126 @@ h3 {
   color: var(--gray-500);
 }
 
+.announcements-page {
+  margin-top: 0.45rem;
+}
+
+.announcements-header {
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid rgba(71, 32, 114, 0.12);
+}
+
+.announcements-state {
+  margin-top: 1rem;
+  margin-bottom: 0;
+  color: var(--gray-700);
+}
+
+.announcements-state-error {
+  color: #7a1d32;
+}
+
+.announcements-container {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.announcement-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(71, 32, 114, 0.16);
+  border-radius: 0.95rem;
+  padding: 1rem;
+  background:
+    radial-gradient(circle at 96% 0%, rgba(117, 72, 168, 0.12), transparent 34%),
+    linear-gradient(180deg, #ffffff 0%, #faf9fe 100%);
+  box-shadow: 0 10px 22px rgba(24, 24, 33, 0.08);
+}
+
+.announcement-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.announcement-title {
+  margin: 0;
+  font-size: clamp(1.15rem, 1.8vw, 1.35rem);
+  line-height: 1.25;
+  color: var(--royal-900);
+}
+
+.announcement-content {
+  margin-top: 0.7rem;
+  margin-bottom: 0;
+  color: var(--gray-700);
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.announcement-meta {
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top: 1px dashed rgba(71, 32, 114, 0.22);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+}
+
+.announcement-date,
+.announcement-author {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--gray-500);
+}
+
+.announcement-visibility {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  color: var(--royal-900);
+  background: rgba(117, 72, 168, 0.14);
+  border: 1px solid rgba(117, 72, 168, 0.3);
+}
+
+.announcement-actions {
+  margin-top: 0.85rem;
+}
+
+.like-btn {
+  border: 1px solid rgba(71, 32, 114, 0.28);
+  border-radius: 999px;
+  background: rgba(117, 72, 168, 0.08);
+  color: var(--royal-900);
+  font-weight: 700;
+  font-size: 0.86rem;
+  padding: 0.34rem 0.75rem;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.like-btn:hover:not(:disabled) {
+  background: rgba(117, 72, 168, 0.16);
+  border-color: rgba(71, 32, 114, 0.45);
+  transform: translateY(-1px);
+}
+
+.like-btn:disabled {
+  cursor: progress;
+  opacity: 0.75;
+}
+
+.like-btn.is-liked {
+  background: rgba(223, 193, 110, 0.25);
+  border-color: rgba(199, 163, 76, 0.7);
+}
+
 @media (max-width: 840px) {
   .accounts-toolbar-spacer {
     display: none;
@@ -364,6 +484,11 @@ h3 {
 
   .accounts-search {
     width: 100%;
+  }
+
+  .announcement-card-top {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
