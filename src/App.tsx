@@ -17,6 +17,7 @@ import Suspended from "./pages/Suspended";
 import Accounts from "./pages/admin/Accounts";
 import CreateEvent from "./pages/admin/CreateEvent"
 import CreateAnnouncement from "./pages/app/CreateAnnouncement";
+import EditAnnouncement from "./pages/app/EditAnnouncement";
 
 export default function App() {
   const { session, loading: authLoading } = useAuth();
@@ -63,7 +64,8 @@ export default function App() {
           <Route path="scheduling" element={<Scheduling />} />
           <Route path="budgets" element={<Budgets />} />
           <Route path="announcements" element={<Announcements />} />
-            <Route path="announcements/create" element={<CreateAnnouncement />} />
+          <Route path="announcements/create" element={<CreateAnnouncement />} />
+          <Route path="announcements/:announcementId/edit" element={<EditAnnouncement />} />
           <Route path="account" element={<Account />} />
         </Route>
       </Route>

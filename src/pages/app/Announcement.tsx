@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Likes from "./Likes";
 import supabase from "../../config/supabaseClient";
-import { useAuth } from "../../auth/authProvider";
+import { useNavigate } from "react-router-dom";
 
 export type AnnouncementData = {
     id: number | string;
@@ -16,6 +16,8 @@ export type AnnouncementData = {
 type AnnouncementProps = AnnouncementData & {
     onDelete: (announcementId: AnnouncementData["id"]) => Promise<void>;
     isDeleting?: boolean;
+    canDelete?: boolean;
+    canEdit?: boolean;
 };
 
 
@@ -48,10 +50,12 @@ export default function Announcement({
     likes,
     onDelete,
     isDeleting = false,
+    canDelete = false,
+    canEdit = false,
 }: AnnouncementProps) {
     const [authorName, setAuthorName] = useState("Unknown");
-    const { session } = useAuth();
-    const userId = session?.user?.id;
+    const navigate = useNavigate();
+    const showActions = canDelete || canEdit;
 
     useEffect(() => {
         let ignore = false;
@@ -86,17 +90,32 @@ export default function Announcement({
 
             <div className="announcement-actions">
                 <Likes announcementId={id} initialLikes={likes} />
-                {userId === author_id && (
-                    <button
-                        type="button"
-                        className="delete-button"
-                        onClick={() => {
-                            void onDelete(id);
-                        }}
-                        disabled={isDeleting}
-                    >
-                        {isDeleting ? "Deleting..." : "Delete"}
-                    </button>
+                {showActions && (
+                    <>
+                        {canDelete && (
+                            <button
+                                type="button"
+                                className="delete-button"
+                                onClick={() => {
+                                    void onDelete(id);
+                                }}
+                                disabled={isDeleting}
+                            >
+                                {isDeleting ? "Deleting..." : "Delete"}
+                            </button>
+                        )}
+                        {canEdit && (
+                            <button
+                                type="button"
+                                className="edit-button"
+                                onClick={() => {
+                                    navigate(`/app/announcements/${id}/edit`);
+                                }}
+                            >
+                                Edit
+                            </button>
+                        )}
+                    </>
                 )}
             </div>
             
