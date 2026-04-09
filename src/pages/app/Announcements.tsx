@@ -2,6 +2,8 @@ import Announcement, { type AnnouncementData } from "./Announcement";
 import { useEffect, useState } from "react";
 import supabase from "../../config/supabaseClient";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth/authProvider";
+import useRoles from "../../auth/useRoles";
 
 type AnnouncementRow = {
     id: AnnouncementData["id"];
@@ -16,10 +18,14 @@ type AnnouncementRow = {
 
 export default function Announcements() {
     const navigate = useNavigate();
+    const { session } = useAuth();
+    const { roles } = useRoles();
     const [announcements, setAnnouncements] = useState<AnnouncementRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<AnnouncementRow["id"] | null>(null);
+    const userId = session?.user?.id;
+    const isAdmin = roles.includes("admin");
     
     useEffect(() => {
         async function fetchAnnouncements() {
@@ -54,19 +60,18 @@ export default function Announcements() {
         setErrorMessage(null);
 
         try {
-            const { data, error } = await supabase
+            const { count, error } = await supabase
                 .from("announcements")
-                .delete()
-                .eq("id", announcementId)
-                .select("id");
+                .delete({ count: "exact" })
+                .eq("id", announcementId);
 
             if (error) {
                 throw error;
             }
 
-            if (!data || data.length === 0) {
+            if (count === 0) {
                 throw new Error(
-                    "Delete completed without removing any rows. Check the Supabase DELETE and SELECT policies for announcements."
+                    "Delete was blocked or no matching announcement was found."
                 );
             }
 
@@ -119,6 +124,8 @@ export default function Announcements() {
                             likes={announcement.likes}
                             onDelete={handleDelete}
                             isDeleting={deletingId === announcement.id}
+                            canDelete={announcement.author_id === userId || isAdmin}
+                            canEdit={announcement.author_id === userId}
                         />
                     ))}
                 </div>
