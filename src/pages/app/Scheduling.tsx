@@ -34,6 +34,7 @@ function formatEastern(dateIso: string) {
 }
 
 function normalizeCalendarRow(row: Record<string, unknown>): CalendarWindow | null {
+  const id = typeof row.id === "string" || typeof row.id === "number" ? String(row.id) : null;
   const id = typeof row.id === "string" ? row.id : null;
   const start = typeof row.start === "string" ? row.start : null;
   const end = typeof row.end === "string" ? row.end : null;
