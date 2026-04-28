@@ -51,12 +51,25 @@ function normalizeCalendarRow(row: Record<string, unknown>): CalendarWindow | nu
   };
 }
 
-function getWindowForEvent(event: EventRow, windows: CalendarWindow[]) {
+
+function toWindowTimestamp(value: string, endOfDay: boolean) {
+  const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/;
+  if (dateOnlyPattern.test(value)) {
+    return Date.parse(`${value}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`);
+  }
+
+  return new Date(value).getTime();
+}
+
+function getWindowsForEvent(event: EventRow, windows: CalendarWindow[]) {
   const eventStart = new Date(event.start).getTime();
-  return windows.find((window) => {
-    const start = new Date(window.start).getTime();
-    const end = new Date(window.end).getTime();
-    return eventStart >= start && eventStart <= end;
+  const eventEnd = new Date(event.end).getTime();
+
+  return windows.filter((window) => {
+    const start = toWindowTimestamp(window.start, false);
+    const end = toWindowTimestamp(window.end, true);
+
+    return eventStart <= end && eventEnd >= start;
   });
 }
 
@@ -120,8 +133,8 @@ export default function Scheduling() {
     .filter((event) => canViewEvent(event))
     .filter((event) => {
       if (selectedWindowId === "all") return true;
-      const window = getWindowForEvent(event, windows);
-      return window?.id === selectedWindowId;
+      const matchingWindows = getWindowsForEvent(event, windows);
+      return matchingWindows.some((window) => window.id === selectedWindowId);
     });
 
   return (
@@ -168,7 +181,7 @@ export default function Scheduling() {
       {!loading && filteredEvents.length > 0 && (
         <div className="mt-4 d-grid gap-3">
           {filteredEvents.map((event) => {
-            const window = getWindowForEvent(event, windows);
+            const matchingWindows = getWindowsForEvent(event, windows);
             return (
               <article key={event.id} className="border rounded p-3 bg-light-subtle">
                 <div className="d-flex justify-content-between gap-2 flex-wrap">
@@ -182,7 +195,9 @@ export default function Scheduling() {
                   <strong>Ends:</strong> {formatEastern(event.end)}
                 </p>
                 <p className="mb-1 text-body-secondary">
-                  <strong>Schedule window:</strong> {window ? window.label : "Outside configured school windows"}
+                  <strong>Schedule windows:</strong> {matchingWindows.length > 0
+                    ? matchingWindows.map((window) => window.label).join(", ")
+                    : "Outside configured school windows"}
                 </p>
                 <p className="mb-0 text-body-secondary">
                   Audience: brother{event.visible_to_alum ? ", alum" : ""}
