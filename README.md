@@ -15,8 +15,6 @@ Implemented:
 - Supabase Edge Function scaffold to sync `profiles.email` with `auth.users`.
 
 Partially implemented / placeholders:
-- `src/pages/admin/CreateEvent.tsx` is a stub.
-- `src/pages/app/Scheduling.tsx` is a placeholder.
 - `src/pages/app/Budgets.tsx` is a placeholder.
 - `src/pages/app/Account.tsx` is a placeholder.
 
@@ -114,6 +112,9 @@ Role slugs:
 Base account/role policies are in:
 - `supabase/admin_accounts_policies.sql`
 
+Event calendar + semester + visibility policies are in:
+- `supabase/events_calendar_policies.sql`
+
 This SQL defines:
 - `public.is_admin(uuid)` helper function
 - RLS enablement for `profiles`, `user_roles`, and `roles`
@@ -162,12 +163,11 @@ supabase/
 ## Collaboration Starting Points
 
 High-impact next tasks:
-1. Build the events admin CRUD flow (`/admin/events`).
-2. Replace placeholder app pages (Scheduling/Budgets/Account) with real data models and UI.
-3. Add announcement visibility filtering by user role.
-4. Replace global announcement like counter with per-user likes/reactions table.
-5. Add tests for auth gating and admin account actions.
-6. Remove remaining debug logs and standardize error handling UX.
+1. Replace remaining placeholder app pages (Budgets/Account) with real data models and UI.
+2. Add announcement visibility filtering by user role.
+3. Replace global announcement like counter with per-user likes/reactions table.
+4. Add tests for auth gating and admin account actions.
+5. Remove remaining debug logs and standardize error handling UX.
 
 ## Security Notes
 
