@@ -51,7 +51,6 @@ function normalizeCalendarRow(row: Record<string, unknown>): CalendarWindow | nu
   };
 }
 
-
 function toWindowTimestamp(value: string, endOfDay: boolean) {
   const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/;
   if (dateOnlyPattern.test(value)) {
@@ -73,11 +72,69 @@ function getWindowsForEvent(event: EventRow, windows: CalendarWindow[]) {
   });
 }
 
+function toDayStart(date: Date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function toDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function buildMonthGrid(monthDate: Date) {
+  const firstOfMonth = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const start = new Date(firstOfMonth);
+  start.setDate(firstOfMonth.getDate() - firstOfMonth.getDay());
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const day = new Date(start);
+    day.setDate(start.getDate() + index);
+    return day;
+  });
+}
+
+function eventIntersectsDay(event: EventRow, day: Date) {
+  const dayStart = toDayStart(day).getTime();
+  const dayEnd = dayStart + 24 * 60 * 60 * 1000 - 1;
+  const eventStart = new Date(event.start).getTime();
+  const eventEnd = new Date(event.end).getTime();
+
+  return eventStart <= dayEnd && eventEnd >= dayStart;
+}
+
+function formatMonthHeading(date: Date) {
+  return date.toLocaleString("en-US", { month: "long", year: "numeric" });
+}
+
+function formatEventTime(event: EventRow, day: Date) {
+  const dayStart = toDayStart(day).getTime();
+  const eventStart = new Date(event.start).getTime();
+
+  if (eventStart < dayStart) {
+    return "Continues";
+  }
+
+  return new Date(event.start).toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export default function Scheduling() {
   const { roles, loading: rolesLoading } = useRoles();
   const [events, setEvents] = useState<EventRow[]>([]);
   const [windows, setWindows] = useState<CalendarWindow[]>([]);
   const [selectedWindowId, setSelectedWindowId] = useState<string>("all");
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
+  const [selectedDateKey, setSelectedDateKey] = useState(() => toDateKey(new Date()));
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -137,6 +194,24 @@ export default function Scheduling() {
       return matchingWindows.some((window) => window.id === selectedWindowId);
     });
 
+  const monthGridDays = useMemo(() => buildMonthGrid(currentMonth), [currentMonth]);
+
+  const eventsByDay = useMemo(() => {
+    const map = new Map<string, EventRow[]>();
+
+    for (const day of monthGridDays) {
+      const key = toDateKey(day);
+      const dayEvents = filteredEvents
+        .filter((event) => eventIntersectsDay(event, day))
+        .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+      map.set(key, dayEvents);
+    }
+
+    return map;
+  }, [filteredEvents, monthGridDays]);
+
+  const selectedDayEvents = eventsByDay.get(selectedDateKey) ?? [];
+
   return (
     <section className="theme-card p-4 p-md-5">
       <div className="d-flex justify-content-between align-items-start gap-3 flex-wrap">
@@ -173,40 +248,119 @@ export default function Scheduling() {
         </select>
       </div>
 
+      <div className="mt-4 d-flex flex-wrap gap-2 align-items-end justify-content-between">
+        <div>
+          <h2 className="h5 mb-1">Calendar month</h2>
+          <p className="text-body-secondary mb-0">Showing {filteredEvents.length} events in this filter.</p>
+        </div>
+        <div className="d-flex gap-2 flex-wrap">
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm"
+            onClick={() => setCurrentMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm"
+            onClick={() => {
+              const today = new Date();
+              setCurrentMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+              setSelectedDateKey(toDateKey(today));
+            }}
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm"
+            onClick={() => setCurrentMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
       {loading && <p className="mt-4">Loading calendar…</p>}
       {errorMessage && <p className="mt-4 text-danger">{errorMessage}</p>}
 
       {!loading && filteredEvents.length === 0 && <p className="mt-4">No events match your visibility and filter.</p>}
 
       {!loading && filteredEvents.length > 0 && (
-        <div className="mt-4 d-grid gap-3">
-          {filteredEvents.map((event) => {
-            const matchingWindows = getWindowsForEvent(event, windows);
-            return (
-              <article key={event.id} className="border rounded p-3 bg-light-subtle">
-                <div className="d-flex justify-content-between gap-2 flex-wrap">
-                  <h2 className="h5 mb-0">{event.title}</h2>
+        <>
+          <div className="mt-4">
+            <h3 className="h4 mb-3">{formatMonthHeading(currentMonth)}</h3>
+            <div className="calendar-grid-labels">
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => (
+                <div key={label} className="calendar-grid-label">
+                  {label}
                 </div>
-                <p className="mb-1 mt-2">{event.description || "No description provided."}</p>
-                <p className="mb-1">
-                  <strong>Starts:</strong> {formatEastern(event.start)}
-                </p>
-                <p className="mb-1">
-                  <strong>Ends:</strong> {formatEastern(event.end)}
-                </p>
-                <p className="mb-1 text-body-secondary">
-                  <strong>Schedule windows:</strong> {matchingWindows.length > 0
-                    ? matchingWindows.map((window) => window.label).join(", ")
-                    : "Outside configured school windows"}
-                </p>
-                <p className="mb-0 text-body-secondary">
-                  Audience: brother{event.visible_to_alum ? ", alum" : ""}
-                  {event.visible_to_neophyte ? ", neophyte" : ""}
-                </p>
-              </article>
-            );
-          })}
-        </div>
+              ))}
+            </div>
+            <div className="calendar-grid">
+              {monthGridDays.map((day) => {
+                const key = toDateKey(day);
+                const dayEvents = eventsByDay.get(key) ?? [];
+                const inMonth = day.getMonth() === currentMonth.getMonth();
+                const isSelected = key === selectedDateKey;
+
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`calendar-day ${inMonth ? "" : "is-muted"} ${isSelected ? "is-selected" : ""}`}
+                    onClick={() => setSelectedDateKey(key)}
+                  >
+                    <span className="calendar-day-number">{day.getDate()}</span>
+                    <div className="calendar-day-events">
+                      {dayEvents.slice(0, 2).map((event) => (
+                        <div key={`${key}-${event.id}`} className="calendar-event-chip" title={event.title}>
+                          <strong>{formatEventTime(event, day)}</strong> {event.title}
+                        </div>
+                      ))}
+                      {dayEvents.length > 2 && <div className="calendar-event-more">+{dayEvents.length - 2} more</div>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-4 d-grid gap-3">
+            <h3 className="h5 mb-0">Selected day details</h3>
+            {selectedDayEvents.length === 0 && (
+              <p className="mb-0 text-body-secondary">No events on this day for your current visibility and filter.</p>
+            )}
+            {selectedDayEvents.map((event) => {
+              const matchingWindows = getWindowsForEvent(event, windows);
+              return (
+                <article key={event.id} className="border rounded p-3 bg-light-subtle">
+                  <div className="d-flex justify-content-between gap-2 flex-wrap">
+                    <h2 className="h5 mb-0">{event.title}</h2>
+                  </div>
+                  <p className="mb-1 mt-2">{event.description || "No description provided."}</p>
+                  <p className="mb-1">
+                    <strong>Starts:</strong> {formatEastern(event.start)}
+                  </p>
+                  <p className="mb-1">
+                    <strong>Ends:</strong> {formatEastern(event.end)}
+                  </p>
+                  <p className="mb-1 text-body-secondary">
+                    <strong>Schedule windows:</strong>{" "}
+                    {matchingWindows.length > 0
+                      ? matchingWindows.map((window) => window.label).join(", ")
+                      : "Outside configured school windows"}
+                  </p>
+                  <p className="mb-0 text-body-secondary">
+                    Audience: brother{event.visible_to_alum ? ", alum" : ""}
+                    {event.visible_to_neophyte ? ", neophyte" : ""}
+                  </p>
+                </article>
+              );
+            })}
+          </div>
+        </>
       )}
     </section>
   );
