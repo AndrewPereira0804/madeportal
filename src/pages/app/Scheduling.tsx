@@ -125,6 +125,29 @@ function formatEventTime(event: EventRow, day: Date) {
   });
 }
 
+function toCalendarDate(value: string) {
+  const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/;
+  if (dateOnlyPattern.test(value)) {
+    return new Date(`${value}T00:00:00`);
+  }
+
+  return new Date(value);
+}
+
+function buildWindowDays(window: CalendarWindow) {
+  const start = toDayStart(toCalendarDate(window.start));
+  const end = toDayStart(toCalendarDate(window.end));
+  const days: Date[] = [];
+  const current = new Date(start);
+
+  while (current.getTime() <= end.getTime()) {
+    days.push(new Date(current));
+    current.setDate(current.getDate() + 1);
+  }
+
+  return days;
+}
+
 export default function Scheduling() {
   const { roles, loading: rolesLoading } = useRoles();
   const [events, setEvents] = useState<EventRow[]>([]);
@@ -194,7 +217,18 @@ export default function Scheduling() {
       return matchingWindows.some((window) => window.id === selectedWindowId);
     });
 
-  const monthGridDays = useMemo(() => buildMonthGrid(currentMonth), [currentMonth]);
+  const selectedWindow = useMemo(
+    () => windows.find((window) => window.id === selectedWindowId) ?? null,
+    [windows, selectedWindowId]
+  );
+
+  const monthGridDays = useMemo(() => {
+    if (selectedWindow) {
+      return buildWindowDays(selectedWindow);
+    }
+
+    return buildMonthGrid(currentMonth);
+  }, [currentMonth, selectedWindow]);
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, EventRow[]>();
@@ -237,7 +271,23 @@ export default function Scheduling() {
           id="windowFilter"
           className="form-select"
           value={selectedWindowId}
-          onChange={(event) => setSelectedWindowId(event.target.value)}
+          onChange={(event) => {
+            const nextId = event.target.value;
+            setSelectedWindowId(nextId);
+
+            if (nextId === "all") {
+              return;
+            }
+
+            const nextWindow = windows.find((window) => window.id === nextId);
+            if (!nextWindow) {
+              return;
+            }
+
+            const firstDay = toDayStart(toCalendarDate(nextWindow.start));
+            setCurrentMonth(new Date(firstDay.getFullYear(), firstDay.getMonth(), 1));
+            setSelectedDateKey(toDateKey(firstDay));
+          }}
         >
           <option value="all">All windows and off-schedule events</option>
           {windows.map((window) => (
@@ -253,33 +303,35 @@ export default function Scheduling() {
           <h2 className="h5 mb-1">Calendar month</h2>
           <p className="text-body-secondary mb-0">Showing {filteredEvents.length} events in this filter.</p>
         </div>
-        <div className="d-flex gap-2 flex-wrap">
-          <button
-            type="button"
-            className="btn btn-outline-secondary btn-sm"
-            onClick={() => setCurrentMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
-          >
-            Previous
-          </button>
-          <button
-            type="button"
-            className="btn btn-outline-secondary btn-sm"
-            onClick={() => {
-              const today = new Date();
-              setCurrentMonth(new Date(today.getFullYear(), today.getMonth(), 1));
-              setSelectedDateKey(toDateKey(today));
-            }}
-          >
-            Today
-          </button>
-          <button
-            type="button"
-            className="btn btn-outline-secondary btn-sm"
-            onClick={() => setCurrentMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
-          >
-            Next
-          </button>
-        </div>
+        {!selectedWindow && (
+          <div className="d-flex gap-2 flex-wrap">
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => setCurrentMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => {
+                const today = new Date();
+                setCurrentMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+                setSelectedDateKey(toDateKey(today));
+              }}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => setCurrentMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
 
       {loading && <p className="mt-4">Loading calendar…</p>}
@@ -290,7 +342,11 @@ export default function Scheduling() {
       {!loading && filteredEvents.length > 0 && (
         <>
           <div className="mt-4">
-            <h3 className="h4 mb-3">{formatMonthHeading(currentMonth)}</h3>
+            <h3 className="h4 mb-3">
+              {selectedWindow
+                ? `${selectedWindow.label} (${selectedWindow.start} to ${selectedWindow.end})`
+                : formatMonthHeading(currentMonth)}
+            </h3>
             <div className="calendar-grid-labels">
               {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => (
                 <div key={label} className="calendar-grid-label">
@@ -302,7 +358,7 @@ export default function Scheduling() {
               {monthGridDays.map((day) => {
                 const key = toDateKey(day);
                 const dayEvents = eventsByDay.get(key) ?? [];
-                const inMonth = day.getMonth() === currentMonth.getMonth();
+                const inMonth = selectedWindow ? true : day.getMonth() === currentMonth.getMonth();
                 const isSelected = key === selectedDateKey;
 
                 return (
