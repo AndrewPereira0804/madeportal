@@ -64,10 +64,12 @@ export default function Likes({ announcementId, initialLikes }: LikesProps) {
                 likedAnnouncementIds = [];
             }
         }
-        if (!likedAnnouncementIds.includes(announcementId)) {
+        if (nextLiked && !likedAnnouncementIds.includes(announcementId)) {
             likedAnnouncementIds.push(announcementId);
-            localStorage.setItem(storageKey, JSON.stringify(likedAnnouncementIds));
+        } else if (!nextLiked && likedAnnouncementIds.includes(announcementId)) {
+            likedAnnouncementIds = likedAnnouncementIds.filter((id) => id !== announcementId);
         }
+        localStorage.setItem(storageKey, JSON.stringify(likedAnnouncementIds));
     }
 
     return (
