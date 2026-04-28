@@ -30,16 +30,14 @@ export default function Likes({ announcementId, initialLikes }: LikesProps) {
     const [saving, setSaving] = useState(false);
 
     async function toggleLike() {
-        if (saving) {
+        if (saving || liked) {
             return;
         }
 
         const previousLikes = likes;
-        const previousLiked = liked;
-        const nextLiked = !previousLiked;
-        const nextLikes = nextLiked ? previousLikes + 1 : Math.max(0, previousLikes - 1);
+        const nextLikes = previousLikes + 1;
 
-        setLiked(nextLiked);
+        setLiked(true);
         setLikes(nextLikes);
         setSaving(true);
 
@@ -51,7 +49,7 @@ export default function Likes({ announcementId, initialLikes }: LikesProps) {
         setSaving(false);
 
         if (error) {
-            setLiked(previousLiked);
+            setLiked(false);
             setLikes(previousLikes);
             console.error("Error updating likes:", error);
             return;
@@ -78,7 +76,7 @@ export default function Likes({ announcementId, initialLikes }: LikesProps) {
         <button
             type="button"
             className={`like-btn${liked ? " is-liked" : ""}`}
-            disabled={saving}
+            disabled={saving || liked}
             onClick={toggleLike}
         >
             Likes: {likes}
