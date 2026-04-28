@@ -2,23 +2,31 @@
 
 Internal web portal for chapter operations and member access.
 
-This repository currently contains a Vite + React + TypeScript frontend with Supabase auth/data integration, role-based access, and an admin account-management flow.
+This repository contains a Vite + React + TypeScript frontend with Supabase auth/data integration, role-based access, and admin account-management tools.
 
-## Current State (as of March 12, 2026)
+## Current State (as of April 27, 2026)
 
-Implemented:
+### Finished in the current codebase
 - Email/password registration and login via Supabase Auth.
-- Account status gating (`pending`, `active`, `suspended`) using `profiles.status`.
-- Role-aware navigation and admin route protection using `user_roles`.
-- Admin account management page with status tabs, approval/suspension actions, and role editing.
-- Announcements feed from Supabase with optimistic like count updates.
+- Account status gating (`pending`, `active`, `suspended`) based on `profiles.status`.
+- Role-aware navigation and admin route protection using `user_roles` (`admin` role slug).
+- Admin account management page with:
+  - status tabs,
+  - approval/suspension actions,
+  - role assignment/removal UI.
+- Announcements module with:
+  - list/feed rendering from Supabase,
+  - create announcement flow,
+  - edit flow (author or admin only),
+  - delete flow (author or admin only),
+  - optimistic local like updates in UI.
 - Supabase Edge Function scaffold to sync `profiles.email` with `auth.users`.
 
-Partially implemented / placeholders:
-- `src/pages/admin/CreateEvent.tsx` is a stub.
-- `src/pages/app/Scheduling.tsx` is a placeholder.
-- `src/pages/app/Budgets.tsx` is a placeholder.
-- `src/pages/app/Account.tsx` is a placeholder.
+### Intentionally unfinished / placeholder pages
+- `src/pages/admin/CreateEvent.tsx` (admin events page stub)
+- `src/pages/app/Scheduling.tsx` (placeholder)
+- `src/pages/app/Budgets.tsx` (placeholder)
+- `src/pages/app/Account.tsx` (placeholder)
 
 ## Tech Stack
 
@@ -81,11 +89,13 @@ Public routes:
 - `/pending`: shown to logged-in users waiting for approval
 - `/suspended`: shown to suspended accounts
 
-Protected routes:
+Protected member routes:
 - `/app/*`: requires authenticated session
 - `/app/scheduling`
 - `/app/budgets`
 - `/app/announcements`
+- `/app/announcements/create`
+- `/app/announcements/:announcementId/edit`
 - `/app/account`
 
 Admin routes:
@@ -111,16 +121,14 @@ Role slugs:
 
 ## RLS / Policies
 
-Base account/role policies are in:
+Repository policy files:
 - `supabase/admin_accounts_policies.sql`
+- `supabase/announcements_policies.sql`
 
-This SQL defines:
-- `public.is_admin(uuid)` helper function
-- RLS enablement for `profiles`, `user_roles`, and `roles`
-- self-read/self-insert rules for users
-- admin read/update rules for profile and roles management
-
-Apply it in Supabase SQL Editor before testing admin workflows.
+Important:
+- Some live policy/function configuration may exist only in the hosted Supabase project and may not be fully mirrored in this repo.
+- Treat this repo as partial policy source-of-truth unless you have verified hosted Supabase state.
+- Before rollout, compare repo SQL against target project policies/functions in Supabase.
 
 ## Edge Function
 
@@ -155,19 +163,10 @@ src/
     app/                authenticated app pages
 supabase/
   admin_accounts_policies.sql
+  announcements_policies.sql
   functions/
     sync_profile_emails/
 ```
-
-## Collaboration Starting Points
-
-High-impact next tasks:
-1. Build the events admin CRUD flow (`/admin/events`).
-2. Replace placeholder app pages (Scheduling/Budgets/Account) with real data models and UI.
-3. Add announcement visibility filtering by user role.
-4. Replace global announcement like counter with per-user likes/reactions table.
-5. Add tests for auth gating and admin account actions.
-6. Remove remaining debug logs and standardize error handling UX.
 
 ## Security Notes
 
