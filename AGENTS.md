@@ -2,6 +2,13 @@
 
 This file gives coding agents a repo-specific playbook based on the current `main` branch state.
 
+## Read this first for product behavior
+- Start with `README.md` before coding. It is the primary in-repo guide for:
+  - how the app currently works,
+  - what is finished,
+  - what is intentionally unfinished/placeholder.
+- If code behavior and README disagree, do not guess: flag the mismatch and ask the user which source should be treated as canonical for the task.
+
 ## Project at a glance
 - Stack: Vite 7 + React 19 + TypeScript + React Router 7 + Bootstrap 5.
 - Backend integration: Supabase (Auth, PostgREST, RLS policies, Edge Functions).
