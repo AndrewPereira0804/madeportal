@@ -18,6 +18,7 @@ import Accounts from "./pages/admin/Accounts";
 import CreateEvent from "./pages/admin/CreateEvent"
 import CreateAnnouncement from "./pages/app/CreateAnnouncement";
 import EditAnnouncement from "./pages/app/EditAnnouncement";
+import ManageEvents from "./pages/app/ManageEvents";
 
 export default function App() {
   const { session, loading: authLoading } = useAuth();
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="/app" element={<AppLayout />}>
           <Route index element={<Navigate to="scheduling" replace />} />
           <Route path="scheduling" element={<Scheduling />} />
+          <Route path="events/manage" element={<ManageEvents />} />
           <Route path="budgets" element={<Budgets />} />
           <Route path="announcements" element={<Announcements />} />
           <Route path="announcements/create" element={<CreateAnnouncement />} />
