@@ -10,6 +10,7 @@ import Scheduling from "./pages/app/Scheduling";
 import Budgets from "./pages/app/Budgets";
 import Announcements from "./pages/app/Announcements";
 import Account from "./pages/app/Account";
+import MemberDirectory from "./pages/app/MemberDirectory";
 import { useAuth } from "./auth/authProvider";
 import RequireAuth from "./auth/requireAuth";
 import { useStatus } from "./auth/useStatus";
@@ -64,6 +65,7 @@ export default function App() {
           <Route index element={<Navigate to="scheduling" replace />} />
           <Route path="scheduling" element={<Scheduling />} />
           <Route path="events/manage" element={<ManageEvents />} />
+          <Route path="directory" element={<MemberDirectory />} />
           <Route path="members" element={<Accounts />} />
           <Route path="budgets" element={<Budgets />} />
           <Route path="announcements" element={<Announcements />} />

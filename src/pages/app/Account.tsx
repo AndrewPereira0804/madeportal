@@ -1,8 +1,133 @@
+import { useCallback, useEffect, useState } from "react";
+import supabase from "../../config/supabaseClient";
+import { useAuth } from "../../auth/authProvider";
+import ProfileDetails from "./ProfileDetails";
+import ProfileEditForm from "./ProfileEditForm";
+import type { MajorRow, ProfileRow, RawMajorRow, RawProfileRow, RawUserRoleRow, RoleDetail } from "./profileTypes";
+import { normalizeMajor, normalizeProfile, normalizeRoles, PROFILE_COLUMNS } from "./profileTypes";
+
 export default function Account() {
+  const { session } = useAuth();
+  const userId = session?.user.id ?? null;
+
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [majors, setMajors] = useState<MajorRow[]>([]);
+  const [roles, setRoles] = useState<RoleDetail[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
+
+  const loadAccount = useCallback(async () => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage(null);
+    setNoticeMessage(null);
+
+    const [profileResult, majorsResult, rolesResult] = await Promise.all([
+      supabase.from("profiles").select(PROFILE_COLUMNS).eq("user_id", userId).single(),
+      supabase.from("majors").select("id,major,slug").order("major", { ascending: true }),
+      supabase
+        .from("user_roles")
+        .select("role_slug,roles!inner(slug,name)")
+        .eq("user_id", userId),
+    ]);
+
+    if (profileResult.error) {
+      console.error(profileResult.error);
+      setProfile(null);
+      setErrorMessage("Failed to load your profile.");
+      setLoading(false);
+      return;
+    }
+
+    const normalizedProfile = normalizeProfile(profileResult.data as RawProfileRow);
+    if (!normalizedProfile) {
+      setProfile(null);
+      setErrorMessage("Your profile data could not be read.");
+      setLoading(false);
+      return;
+    }
+
+    setProfile(normalizedProfile);
+
+    const notices: string[] = [];
+
+    if (majorsResult.error) {
+      console.error(majorsResult.error);
+      setMajors([]);
+      notices.push("Majors could not be loaded.");
+    } else {
+      setMajors(
+        ((majorsResult.data ?? []) as RawMajorRow[])
+          .map(normalizeMajor)
+          .filter((row): row is MajorRow => row !== null)
+      );
+    }
+
+    if (rolesResult.error) {
+      console.error(rolesResult.error);
+      setRoles([]);
+      notices.push("Roles could not be loaded.");
+    } else {
+      setRoles(normalizeRoles((rolesResult.data ?? []) as RawUserRoleRow[]));
+    }
+
+    setNoticeMessage(notices.length > 0 ? notices.join(" ") : null);
+    setLoading(false);
+  }, [userId]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadAccount();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadAccount]);
+
+  if (loading) {
+    return (
+      <section className="theme-card p-4 p-md-5">
+        <div className="d-flex align-items-center gap-2">
+          <div className="spinner-border spinner-border-sm text-primary" role="status" />
+          <span>Loading account...</span>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className="theme-card p-4 p-md-5">
-      <h1 className="page-title">Account</h1>
-      <p className="page-subtitle mt-2">Manage your account details and settings here.</p>
+    <section className="theme-card account-page p-4 p-md-5">
+      <div className="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+        <div>
+          <h1 className="page-title">Account</h1>
+          <p className="page-subtitle mb-0">Review your profile details and keep your basic information current.</p>
+        </div>
+        <button type="button" className="btn btn-outline-secondary" onClick={loadAccount}>
+          Refresh
+        </button>
+      </div>
+
+      {errorMessage && <div className="alert alert-danger mt-3 mb-0">{errorMessage}</div>}
+      {noticeMessage && <div className="alert alert-warning mt-3 mb-0">{noticeMessage}</div>}
+
+      {!profile ? (
+        <p className="mt-4 mb-0 text-body-secondary">No profile is available for this account.</p>
+      ) : (
+        <div className="account-surface mt-4">
+          <ProfileDetails profile={profile} majors={majors} roles={roles} />
+          <ProfileEditForm
+            profile={profile}
+            majors={majors}
+            currentUserId={userId}
+            idPrefix="account"
+            onSaved={setProfile}
+          />
+        </div>
+      )}
     </section>
   );
 }

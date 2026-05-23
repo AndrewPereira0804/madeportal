@@ -357,6 +357,153 @@ h3 {
   color: var(--gray-500);
 }
 
+.account-page {
+  margin-top: 0.45rem;
+}
+
+.account-surface {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.86fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.account-section {
+  min-width: 0;
+}
+
+.account-detail-grid {
+  margin: 0;
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--gray-200);
+}
+
+.account-detail-grid > div {
+  display: grid;
+  grid-template-columns: minmax(132px, 0.36fr) minmax(0, 1fr);
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.account-detail-grid dt {
+  color: var(--gray-700);
+  font-weight: 700;
+}
+
+.account-detail-grid dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--gray-900);
+}
+
+.account-empty-value {
+  color: var(--gray-500);
+  font-style: italic;
+}
+
+.account-form {
+  padding-left: 1.5rem;
+  border-left: 1px solid var(--gray-200);
+}
+
+.directory-page {
+  margin-top: 0.45rem;
+}
+
+.directory-toolbar {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.directory-search {
+  width: min(100%, 360px);
+}
+
+.directory-count {
+  color: var(--gray-500);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.directory-layout {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.34fr) minmax(0, 1fr);
+  gap: 1.35rem;
+  align-items: start;
+}
+
+.directory-list {
+  min-width: 0;
+  display: grid;
+  gap: 0.35rem;
+  max-height: 680px;
+  overflow: auto;
+  padding-right: 0.65rem;
+  border-right: 1px solid var(--gray-200);
+}
+
+.directory-member {
+  width: 100%;
+  min-height: 58px;
+  border: 1px solid transparent;
+  border-radius: 0.7rem;
+  background: transparent;
+  color: var(--gray-900);
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+}
+
+.directory-member:hover,
+.directory-member.is-selected {
+  border-color: rgba(117, 72, 168, 0.26);
+  background: rgba(117, 72, 168, 0.08);
+}
+
+.directory-member.is-selected {
+  box-shadow: inset 3px 0 0 var(--gold-500);
+}
+
+.directory-member-name,
+.directory-member-meta {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directory-member-name {
+  font-weight: 700;
+}
+
+.directory-member-meta {
+  margin-top: 0.1rem;
+  color: var(--gray-500);
+  font-size: 0.8rem;
+}
+
+.directory-empty {
+  margin: 0;
+  color: var(--gray-500);
+}
+
+.directory-detail {
+  min-width: 0;
+}
+
+.directory-profile-single {
+  max-width: 760px;
+}
+
+.directory-profile-surface {
+  margin-top: 0;
+}
+
 .announcements-page {
   margin-top: 0.45rem;
 }
@@ -502,6 +649,29 @@ h3 {
     width: 100%;
   }
 
+  .account-surface {
+    grid-template-columns: 1fr;
+  }
+
+  .account-form {
+    padding-left: 0;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--gray-200);
+    border-left: 0;
+  }
+
+  .directory-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .directory-list {
+    max-height: 320px;
+    padding-right: 0;
+    padding-bottom: 1rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--gray-200);
+  }
+
   .announcement-card-top {
     flex-direction: column;
     align-items: flex-start;
@@ -509,6 +679,11 @@ h3 {
 }
 
 @media (max-width: 720px) {
+  .account-detail-grid > div {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+
   .accounts-table-wrap {
     overflow-x: auto;
   }
