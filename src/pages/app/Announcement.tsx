@@ -11,6 +11,7 @@ export type AnnouncementData = {
     author_id: string | null;
     visibility: string;
     likes: number;
+    likedByCurrentUser: boolean;
 };
 
 type AnnouncementProps = AnnouncementData & {
@@ -48,6 +49,7 @@ export default function Announcement({
     author_id,
     visibility,
     likes,
+    likedByCurrentUser,
     onDelete,
     isDeleting = false,
     canDelete = false,
@@ -89,7 +91,11 @@ export default function Announcement({
             </div>
 
             <div className="announcement-actions">
-                <Likes announcementId={id} initialLikes={likes} />
+                <Likes
+                    announcementId={id}
+                    initialLikes={likes}
+                    initialLiked={likedByCurrentUser}
+                />
                 {showActions && (
                     <>
                         {canDelete && (

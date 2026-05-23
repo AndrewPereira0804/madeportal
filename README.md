@@ -1,6 +1,7 @@
 @@ -97,50 +97,189 @@ Protected member routes:
 - `/app/announcements/create`
 - `/app/announcements/:announcementId/edit`
+- `/app/members`: member management UI for `admin`, `ea`, and `eda`
 - `/app/account`
 
 Admin routes:
@@ -23,6 +24,7 @@ Status values expected by UI:
 
 Role slugs:
 - `admin` is used for admin access checks
+- `ea` and `eda` are used with `admin` for member-management access
 
 ## Supabase Relationship & RLS Working Notes (current snapshot, **not final**)
 
@@ -168,6 +170,7 @@ using (<sql_boolean_condition>);
 Repository policy files:
 - `supabase/admin_accounts_policies.sql`
 - `supabase/announcements_policies.sql`
+- `supabase/events_calendar_policies.sql`
 
 Important:
 - Some live policy/function configuration may exist only in the hosted Supabase project and may not be fully mirrored in this repo.
