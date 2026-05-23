@@ -38,6 +38,7 @@ This file gives coding agents a repo-specific playbook based on the current `mai
 - Keep secrets out of source; never commit service-role keys.
 
 ## Supabase policies that are not fully in-repo
+- Before DB-related work, read `docs/database.md`. Treat it as the current hosted Supabase contract unless the user provides a newer export.
 - Do **not** assume hosted Supabase policies/environments match repo intent.
 - If a task depends on RLS/policies/functions that are not present in this repo, explicitly mark them as "external state" in your notes.
 - Preferred workflow:

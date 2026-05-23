@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import supabase from "../../config/supabaseClient";
 import useRoles from "../../auth/useRoles";
 import { Navigate } from "react-router-dom";
+import { canManageMembers } from "../../auth/roleAccess";
 
 type AccountStatus = "pending" | "active" | "suspended";
 
@@ -91,6 +92,7 @@ function statusPillClass(status: AccountStatus) {
 
 export default function Accounts() {
   const { roles, loading: rolesLoading } = useRoles();
+  const hasMemberManagementAccess = canManageMembers(roles);
 
   const [tab, setTab] = useState<AccountStatus>("pending");
   const [loading, setLoading] = useState(true);
@@ -105,7 +107,7 @@ export default function Accounts() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [draftRoleSlugs, setDraftRoleSlugs] = useState<string[]>([]);
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
 
@@ -164,11 +166,23 @@ export default function Accounts() {
 
     setUserRoles((userRolesData ?? []) as UserRoleRow[]);
     setLoading(false);
-  }
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (rolesLoading) {
+      return;
+    }
+
+    if (!hasMemberManagementAccess) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void loadData();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [hasMemberManagementAccess, loadData, rolesLoading]);
 
   const users: UserVM[] = useMemo(() => {
     const rolesByUser = new Map<string, string[]>();
@@ -278,7 +292,10 @@ export default function Accounts() {
   }
 
   const allRoleSlugs = useMemo(
-    () => Object.keys(rolesLookup).sort((a, b) => roleLabel(a).localeCompare(roleLabel(b))),
+    () =>
+      Object.keys(rolesLookup).sort((a, b) =>
+        (rolesLookup[a] ?? a).localeCompare(rolesLookup[b] ?? b)
+      ),
     [rolesLookup]
   );
 
@@ -286,13 +303,13 @@ export default function Accounts() {
     return <div className="accounts-loading">Loading...</div>;
   }
 
-  if (!roles.includes("admin")) {
-    return <Navigate to="/" replace />;
+  if (!hasMemberManagementAccess) {
+    return <Navigate to="/app/scheduling" replace />;
   }
 
   return (
     <div className="theme-card accounts-page p-4 p-md-5">
-      <h2 className="accounts-title">Admin Account Management</h2>
+      <h2 className="accounts-title">Manage Members</h2>
       <p className="accounts-subtitle">
         Approve or deny pending accounts, and manage roles for active members.
       </p>

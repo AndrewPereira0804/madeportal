@@ -1,85 +1,116 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import supabase from "../../config/supabaseClient";
 import { useAuth } from "../../auth/authProvider";
 
 type LikesProps = {
     announcementId: number | string;
     initialLikes: number;
+    initialLiked: boolean;
 };
 
-export default function Likes({ announcementId, initialLikes }: LikesProps) {
+export default function Likes({ announcementId, initialLikes, initialLiked }: LikesProps) {
     const { session } = useAuth();
-    const storageKey = useMemo(() => {
-        const userId = session?.user?.id ?? "anonymous";
-        return `announcement-likes:${userId}`;
-    }, [session?.user?.id]);
+    const userId = session?.user?.id;
     const [likes, setLikes] = useState(initialLikes);
-    const [liked, setLiked] = useState(() => {
-        const savedLikes = localStorage.getItem(storageKey);
-        if (!savedLikes) {
-            return false;
+    const [liked, setLiked] = useState(initialLiked);
+    const [saving, setSaving] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+    useEffect(() => {
+        setLikes(initialLikes);
+    }, [announcementId, initialLikes]);
+
+    useEffect(() => {
+        setLiked(initialLiked);
+    }, [announcementId, initialLiked, userId]);
+
+    async function refreshLikeCount() {
+        const { data, error } = await supabase
+            .from("announcements")
+            .select("likes")
+            .eq("id", announcementId)
+            .single();
+
+        if (error) {
+            throw error;
         }
 
-        try {
-            const likedAnnouncementIds = JSON.parse(savedLikes) as Array<number | string>;
-            return likedAnnouncementIds.includes(announcementId);
-        } catch {
-            return false;
+        if (typeof data?.likes === "number") {
+            setLikes(data.likes);
         }
-    });
-    const [saving, setSaving] = useState(false);
+    }
 
     async function toggleLike() {
-        if (saving || liked) {
+        if (saving || !userId) {
             return;
         }
 
         const previousLikes = likes;
-        const nextLikes = previousLikes + 1;
+        const previousLiked = liked;
+        const nextLiked = !previousLiked;
+        const nextLikes = Math.max(0, previousLikes + (nextLiked ? 1 : -1));
 
-        setLiked(true);
+        setLiked(nextLiked);
         setLikes(nextLikes);
         setSaving(true);
+        setErrorMessage(null);
 
-        const { error } = await supabase
-            .from("announcements")
-            .update({ likes: nextLikes })
-            .eq("id", announcementId);
+        try {
+            if (nextLiked) {
+                const { error } = await supabase
+                    .from("announcement_likes")
+                    .upsert(
+                        { announcement_id: announcementId, user_id: userId },
+                        {
+                            ignoreDuplicates: true,
+                            onConflict: "announcement_id,user_id",
+                        }
+                    );
 
-        setSaving(false);
+                if (error) {
+                    throw error;
+                }
+            } else {
+                const { error } = await supabase
+                    .from("announcement_likes")
+                    .delete()
+                    .eq("announcement_id", announcementId)
+                    .eq("user_id", userId);
 
-        if (error) {
-            setLiked(false);
-            setLikes(previousLikes);
-            console.error("Error updating likes:", error);
-            return;
-        }
-
-        const savedLikes = localStorage.getItem(storageKey);
-        let likedAnnouncementIds: Array<number | string> = [];
-        if (savedLikes) {
-            try {
-                likedAnnouncementIds = JSON.parse(savedLikes) as Array<number | string>;
-            } catch {
-                likedAnnouncementIds = [];
+                if (error) {
+                    throw error;
+                }
             }
+
+            await refreshLikeCount();
+        } catch (error) {
+            setLiked(previousLiked);
+            setLikes(previousLikes);
+            const message =
+                error instanceof Error ? error.message : "An unexpected error occurred.";
+            setErrorMessage(`Could not update like: ${message}`);
+            console.error("Error updating like:", error);
+        } finally {
+            setSaving(false);
         }
-        if (nextLiked && !likedAnnouncementIds.includes(announcementId)) {
-            likedAnnouncementIds.push(announcementId);
-        } else if (!nextLiked && likedAnnouncementIds.includes(announcementId)) {
-            likedAnnouncementIds = likedAnnouncementIds.filter((id) => id !== announcementId);
-        }
-        localStorage.setItem(storageKey, JSON.stringify(likedAnnouncementIds));
     }
 
     return (
-        <button
-            type="button"
-            className={`like-btn${liked ? " is-liked" : ""}`}
-            disabled={saving || liked}
-            onClick={toggleLike}
-        >
-            Likes: {likes}
-        </button>
+        <div className="like-control">
+            <button
+                type="button"
+                className={`like-btn${liked ? " is-liked" : ""}`}
+                disabled={saving || !userId}
+                aria-pressed={liked}
+                onClick={toggleLike}
+            >
+                {saving ? "Saving..." : `${liked ? "Unlike" : "Like"} (${likes})`}
+            </button>
+            {errorMessage && (
+                <span className="like-error" role="status">
+                    {errorMessage}
+                </span>
+            )}
+        </div>
     );
 }
