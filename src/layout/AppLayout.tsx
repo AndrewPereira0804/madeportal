@@ -31,6 +31,9 @@ export default function AppLayout() {
             <NavLink to="/app/announcements" className={linkClass}>
               Announcements
             </NavLink>
+            <NavLink to="/app/directory" className={linkClass}>
+              Directory
+            </NavLink>
             {showMemberManagement && (
               <NavLink to="/app/members" className={linkClass}>
                 Manage Members

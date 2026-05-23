@@ -6,6 +6,8 @@ Last updated: 2026-05-23
 
 Hosted Supabase is currently the canonical database source of truth. This document records the latest schema and RLS policy snapshot provided from the hosted project so code changes can be checked against the database contract before implementation.
 
+Schema exports in this document are for context only. Do not run them directly as migrations because export order, enum placeholders, constraints, policies, and triggers may be incomplete.
+
 Repo SQL files under `supabase/` are rollout/reference scripts. They may differ from hosted state until explicitly verified and applied.
 
 Before database-related changes:
@@ -48,6 +50,24 @@ Expected values:
 
 ## Tables
 
+### public.majors
+
+Purpose: catalog of academic majors used by profiles.
+
+Columns:
+
+- `id bigint generated always as identity primary key`
+- `major text not null`
+- `slug text`
+
+Referenced by:
+
+- `profiles.major`
+
+Frontend usage:
+
+- No current frontend workflow has been verified from repo code.
+
 ### public.profiles
 
 Purpose: canonical app profile row per authenticated user.
@@ -59,11 +79,16 @@ Columns:
 - `status user_status not null default 'pending'`
 - `created_at timestamptz not null default now()`
 - `email text`
+- `phone text`
+- `grad_year bigint`
+- `major bigint references public.majors(id)`
+- `hometown text`
 
 Referenced by:
 
 - `user_roles.user_id`
 - `announcements.author_id`
+- `announcement_likes.user_id`
 - `events.created_by`
 - `transactions.created_by`
 
@@ -117,12 +142,34 @@ Columns:
 - `author_id uuid not null references public.profiles(user_id)`
 - `likes integer default 0 check (likes >= 0)`
 
+Referenced by:
+
+- `announcement_likes.announcement_id`
+
 Frontend usage:
 
 - `src/pages/app/Announcements.tsx` reads and deletes announcements.
 - `src/pages/app/CreateAnnouncement.tsx` inserts announcements.
 - `src/pages/app/EditAnnouncement.tsx` updates announcements.
-- `src/pages/app/Likes.tsx` updates `likes`.
+- `src/pages/app/Likes.tsx` reads the aggregate `likes` count and toggles the current user's row in `announcement_likes`.
+
+### public.announcement_likes
+
+Purpose: per-user announcement like state.
+
+Columns:
+
+- `announcement_id uuid not null references public.announcements(id)`
+- `user_id uuid not null references public.profiles(user_id)`
+- `created_at timestamptz not null default now()`
+- primary key: `(announcement_id, user_id)`
+
+Frontend usage:
+
+- `src/pages/app/Announcements.tsx` reads current-user liked announcement IDs.
+- `src/pages/app/Likes.tsx` inserts a row to like and deletes the current user's row to unlike.
+
+Important: the provided hosted schema export shows foreign keys without `on delete cascade`. If announcement deletion should also delete like rows automatically, verify hosted constraints before relying on that behavior.
 
 ### public.events
 
@@ -274,8 +321,12 @@ Hosted policy snapshot:
 - Active users can read announcements.
 - Authenticated active users can insert announcements for themselves.
 - Authenticated users can update `likes`.
+- Per-user like state should live in `announcement_likes` with one row per `(announcement_id, user_id)`.
+- The aggregate `announcements.likes` count should stay aligned with `announcement_likes`.
 
 Repo SQL may not match hosted policy intent. The current hosted `active_users_can_read_announcements` policy is more restrictive than the repo's older `Authenticated users can read announcements` policy.
+
+Important: the latest schema export includes `announcement_likes`, but did not include RLS policy or trigger exports for that table. Treat those as external/unverified state until a fresh policy/function export is provided.
 
 ### Events
 
@@ -401,7 +452,7 @@ $function$;
 
 ### public.increment_announcement_likes(uuid)
 
-Expected behavior: authenticated users can increment an announcement's `likes` value and receive the new count. Throws if the caller is unauthenticated or the announcement does not exist.
+Previous expected behavior: authenticated users can increment an announcement's `likes` value and receive the new count. Throws if the caller is unauthenticated or the announcement does not exist.
 
 Hosted definition:
 
@@ -431,7 +482,19 @@ END;
 $function$;
 ```
 
-Frontend note: `src/pages/app/Likes.tsx` currently updates `announcements.likes` directly instead of calling this RPC.
+Frontend note: `src/pages/app/Likes.tsx` no longer uses this RPC for the like button. Current frontend behavior expects per-user rows in `announcement_likes` so users can unlike and liked state can persist across reloads.
+
+### public.apply_announcement_like_delta()
+
+Expected behavior: trigger helper that increments `announcements.likes` after an `announcement_likes` insert and decrements it after an `announcement_likes` delete.
+
+Repo definition:
+
+- `supabase/announcement_likes.sql`
+
+Hosted status:
+
+- Not included in the latest schema-only export. Verify hosted functions/triggers before assuming the aggregate `announcements.likes` count is maintained automatically.
 
 ### public.handle_new_user()
 
@@ -518,6 +581,20 @@ This section reflects the policy export provided on 2026-05-23.
 - `authenticated_update_likes`
   - UPDATE to authenticated.
   - Allows update with `using (true)` and `with check (true)`.
+
+Note: this direct `announcements.likes` update policy is legacy for the current frontend like flow. Current frontend code inserts/deletes rows in `announcement_likes`.
+
+### public.announcement_likes
+
+The latest schema export includes this table, but no RLS policy export was provided for it.
+
+Expected policies for the current frontend:
+
+- Authenticated users can read their own likes.
+- Authenticated users can insert their own like rows.
+- Authenticated users can delete their own like rows.
+
+External/unverified state: confirm hosted RLS policies before treating like/unlike as deployed.
 
 ### public.calendars
 
@@ -610,6 +687,19 @@ Current mismatch:
 
 Treat hosted state as canonical until this is reconciled.
 
+### supabase/announcement_likes.sql
+
+Purpose:
+
+- Creates `announcement_likes` for per-user announcement like state.
+- Enables RLS and creates current-user select/insert/delete policies.
+- Creates `apply_announcement_like_delta()` and a trigger to keep `announcements.likes` synchronized.
+- Notifies PostgREST to reload the schema cache.
+
+Current mismatch:
+
+- The latest hosted schema export shows `announcement_likes` foreign keys without `on delete cascade`; the repo rollout script currently defines cascade behavior for announcement/profile deletion. Verify hosted constraints before relying on automatic cleanup.
+
 ### supabase/events_calendar_policies.sql
 
 Purpose:
@@ -631,7 +721,9 @@ Do not run this file against hosted Supabase without a deliberate migration plan
 - README still has older placeholder notes that may not reflect current Scheduling/Event work.
 - Hosted calendar policies include duplicate SELECT policies.
 - Hosted profile and user role policies include overlapping legacy and new policies.
+- Hosted `announcement_likes` policies and aggregate trigger state are not documented in the latest export.
 - Repo announcement policies differ from hosted announcement policies.
+- Repo `announcement_likes.sql` may differ from hosted foreign-key delete behavior.
 - Repo event/calendar policies differ from hosted event/calendar policies.
 - Trigger attachments for `handle_new_user`, `sync_profile_email`, and `rls_auto_enable` are not documented yet.
 
@@ -641,5 +733,5 @@ Ask the user for these before high-risk database work:
 
 - Fresh full schema export.
 - Fresh full RLS policy export.
-- Trigger definitions/attachments for `handle_new_user`, `sync_profile_email`, and `rls_auto_enable`.
+- Trigger definitions/attachments for `announcement_likes_apply_delta`, `handle_new_user`, `sync_profile_email`, and `rls_auto_enable`.
 - Any function definitions not listed in this document.
