@@ -3,6 +3,16 @@ import type { BudgetAccount, BudgetCycle, BudgetTransaction, BudgetTransactionSt
 
 type RawRow = Record<string, unknown>;
 
+export type SubmittedBudgetTransactionInput = {
+  budget_account_id: string;
+  submitted_by: string;
+  amount: number;
+  vendor: string | null;
+  category: string;
+  description: string;
+  transaction_date: string;
+};
+
 const validTransactionStatuses = new Set<BudgetTransactionStatus>([
   "submitted",
   "approved",
@@ -184,4 +194,21 @@ export async function getBudgetAccount(accountId: string) {
 
 export async function getTransactionsForAccount(accountId: string) {
   return getTransactionsForAccounts([accountId]);
+}
+
+export async function submitBudgetTransaction(input: SubmittedBudgetTransactionInput) {
+  const { error } = await supabase.from("budget_transactions").insert({
+    budget_account_id: input.budget_account_id,
+    submitted_by: input.submitted_by,
+    amount: input.amount,
+    vendor: input.vendor,
+    category: input.category,
+    description: input.description,
+    transaction_date: input.transaction_date,
+    status: "submitted",
+  });
+
+  if (error) {
+    throw error;
+  }
 }
