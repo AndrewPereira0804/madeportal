@@ -1,4 +1,4 @@
-import { useId, type ReactNode, type SelectHTMLAttributes } from "react";
+import { forwardRef, useId, type ReactNode, type SelectHTMLAttributes } from "react";
 import { cx } from "./utils";
 
 export type SelectProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, "size"> & {
@@ -9,16 +9,19 @@ export type SelectProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, "size"> 
   selectClassName?: string;
 };
 
-export default function Select({
-  label,
-  hint,
-  error,
-  id,
-  className,
-  selectClassName,
-  children,
-  ...props
-}: SelectProps) {
+const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
+  {
+    label,
+    hint,
+    error,
+    id,
+    className,
+    selectClassName,
+    children,
+    ...props
+  },
+  ref,
+) {
   const generatedId = useId();
   const selectId = id ?? generatedId;
   const hintId = hint ? `${selectId}-hint` : undefined;
@@ -37,6 +40,7 @@ export default function Select({
         className={cx("form-select ui-select", error && "is-invalid", selectClassName)}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
+        ref={ref}
         {...props}
       >
         {children}
@@ -53,4 +57,6 @@ export default function Select({
       )}
     </div>
   );
-}
+});
+
+export default Select;

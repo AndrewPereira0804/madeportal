@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { canManageBudgets } from "../auth/roleAccess";
-import { useAuth } from "../auth/authProvider";
+import { useAuth } from "../auth/authContext";
 import useRoles from "../auth/useRoles";
 import BudgetStatusBadge from "../components/budget/BudgetStatusBadge";
 import {
@@ -11,10 +11,10 @@ import {
   Card,
   EmptyState,
   Input,
+  MetricCard,
   PageHeader,
   SectionHeader,
   Select,
-  StatCard,
   Table,
   TableBody,
   TableCell,
@@ -611,11 +611,12 @@ function BudgetAdminMetrics({
 }) {
   return (
     <div className="budget-admin-metrics">
-      <StatCard label="Pending requests" value={pendingCount} subvalue={formatMoney(pendingTotal)} />
-      <StatCard
+      <MetricCard label="Pending requests" value={pendingCount} detail={formatMoney(pendingTotal)} tone="warning" />
+      <MetricCard
         label="Approved, not reimbursed"
         value={approvedCount}
-        subvalue={formatMoney(approvedTotal)}
+        detail={formatMoney(approvedTotal)}
+        tone="info"
       />
     </div>
   );
@@ -645,7 +646,12 @@ function BudgetRequestSection({
       ) : (
         <div className="budget-admin-list">
           {rows.map(({ transaction, account, submitter }) => (
-            <Card key={transaction.id} variant="flat" padding="md" className="budget-request-card">
+            <Card
+              key={transaction.id}
+              variant="flat"
+              padding="md"
+              className={`budget-request-card${transaction.status === "submitted" ? " budget-request-card--pending" : ""}`}
+            >
               <div className="budget-request-main">
                 <div>
                   <div className="budget-request-amount">{formatMoney(transaction.amount)}</div>
@@ -892,7 +898,9 @@ function ActiveCycleAccountsSection({
                   </TableCell>
                   <TableCell>{formatMoney(summary.spent)}</TableCell>
                   <TableCell>{formatMoney(summary.pending)}</TableCell>
-                  <TableCell>{formatMoney(summary.remaining)}</TableCell>
+                  <TableCell className={summary.remaining < 0 ? "budget-remaining--negative" : "budget-remaining"}>
+                    {formatMoney(summary.remaining)}
+                  </TableCell>
                   <TableCell className="budget-notes-cell">
                     {isEditing ? (
                       <textarea

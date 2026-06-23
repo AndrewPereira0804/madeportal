@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import supabase from "../../config/supabaseClient";
-import { useAuth } from "../../auth/authProvider";
+import { useAuth } from "../../auth/authContext";
 import useRoles from "../../auth/useRoles";
-import { Button, Card, PageHeader } from "../../components/ui";
+import { Badge, Button, Card, EmptyState, Input, PageHeader, SectionHeader, Textarea } from "../../components/ui";
 
 type EventRow = {
   id: string;
@@ -82,6 +82,8 @@ export default function ManageEvents() {
   };
 
   useEffect(() => {
+    let ignore = false;
+
     async function fetchEvents() {
       setLoading(true);
       setErrorMessage(null);
@@ -92,20 +94,29 @@ export default function ManageEvents() {
         .order("start", { ascending: true });
 
       if (error) {
+        if (ignore) return;
         setEvents([]);
         setErrorMessage(dbError("load events", error.message));
       } else {
+        if (ignore) return;
         setEvents((data ?? []) as EventRow[]);
       }
 
       setLoading(false);
     }
 
-    if (canManage) {
-      fetchEvents();
-    } else if (!rolesLoading) {
-      setLoading(false);
-    }
+    const timeoutId = window.setTimeout(() => {
+      if (canManage) {
+        void fetchEvents();
+      } else if (!rolesLoading) {
+        setLoading(false);
+      }
+    }, 0);
+
+    return () => {
+      ignore = true;
+      window.clearTimeout(timeoutId);
+    };
   }, [canManage, rolesLoading]);
 
   function resetDraft() {
@@ -231,42 +242,41 @@ export default function ManageEvents() {
         actions={<Button to="/app/scheduling" variant="outline-secondary">Back to Calendar</Button>}
       />
 
-      <form className="mt-4" onSubmit={handleSubmit}>
-        <h2 className="h5">{editingId ? "Update event" : "Create event"}</h2>
-
-        <input
-          className="form-control mt-2"
-          placeholder="Event title"
-          value={draft.title}
-          onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-        />
-        <textarea
-          className="form-control mt-2"
-          placeholder="Description"
-          value={draft.description}
-          onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
-          rows={3}
+      <form className="event-management-form" onSubmit={handleSubmit}>
+        <SectionHeader
+          size="sm"
+          title={editingId ? "Update event" : "Create event"}
+          description="Brother visibility is always included. Add additional audiences only when needed."
         />
 
-        <div className="row g-2 mt-1">
-          <div className="col-md-6">
-            <label className="form-label">Start</label>
-            <input
-              className="form-control"
-              type="datetime-local"
-              value={draft.start}
-              onChange={(event) => setDraft((current) => ({ ...current, start: event.target.value }))}
-            />
-          </div>
-          <div className="col-md-6">
-            <label className="form-label">End</label>
-            <input
-              className="form-control"
-              type="datetime-local"
-              value={draft.end}
-              onChange={(event) => setDraft((current) => ({ ...current, end: event.target.value }))}
-            />
-          </div>
+        <div className="budget-form-grid">
+          <Input
+            className="budget-form-full"
+            label="Event title"
+            placeholder="Event title"
+            value={draft.title}
+            onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
+          />
+          <Textarea
+            className="budget-form-full"
+            label="Description"
+            placeholder="Description"
+            value={draft.description}
+            onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
+            rows={3}
+          />
+          <Input
+            label="Start"
+            type="datetime-local"
+            value={draft.start}
+            onChange={(event) => setDraft((current) => ({ ...current, start: event.target.value }))}
+          />
+          <Input
+            label="End"
+            type="datetime-local"
+            value={draft.end}
+            onChange={(event) => setDraft((current) => ({ ...current, end: event.target.value }))}
+          />
         </div>
 
         <div className="form-check mt-3">
@@ -295,39 +305,42 @@ export default function ManageEvents() {
           </label>
         </div>
 
-        <small className="text-body-secondary d-block mt-1">Brother visibility is always on.</small>
-
-        <div className="d-flex gap-2 mt-3">
-          <button type="submit" className="btn btn-primary" disabled={saving || rolesLoading}>
+        <div className="d-flex gap-2 mt-3 flex-wrap">
+          <Button type="submit" disabled={saving || rolesLoading} loading={saving}>
             {editingId ? "Save changes" : "Create event"}
-          </button>
+          </Button>
           {editingId && (
-            <button type="button" className="btn btn-outline-secondary" onClick={resetDraft}>
+            <Button type="button" variant="outline-secondary" onClick={resetDraft}>
               Cancel
-            </button>
+            </Button>
           )}
         </div>
       </form>
 
-      {loading && <p className="mt-4">Loading events…</p>}
+      {loading && <p className="announcements-state">Loading events...</p>}
       {errorMessage && <p className="mt-4 text-danger">{errorMessage}</p>}
 
-      {!loading && events.length === 0 && <p className="mt-4">No events available to manage.</p>}
+      {!loading && events.length === 0 && (
+        <EmptyState
+          title="No events available"
+          description="Events you can manage will appear here once they are created."
+        />
+      )}
 
       {!loading && events.length > 0 && (
         <div className="mt-4 d-grid gap-3">
           {events.map((event) => (
-            <article key={event.id} className="border rounded p-3 bg-light-subtle">
+            <article key={event.id} className="event-detail-card">
               <div className="d-flex justify-content-between gap-2 flex-wrap">
                 <h2 className="h5 mb-0">{event.title}</h2>
                 {canEditOrDeleteEvent(event) && (
                   <div className="d-flex gap-2">
-                    <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => beginEdit(event)}>
+                    <Button type="button" size="sm" variant="outline-secondary" onClick={() => beginEdit(event)}>
                       Edit
-                    </button>
-                    <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => deleteEvent(event.id)}>
+                    </Button>
+                    <Button type="button" size="sm" variant="danger" onClick={() => deleteEvent(event.id)}>
                       Delete
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
@@ -339,9 +352,11 @@ export default function ManageEvents() {
               <p className="mb-1">
                 <strong>Ends:</strong> {formatEastern(event.end)}
               </p>
-              <p className="mb-0 text-body-secondary">
-                Audience: brother{event.visible_to_alum ? ", alum" : ""}{event.visible_to_neophyte ? ", neophyte" : ""}
-              </p>
+              <div className="d-flex gap-2 flex-wrap mt-2">
+                <Badge variant="info">brother</Badge>
+                {event.visible_to_alum && <Badge variant="info">alum</Badge>}
+                {event.visible_to_neophyte && <Badge variant="info">neophyte</Badge>}
+              </div>
             </article>
           ))}
         </div>

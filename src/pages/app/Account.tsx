@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import supabase from "../../config/supabaseClient";
-import { useAuth } from "../../auth/authProvider";
+import { useAuth } from "../../auth/authContext";
 import ProfileDetails from "./ProfileDetails";
 import ProfileEditForm from "./ProfileEditForm";
 import type { MajorRow, ProfileRow, RawMajorRow, RawProfileRow, RawUserRoleRow, RoleDetail } from "./profileTypes";
 import { normalizeMajor, normalizeProfile, normalizeRoles, PROFILE_COLUMNS } from "./profileTypes";
-import { Button, Card, PageHeader } from "../../components/ui";
+import { Button, Card, EmptyState, PageHeader } from "../../components/ui";
 
 export default function Account() {
   const { session } = useAuth();
@@ -117,7 +117,10 @@ export default function Account() {
       {noticeMessage && <div className="alert alert-warning mt-3 mb-0">{noticeMessage}</div>}
 
       {!profile ? (
-        <p className="mt-4 mb-0 text-body-secondary">No profile is available for this account.</p>
+        <EmptyState
+          title="No profile available"
+          description="Portal could not find a profile row for this account."
+        />
       ) : (
         <div className="account-surface mt-4">
           <ProfileDetails profile={profile} majors={majors} roles={roles} />

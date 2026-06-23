@@ -6,4 +6,5 @@ admin page is kinda leftover and redundant, should decide how to handle that
 announcement likes display weirdly, looks like author names arent displaying correctly
 account page and member directory both let the user update their details. should decide where that functionality lives
 admin page is a little funny
- 
+timezones off in calendar
+use names instead of role slugs where appropriate

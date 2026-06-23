@@ -1,6 +1,6 @@
 import { Link, Navigate, Outlet, useNavigate } from "react-router-dom";
 import useRoles from "../../auth/useRoles";
-import { useAuth } from "../../auth/authProvider";
+import { useAuth } from "../../auth/authContext";
 
 export default function Admin() {
   const { signOut } = useAuth();
@@ -14,7 +14,7 @@ export default function Admin() {
 
   if (loading) {
     return (
-      <div className="theme-shell">
+      <div className="theme-shell admin-shell">
         <section className="theme-card admin-console p-4 p-md-5">
           <div className="d-flex align-items-center gap-2">
             <div className="spinner-border spinner-border-sm text-primary" role="status" />
@@ -30,7 +30,7 @@ export default function Admin() {
   }
 
   return (
-    <div className="theme-shell">
+    <div className="theme-shell admin-shell">
       <section className="theme-card admin-console p-4 p-md-5">
         <div className="admin-hero">
           <div>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { useAuth } from "../../auth/authProvider";
+import { useAuth } from "../../auth/authContext";
 import { submitBudgetTransaction } from "../../lib/budgetQueries";
 import { Button, Card, Input, SectionHeader, Select, Textarea } from "../ui";
 

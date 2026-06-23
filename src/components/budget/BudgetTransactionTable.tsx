@@ -56,7 +56,10 @@ export default function BudgetTransactionTable({ transactions }: BudgetTransacti
       </TableHead>
       <TableBody>
         {transactions.map((transaction) => (
-          <TableRow key={transaction.id}>
+          <TableRow
+            key={transaction.id}
+            className={transaction.status === "denied" ? "budget-transaction-row--denied" : undefined}
+          >
             <TableCell>{formatTransactionDate(transaction.transaction_date)}</TableCell>
             <TableCell>{transaction.vendor ?? "No vendor"}</TableCell>
             <TableCell>{transaction.category ?? "Uncategorized"}</TableCell>
@@ -66,7 +69,7 @@ export default function BudgetTransactionTable({ transactions }: BudgetTransacti
                 <div className="budget-table-meta">Denial reason: {transaction.denial_reason}</div>
               )}
             </TableCell>
-            <TableCell>{formatMoney(transaction.amount)}</TableCell>
+            <TableCell className="budget-transaction-amount">{formatMoney(transaction.amount)}</TableCell>
             <TableCell>
               <BudgetStatusBadge status={transaction.status} />
             </TableCell>

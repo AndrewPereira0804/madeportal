@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import supabase from "../config/supabaseClient";
-import { useAuth } from "./authProvider";
+import { useAuth } from "./authContext";
 
 // hook returns the `status` field from the profiles table for the current
 // session user. `null` means not logged in or row not found.
@@ -16,11 +16,26 @@ export function useStatus() {
   const { session } = useAuth();
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const userId = session?.user?.id ?? null;
 
   useEffect(() => {
-    if (session?.user?.id) {
+    let ignore = false;
+
+    const timeoutId = window.setTimeout(() => {
+      if (!userId) {
+        if (!ignore) {
+          setStatus(null);
+          setLoading(false);
+        }
+        return;
+      }
+
       setLoading(true);
-      fetchProfileStatus(session.user.id).then(({ data, error }) => {
+      fetchProfileStatus(userId).then(({ data, error }) => {
+          if (ignore) {
+            return;
+          }
+
           if (error) {
             console.warn("could not fetch profile status", error);
             setStatus(null);
@@ -29,11 +44,13 @@ export function useStatus() {
           }
           setLoading(false);
         });
-    } else {
-      setStatus(null);
-      setLoading(false);
-    }
-  }, [session]);
+    }, 0);
+
+    return () => {
+      ignore = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [userId]);
 
   return { status, loading };
 }

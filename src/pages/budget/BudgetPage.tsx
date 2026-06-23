@@ -79,7 +79,7 @@ export default function BudgetPage() {
   return (
     <Card className="budget-page">
       <PageHeader
-        eyebrow="Sigma Alpha Epsilon · Massachusetts Delta"
+        eyebrow="Massachusetts Delta finance"
         title="Budget"
         subtitle={cycle ? `Active cycle: ${getCycleLabel(cycle)}` : "Read-only budget dashboard."}
         bordered

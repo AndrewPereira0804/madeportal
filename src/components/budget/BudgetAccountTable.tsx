@@ -43,7 +43,9 @@ export default function BudgetAccountTable({ accounts, transactions }: BudgetAcc
               <TableCell>{formatMoney(summary.allocated)}</TableCell>
               <TableCell>{formatMoney(summary.spent)}</TableCell>
               <TableCell>{formatMoney(summary.pending)}</TableCell>
-              <TableCell>{formatMoney(summary.remaining)}</TableCell>
+              <TableCell className={summary.remaining < 0 ? "budget-remaining--negative" : "budget-remaining"}>
+                {formatMoney(summary.remaining)}
+              </TableCell>
               <TableCell>
                 <Button to={`/budget/${account.id}`} variant="outline-secondary" size="sm">
                   View transactions

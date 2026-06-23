@@ -10,10 +10,10 @@ const statusLabels: Record<BudgetTransactionStatus, string> = {
 
 const statusVariants: Record<
   BudgetTransactionStatus,
-  "warning" | "active" | "danger" | "success"
+  "warning" | "info" | "danger" | "success"
 > = {
   submitted: "warning",
-  approved: "active",
+  approved: "info",
   denied: "danger",
   reimbursed: "success",
 };

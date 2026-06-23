@@ -2,9 +2,9 @@ import Announcement, { type AnnouncementData } from "./Announcement";
 import { useEffect, useState } from "react";
 import supabase from "../../config/supabaseClient";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../auth/authProvider";
+import { useAuth } from "../../auth/authContext";
 import useRoles from "../../auth/useRoles";
-import { Button, Card, PageHeader } from "../../components/ui";
+import { Button, Card, EmptyState, PageHeader } from "../../components/ui";
 
 type AnnouncementRow = {
     id: AnnouncementData["id"];
@@ -96,7 +96,7 @@ export default function Announcements() {
                     setAnnouncements([]);
                     setErrorMessage(`Could not load announcements: ${message}`);
                 }
-                console.log("Error fetching announcements:", error);
+                console.error("Error fetching announcements:", error);
             } finally {
                 if (!ignore) {
                     setLoading(false);
@@ -137,7 +137,7 @@ export default function Announcements() {
             const message =
                 error instanceof Error ? error.message : "An unexpected error occurred while deleting.";
             setErrorMessage(`Could not delete announcement: ${message}`);
-            console.log("Error deleting announcement:", error);
+            console.error("Error deleting announcement:", error);
         } finally {
             setDeletingId(null);
         }
@@ -161,7 +161,11 @@ export default function Announcements() {
                 <p className="announcements-state announcements-state-error">{errorMessage}</p>
             )}
             {!loading && !errorMessage && announcements.length === 0 && (
-                <p className="announcements-state">No announcements yet.</p>
+                <EmptyState
+                    title="No announcements yet"
+                    description="Chapter updates, notices, and operational posts will appear here."
+                    action={<Button type="button" onClick={() => navigate("create")}>Create announcement</Button>}
+                />
             )}
 
             {!loading && !errorMessage && announcements.length > 0 && (

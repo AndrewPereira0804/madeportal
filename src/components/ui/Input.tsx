@@ -1,4 +1,4 @@
-import { useId, type InputHTMLAttributes } from "react";
+import { forwardRef, useId, type InputHTMLAttributes } from "react";
 import { cx } from "./utils";
 
 export type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "size"> & {
@@ -8,15 +8,18 @@ export type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "size"> & {
   inputClassName?: string;
 };
 
-export default function Input({
-  label,
-  hint,
-  error,
-  id,
-  className,
-  inputClassName,
-  ...props
-}: InputProps) {
+const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
+  {
+    label,
+    hint,
+    error,
+    id,
+    className,
+    inputClassName,
+    ...props
+  },
+  ref,
+) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const hintId = hint ? `${inputId}-hint` : undefined;
@@ -35,6 +38,7 @@ export default function Input({
         className={cx("form-control ui-input", error && "is-invalid", inputClassName)}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
+        ref={ref}
         {...props}
       />
       {hint && !error && (
@@ -49,4 +53,6 @@ export default function Input({
       )}
     </div>
   );
-}
+});
+
+export default Input;

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
-import { useAuth } from "../../auth/authProvider";
+import { useAuth } from "../../auth/authContext";
 import supabase from "../../config/supabaseClient";
 import useRoles from "../../auth/useRoles";
-import { Button, Card, PageHeader } from "../../components/ui";
+import { Button, Card, Input, PageHeader, Textarea } from "../../components/ui";
 
 type FormValues = {
   title: string;
@@ -49,6 +49,7 @@ export default function EditAnnouncement() {
   const { roles, loading: rolesLoading } = useRoles();
   const [loadingAnnouncement, setLoadingAnnouncement] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [announcementAuthorId, setAnnouncementAuthorId] = useState<string | null>(null);
   const isAdmin = roles.includes("admin");
   const {
@@ -117,13 +118,15 @@ export default function EditAnnouncement() {
   }, [announcementId, isAdmin, reset, rolesLoading, session?.user?.id]);
 
   const onSubmit = async (formData: FormValues) => {
+    setSubmitError(null);
+
     if (!announcementId) {
-      alert("Announcement ID is missing.");
+      setSubmitError("Announcement ID is missing.");
       return;
     }
 
     if (!session?.user?.id) {
-      alert("You must be logged in to edit an announcement.");
+      setSubmitError("You must be logged in to edit an announcement.");
       return;
     }
 
@@ -131,7 +134,7 @@ export default function EditAnnouncement() {
       announcementAuthorId === session.user.id || isAdmin;
 
     if (!canEditAnnouncement) {
-      alert("You can only edit your own announcements unless you are an admin.");
+      setSubmitError("You can only edit your own announcements unless you are an admin.");
       return;
     }
 
@@ -143,16 +146,15 @@ export default function EditAnnouncement() {
     );
 
     if (error) {
-      alert("Failed to edit announcement: " + error.message);
+      setSubmitError("Failed to edit announcement: " + error.message);
       return;
     }
 
     if (count === 0) {
-      alert("Edit was blocked or no matching announcement was found.");
+      setSubmitError("Edit was blocked or no matching announcement was found.");
       return;
     }
 
-    alert("Announcement edited successfully!");
     navigate("/app/announcements");
   };
 
@@ -173,22 +175,24 @@ export default function EditAnnouncement() {
       {loadError && <div className="form-error mb-3 mt-4">{loadError}</div>}
       {!loadingAnnouncement && !loadError && (
         <form className="mt-4" onSubmit={handleSubmit(onSubmit)}>
-          <div>
-            <input
+          {submitError && <div className="alert alert-danger mb-3">{submitError}</div>}
+
+          <div className="d-grid gap-3">
+            <Input
               type="text"
-              className="form-control ui-input"
+              label="Title"
+              error={errors.title ? "Title is required." : undefined}
               {...register("title", { required: true })}
               placeholder="Title"
             />
-            {errors.title && <div className="form-error mt-1">Title is required.</div>}
 
-            <textarea
-              className="form-control ui-textarea mt-3"
+            <Textarea
+              label="Body"
+              error={errors.body ? "Body is required." : undefined}
               {...register("body", { required: true })}
               placeholder="Body"
-              rows={5}
+              rows={6}
             />
-            {errors.body && <div className="form-error mt-1">Body is required.</div>}
           </div>
 
           <div className="d-flex gap-2 mt-4">

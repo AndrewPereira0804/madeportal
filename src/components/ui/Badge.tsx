@@ -8,6 +8,7 @@ type BadgeVariant =
   | "suspended"
   | "success"
   | "warning"
+  | "info"
   | "danger"
   | "neutral";
 
@@ -23,6 +24,7 @@ const variantClass: Record<BadgeVariant, string> = {
   suspended: "ui-badge ui-badge--suspended",
   success: "ui-badge ui-badge--success",
   warning: "ui-badge ui-badge--warning",
+  info: "ui-badge ui-badge--info",
   danger: "ui-badge ui-badge--danger",
   neutral: "ui-badge ui-badge--neutral",
 };

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import supabase from "../../config/supabaseClient";
 import useRoles from "../../auth/useRoles";
-import { Button, Card, PageHeader } from "../../components/ui";
+import { Badge, Button, Card, EmptyState, PageHeader, SectionHeader, Select } from "../../components/ui";
 
 type CalendarWindow = {
   id: string;
@@ -269,12 +269,9 @@ export default function Scheduling() {
       />
 
       <div className="mt-4">
-        <label className="form-label" htmlFor="windowFilter">
-          School schedule filter
-        </label>
-        <select
+        <Select
           id="windowFilter"
-          className="form-select"
+          label="School schedule filter"
           value={selectedWindowId}
           onChange={(event) => {
             const nextId = event.target.value;
@@ -300,27 +297,30 @@ export default function Scheduling() {
               {window.label} ({window.start} to {window.end})
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div className="mt-4 d-flex flex-wrap gap-2 align-items-end justify-content-between">
-        <div>
-          <h2 className="h5 mb-1">Calendar month</h2>
-          <p className="text-body-secondary mb-0">Showing {filteredEvents.length} events in this filter.</p>
-        </div>
+        <SectionHeader
+          className="mt-0"
+          title="Calendar month"
+          description={`Showing ${filteredEvents.length} event${filteredEvents.length === 1 ? "" : "s"} in this filter.`}
+        />
         <div className="d-flex gap-2 flex-wrap">
-          <button
+          <Button
             type="button"
-            className="btn btn-outline-secondary btn-sm"
+            variant="outline-secondary"
+            size="sm"
             disabled={!canGoPrev}
             onClick={() => setCurrentMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
           >
             Previous
-          </button>
+          </Button>
           {!selectedWindow && (
-            <button
+            <Button
               type="button"
-              className="btn btn-outline-secondary btn-sm"
+              variant="outline-secondary"
+              size="sm"
               onClick={() => {
                 const today = new Date();
                 setCurrentMonth(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -328,23 +328,29 @@ export default function Scheduling() {
               }}
             >
               Today
-            </button>
+            </Button>
           )}
-          <button
+          <Button
             type="button"
-            className="btn btn-outline-secondary btn-sm"
+            variant="outline-secondary"
+            size="sm"
             disabled={!canGoNext}
             onClick={() => setCurrentMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
           >
             Next
-          </button>
+          </Button>
         </div>
       </div>
 
-      {loading && <p className="mt-4">Loading calendar…</p>}
+      {loading && <p className="announcements-state">Loading calendar...</p>}
       {errorMessage && <p className="mt-4 text-danger">{errorMessage}</p>}
 
-      {!loading && filteredEvents.length === 0 && <p className="mt-4">No events match your visibility and filter.</p>}
+      {!loading && filteredEvents.length === 0 && (
+        <EmptyState
+          title="No events in this view"
+          description="No events match your current visibility and schedule filter."
+        />
+      )}
 
       {!loading && filteredEvents.length > 0 && (
         <>
@@ -396,14 +402,18 @@ export default function Scheduling() {
           </div>
 
           <div className="mt-4 d-grid gap-3">
-            <h3 className="h5 mb-0">Selected day details</h3>
+            <SectionHeader className="mt-0" size="sm" title="Selected day details" />
             {selectedDayEvents.length === 0 && (
-              <p className="mb-0 text-body-secondary">No events on this day for your current visibility and filter.</p>
+              <EmptyState
+                compact
+                title="No events on this day"
+                description="There are no visible events for the selected day and filter."
+              />
             )}
             {selectedDayEvents.map((event) => {
               const matchingWindows = getWindowsForEvent(event, windows);
               return (
-                <article key={event.id} className="border rounded p-3 bg-light-subtle">
+                <article key={event.id} className="event-detail-card">
                   <div className="d-flex justify-content-between gap-2 flex-wrap">
                     <h2 className="h5 mb-0">{event.title}</h2>
                   </div>
@@ -420,10 +430,11 @@ export default function Scheduling() {
                       ? matchingWindows.map((window) => window.label).join(", ")
                       : "Outside configured school windows"}
                   </p>
-                  <p className="mb-0 text-body-secondary">
-                    Audience: brother{event.visible_to_alum ? ", alum" : ""}
-                    {event.visible_to_neophyte ? ", neophyte" : ""}
-                  </p>
+                  <div className="d-flex gap-2 flex-wrap mt-2">
+                    <Badge variant="info">brother</Badge>
+                    {event.visible_to_alum && <Badge variant="info">alum</Badge>}
+                    {event.visible_to_neophyte && <Badge variant="info">neophyte</Badge>}
+                  </div>
                 </article>
               );
             })}

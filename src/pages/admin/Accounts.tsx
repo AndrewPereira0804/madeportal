@@ -3,7 +3,7 @@ import supabase from "../../config/supabaseClient";
 import useRoles from "../../auth/useRoles";
 import { Navigate } from "react-router-dom";
 import { canManageMembers } from "../../auth/roleAccess";
-import { Card, PageHeader } from "../../components/ui";
+import { Button, Card, PageHeader, Tabs } from "../../components/ui";
 
 type AccountStatus = "pending" | "active" | "suspended";
 
@@ -213,6 +213,16 @@ export default function Accounts() {
       });
   }, [users, tab, search]);
 
+  const tabItems = useMemo(
+    () =>
+      TABS.map((item) => ({
+        value: item.key,
+        label: item.label,
+        count: users.filter((user) => user.status === item.key).length,
+      })),
+    [users]
+  );
+
   function roleLabel(slug: string) {
     return rolesLookup[slug] ?? slug;
   }
@@ -317,36 +327,24 @@ export default function Accounts() {
       />
 
       <div className="accounts-toolbar">
-        <div className="accounts-tabs">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setTab(t.key)}
-              disabled={tab === t.key}
-              className={`accounts-tab${tab === t.key ? " is-active" : ""}`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <Tabs items={tabItems} value={tab} onChange={setTab} ariaLabel="Account status" />
 
         <div className="accounts-toolbar-spacer" />
 
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search name/email/id/role..."
+          placeholder="Search"
           className="accounts-search"
         />
-        <button
+        <Button
           type="button"
           onClick={loadData}
           disabled={loading || saving}
-          className="btn btn-outline-secondary"
+          variant="outline-secondary"
         >
           Refresh
-        </button>
+        </Button>
       </div>
 
       {errorMsg && <div className="accounts-alert">{errorMsg}</div>}
@@ -406,15 +404,15 @@ export default function Accounts() {
                     <td className="accounts-td">
                       {tab === "pending" && (
                         <div className="accounts-actions">
-                          <button
+                          <Button
                             type="button"
                             disabled={saving}
                             onClick={() => updateStatus(u.user_id, "active")}
-                            className="btn btn-primary btn-sm"
+                            size="sm"
                           >
                             Approve
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
                             disabled={saving}
                             onClick={() => {
@@ -423,10 +421,11 @@ export default function Accounts() {
                               }
                               updateStatus(u.user_id, "suspended");
                             }}
-                            className="btn btn-dark btn-sm"
+                            size="sm"
+                            variant="danger"
                           >
                             Deny
-                          </button>
+                          </Button>
                         </div>
                       )}
 
@@ -434,15 +433,16 @@ export default function Accounts() {
                         <div className="accounts-actions">
                           {!isEditing ? (
                             <>
-                              <button
+                              <Button
                                 type="button"
                                 disabled={saving}
                                 onClick={() => startEditing(u)}
-                                className="btn btn-outline-secondary btn-sm"
+                                variant="outline-secondary"
+                                size="sm"
                               >
                                 Edit roles
-                              </button>
-                              <button
+                              </Button>
+                              <Button
                                 type="button"
                                 disabled={saving}
                                 onClick={() => {
@@ -451,32 +451,34 @@ export default function Accounts() {
                                   }
                                   updateStatus(u.user_id, "suspended");
                                 }}
-                                className="btn btn-dark btn-sm"
+                                variant="danger"
+                                size="sm"
                               >
                                 Suspend
-                              </button>
+                              </Button>
                             </>
                           ) : (
                             <>
-                              <button
+                              <Button
                                 type="button"
                                 disabled={saving}
                                 onClick={() => saveRoles(u.user_id, draftRoleSlugs)}
-                                className="btn btn-primary btn-sm"
+                                size="sm"
                               >
                                 Save
-                              </button>
-                              <button
+                              </Button>
+                              <Button
                                 type="button"
                                 disabled={saving}
                                 onClick={() => {
                                   setEditingUserId(null);
                                   setDraftRoleSlugs([]);
                                 }}
-                                className="btn btn-outline-secondary btn-sm"
+                                variant="outline-secondary"
+                                size="sm"
                               >
                                 Cancel
-                              </button>
+                              </Button>
                             </>
                           )}
                         </div>
@@ -484,14 +486,14 @@ export default function Accounts() {
 
                       {tab === "suspended" && (
                         <div className="accounts-actions">
-                          <button
+                          <Button
                             type="button"
                             disabled={saving}
                             onClick={() => updateStatus(u.user_id, "active")}
-                            className="btn btn-primary btn-sm"
+                            size="sm"
                           >
                             Reinstate
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </td>

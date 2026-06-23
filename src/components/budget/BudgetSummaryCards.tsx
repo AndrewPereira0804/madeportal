@@ -1,5 +1,5 @@
 import { formatMoney, type BudgetSummary } from "../../lib/budget";
-import { StatCard } from "../ui";
+import { MetricCard } from "../ui";
 
 type BudgetSummaryCardsProps = {
   summary: BudgetSummary;
@@ -7,16 +7,22 @@ type BudgetSummaryCardsProps = {
 
 export default function BudgetSummaryCards({ summary }: BudgetSummaryCardsProps) {
   const items = [
-    { label: "Total allocated", value: summary.allocated },
-    { label: "Approved / reimbursed", value: summary.spent },
-    { label: "Pending", value: summary.pending },
-    { label: "Remaining", value: summary.remaining },
+    { label: "Total allocated", value: summary.allocated, tone: "default" as const },
+    { label: "Approved / reimbursed", value: summary.spent, tone: "success" as const },
+    { label: "Pending", value: summary.pending, tone: "warning" as const },
+    { label: "Remaining", value: summary.remaining, tone: summary.remaining < 0 ? "danger" as const : "gold" as const },
   ];
 
   return (
     <div className="budget-summary-grid" aria-label="Budget summary">
       {items.map((item) => (
-        <StatCard key={item.label} label={item.label} value={formatMoney(item.value)} />
+        <MetricCard
+          key={item.label}
+          label={item.label}
+          value={formatMoney(item.value)}
+          tone={item.tone}
+          detail={item.label === "Remaining" ? "after approved and pending spend" : undefined}
+        />
       ))}
     </div>
   );

@@ -6,11 +6,12 @@ import Pending from "./pages/Pending";
 import Admin from "./pages/admin/Admin";
 import NotFound from "./pages/NotFound";
 import AppLayout from "./layout/AppLayout";
+import Dashboard from "./pages/app/Dashboard";
 import Scheduling from "./pages/app/Scheduling";
 import Announcements from "./pages/app/Announcements";
 import Account from "./pages/app/Account";
 import MemberDirectory from "./pages/app/MemberDirectory";
-import { useAuth } from "./auth/authProvider";
+import { useAuth } from "./auth/authContext";
 import RequireAuth from "./auth/requireAuth";
 import { useStatus } from "./auth/useStatus";
 import Suspended from "./pages/Suspended";
@@ -64,7 +65,7 @@ export default function App() {
 
       <Route element={<RequireAuth />}>
         <Route path="/app" element={<AppLayout />}>
-          <Route index element={<Navigate to="scheduling" replace />} />
+          <Route index element={<Dashboard />} />
           <Route path="scheduling" element={<Scheduling />} />
           <Route path="events/manage" element={<ManageEvents />} />
           <Route path="directory" element={<MemberDirectory />} />

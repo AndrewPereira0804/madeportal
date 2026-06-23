@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import supabase from "../../config/supabaseClient";
-import { useAuth } from "../../auth/authProvider";
+import { useAuth } from "../../auth/authContext";
 import ProfileDetails from "./ProfileDetails";
 import ProfileEditForm from "./ProfileEditForm";
 import type { MajorRow, ProfileRow, RawMajorRow, RawProfileRow, RawUserRoleRow, RoleDetail } from "./profileTypes";
@@ -207,7 +207,7 @@ export default function MemberDirectory() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           className="form-control directory-search"
-          placeholder="Search active members..."
+          placeholder="Search"
         />
         <span className="directory-count">{filteredProfiles.length} active</span>
       </div>
