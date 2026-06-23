@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/authProvider";
 import supabase from "../../config/supabaseClient";
 import useRoles from "../../auth/useRoles";
+import { Button, Card, PageHeader } from "../../components/ui";
 
 type FormValues = {
   title: string;
@@ -156,23 +157,33 @@ export default function EditAnnouncement() {
   };
 
   return (
-    <>
-      <h1>Edit Announcement</h1>
-      {loadingAnnouncement && <p>Loading announcement...</p>}
-      {loadError && <div className="form-error mb-3">{loadError}</div>}
+    <Card>
+      <PageHeader
+        title="Edit Announcement"
+        subtitle="Update the title and body for this announcement."
+        bordered
+        actions={
+          <Button type="button" variant="outline-secondary" onClick={() => navigate("/app/announcements")}>
+            Cancel
+          </Button>
+        }
+      />
+
+      {loadingAnnouncement && <p className="mt-4 mb-0">Loading announcement...</p>}
+      {loadError && <div className="form-error mb-3 mt-4">{loadError}</div>}
       {!loadingAnnouncement && !loadError && (
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form className="mt-4" onSubmit={handleSubmit(onSubmit)}>
           <div>
             <input
               type="text"
-              className="form-control"
+              className="form-control ui-input"
               {...register("title", { required: true })}
               placeholder="Title"
             />
             {errors.title && <div className="form-error mt-1">Title is required.</div>}
 
             <textarea
-              className="form-control mt-3"
+              className="form-control ui-textarea mt-3"
               {...register("body", { required: true })}
               placeholder="Body"
               rows={5}
@@ -181,20 +192,20 @@ export default function EditAnnouncement() {
           </div>
 
           <div className="d-flex gap-2 mt-4">
-            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+            <Button type="submit" loading={isSubmitting}>
               {isSubmitting ? "Saving..." : "Save Changes"}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="btn btn-outline-secondary"
+              variant="outline-secondary"
               onClick={() => navigate("/app/announcements")}
               disabled={isSubmitting}
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       )}
-    </>
+    </Card>
   );
 }

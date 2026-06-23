@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/authProvider";
 import supabase from "../../config/supabaseClient";
+import { Button, Card, PageHeader } from "../../components/ui";
 
 type FormValues = {
   title: string;
@@ -57,20 +58,30 @@ export default function CreateAnnouncement() {
   };
 
   return (
-    <>
-      <h1>Create Announcement</h1>
-      <form onSubmit={handleSubmit(onSubmit)}>
+    <Card>
+      <PageHeader
+        title="Create Announcement"
+        subtitle="Share a chapter update or notice with members."
+        bordered
+        actions={
+          <Button type="button" variant="outline-secondary" onClick={() => navigate("/app/announcements")}>
+            Cancel
+          </Button>
+        }
+      />
+
+      <form className="mt-4" onSubmit={handleSubmit(onSubmit)}>
         <div>
           <input
             type="text"
-            className="form-control"
+            className="form-control ui-input"
             {...register("title", { required: true })}
             placeholder="Title"
           />
           {errors.title && <div className="form-error mt-1">Title is required.</div>}
 
           <textarea
-            className="form-control mt-3"
+            className="form-control ui-textarea mt-3"
             {...register("body", { required: true })}
             placeholder="Body"
             rows={5}
@@ -78,10 +89,10 @@ export default function CreateAnnouncement() {
           {errors.body && <div className="form-error mt-1">Body is required.</div>}
         </div>
 
-        <button type="submit" className="btn btn-primary mt-4" disabled={isSubmitting}>
+        <Button type="submit" className="mt-4" loading={isSubmitting}>
           Create Announcement
-        </button>
+        </Button>
       </form>
-    </>
+    </Card>
   );
 }

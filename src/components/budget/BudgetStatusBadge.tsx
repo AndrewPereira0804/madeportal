@@ -1,4 +1,5 @@
 import type { BudgetTransactionStatus } from "../../lib/budget";
+import Badge from "../ui/Badge";
 
 const statusLabels: Record<BudgetTransactionStatus, string> = {
   submitted: "Submitted",
@@ -7,6 +8,16 @@ const statusLabels: Record<BudgetTransactionStatus, string> = {
   reimbursed: "Reimbursed",
 };
 
+const statusVariants: Record<
+  BudgetTransactionStatus,
+  "warning" | "active" | "danger" | "success"
+> = {
+  submitted: "warning",
+  approved: "active",
+  denied: "danger",
+  reimbursed: "success",
+};
+
 export default function BudgetStatusBadge({ status }: { status: BudgetTransactionStatus }) {
-  return <span className={`budget-status-badge budget-status-${status}`}>{statusLabels[status]}</span>;
+  return <Badge variant={statusVariants[status]}>{statusLabels[status]}</Badge>;
 }

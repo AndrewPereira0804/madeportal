@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import supabase from "../../config/supabaseClient";
 import { useAuth } from "../../auth/authProvider";
 import useRoles from "../../auth/useRoles";
+import { Button, Card, PageHeader } from "../../components/ui";
 
 type EventRow = {
   id: string;
@@ -222,16 +223,13 @@ export default function ManageEvents() {
   }
 
   return (
-    <section className="theme-card p-4 p-md-5">
-      <div className="d-flex justify-content-between gap-2 flex-wrap align-items-start">
-        <div>
-          <h1 className="page-title">Manage Events</h1>
-          <p className="page-subtitle mt-2 mb-0">Create, edit, and delete events you are permitted to manage.</p>
-        </div>
-        <Link to="/app/scheduling" className="btn btn-outline-secondary">
-          Back to Calendar
-        </Link>
-      </div>
+    <Card>
+      <PageHeader
+        title="Manage Events"
+        subtitle="Create, edit, and delete events you are permitted to manage."
+        bordered
+        actions={<Button to="/app/scheduling" variant="outline-secondary">Back to Calendar</Button>}
+      />
 
       <form className="mt-4" onSubmit={handleSubmit}>
         <h2 className="h5">{editingId ? "Update event" : "Create event"}</h2>
@@ -348,6 +346,6 @@ export default function ManageEvents() {
           ))}
         </div>
       )}
-    </section>
+    </Card>
   );
 }

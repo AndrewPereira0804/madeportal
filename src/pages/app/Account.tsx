@@ -5,6 +5,7 @@ import ProfileDetails from "./ProfileDetails";
 import ProfileEditForm from "./ProfileEditForm";
 import type { MajorRow, ProfileRow, RawMajorRow, RawProfileRow, RawUserRoleRow, RoleDetail } from "./profileTypes";
 import { normalizeMajor, normalizeProfile, normalizeRoles, PROFILE_COLUMNS } from "./profileTypes";
+import { Button, Card, PageHeader } from "../../components/ui";
 
 export default function Account() {
   const { session } = useAuth();
@@ -90,26 +91,27 @@ export default function Account() {
 
   if (loading) {
     return (
-      <section className="theme-card p-4 p-md-5">
+      <Card>
         <div className="d-flex align-items-center gap-2">
           <div className="spinner-border spinner-border-sm text-primary" role="status" />
           <span>Loading account...</span>
         </div>
-      </section>
+      </Card>
     );
   }
 
   return (
-    <section className="theme-card account-page p-4 p-md-5">
-      <div className="d-flex justify-content-between align-items-start gap-3 flex-wrap">
-        <div>
-          <h1 className="page-title">Account</h1>
-          <p className="page-subtitle mb-0">Review your profile details and keep your basic information current.</p>
-        </div>
-        <button type="button" className="btn btn-outline-secondary" onClick={loadAccount}>
-          Refresh
-        </button>
-      </div>
+    <Card className="account-page">
+      <PageHeader
+        title="Account"
+        subtitle="Review your profile details and keep your basic information current."
+        bordered
+        actions={
+          <Button type="button" variant="outline-secondary" onClick={loadAccount}>
+            Refresh
+          </Button>
+        }
+      />
 
       {errorMessage && <div className="alert alert-danger mt-3 mb-0">{errorMessage}</div>}
       {noticeMessage && <div className="alert alert-warning mt-3 mb-0">{noticeMessage}</div>}
@@ -128,6 +130,6 @@ export default function Account() {
           />
         </div>
       )}
-    </section>
+    </Card>
   );
 }

@@ -4,6 +4,7 @@ import supabase from "../../config/supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/authProvider";
 import useRoles from "../../auth/useRoles";
+import { Button, Card, PageHeader } from "../../components/ui";
 
 type AnnouncementRow = {
     id: AnnouncementData["id"];
@@ -143,18 +144,17 @@ export default function Announcements() {
     }
 
     return (
-        <section className="theme-card announcements-page p-4 p-md-5">
-            <div className="announcements-header">
-                <h1 className="page-title">Announcements</h1>
-                <p className="page-subtitle mt-2">Latest chapter updates and notices.</p>
-                <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => navigate("create")}
-                >
-                    Create Announcement
-                </button>
-            </div>
+        <Card className="announcements-page">
+            <PageHeader
+                title="Announcements"
+                subtitle="Latest chapter updates and notices."
+                bordered
+                actions={
+                    <Button type="button" onClick={() => navigate("create")}>
+                        Create Announcement
+                    </Button>
+                }
+            />
 
             {loading && <p className="announcements-state">Loading announcements...</p>}
             {errorMessage && (
@@ -185,6 +185,6 @@ export default function Announcements() {
                     ))}
                 </div>
             )}
-        </section>
+        </Card>
     );
 }

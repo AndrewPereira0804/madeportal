@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import supabase from "../../config/supabaseClient";
 import useRoles from "../../auth/useRoles";
+import { Button, Card, PageHeader } from "../../components/ui";
 
 type CalendarWindow = {
   id: string;
@@ -256,21 +256,17 @@ export default function Scheduling() {
   const selectedDayEvents = eventsByDay.get(selectedDateKey) ?? [];
 
   return (
-    <section className="theme-card p-4 p-md-5">
-      <div className="d-flex justify-content-between align-items-start gap-3 flex-wrap">
-        <div>
-          <h1 className="page-title">Scheduling</h1>
-          <p className="page-subtitle mt-2 mb-0">
-            Chapter calendar with school schedule windows. All event times are shown in America/New_York.
-          </p>
-        </div>
-
-        {!rolesLoading && canManageEvents && (
-          <Link to="/app/events/manage" className="btn btn-primary">
-            Manage Events
-          </Link>
-        )}
-      </div>
+    <Card>
+      <PageHeader
+        title="Scheduling"
+        subtitle="Chapter calendar with school schedule windows. All event times are shown in America/New_York."
+        bordered
+        actions={
+          !rolesLoading && canManageEvents ? (
+            <Button to="/app/events/manage">Manage Events</Button>
+          ) : undefined
+        }
+      />
 
       <div className="mt-4">
         <label className="form-label" htmlFor="windowFilter">
@@ -434,6 +430,6 @@ export default function Scheduling() {
           </div>
         </>
       )}
-    </section>
+    </Card>
   );
 }

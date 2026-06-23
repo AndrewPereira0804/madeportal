@@ -9,6 +9,7 @@ type ButtonVariant =
   | "outline-secondary"
   | "outline-gold"
   | "outline-dark"
+  | "outline-light"
   | "ghost"
   | "danger";
 
@@ -29,6 +30,7 @@ const variantClass: Record<ButtonVariant, string> = {
   "outline-secondary": "btn btn-outline-secondary ui-btn",
   "outline-gold": "btn btn-outline-gold ui-btn",
   "outline-dark": "btn btn-outline-dark ui-btn",
+  "outline-light": "btn btn-outline-light ui-btn",
   ghost: "btn ui-btn ui-btn--ghost",
   danger: "btn btn-outline-danger ui-btn",
 };

@@ -1,4 +1,13 @@
 import { formatMoney, type BudgetTransaction } from "../../lib/budget";
+import {
+  EmptyState,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableRow,
+} from "../ui";
 import BudgetStatusBadge from "./BudgetStatusBadge";
 
 type BudgetTransactionTableProps = {
@@ -24,42 +33,46 @@ function formatTransactionDate(value: string | null) {
 
 export default function BudgetTransactionTable({ transactions }: BudgetTransactionTableProps) {
   if (transactions.length === 0) {
-    return <p className="budget-empty-state">No transactions are visible for this budget account.</p>;
+    return (
+      <EmptyState
+        compact
+        title="No transactions yet"
+        description="No transactions are visible for this budget account."
+      />
+    );
   }
 
   return (
-    <div className="accounts-table-wrap budget-table-wrap">
-      <table className="accounts-table budget-table">
-        <thead>
-          <tr>
-            <th className="accounts-th">Date</th>
-            <th className="accounts-th">Vendor</th>
-            <th className="accounts-th">Category</th>
-            <th className="accounts-th">Description</th>
-            <th className="accounts-th">Amount</th>
-            <th className="accounts-th">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {transactions.map((transaction) => (
-            <tr key={transaction.id}>
-              <td className="accounts-td">{formatTransactionDate(transaction.transaction_date)}</td>
-              <td className="accounts-td">{transaction.vendor ?? "No vendor"}</td>
-              <td className="accounts-td">{transaction.category ?? "Uncategorized"}</td>
-              <td className="accounts-td budget-description-cell">
-                {transaction.description ?? "No description provided."}
-                {transaction.denial_reason && (
-                  <div className="accounts-user-meta">Denial reason: {transaction.denial_reason}</div>
-                )}
-              </td>
-              <td className="accounts-td">{formatMoney(transaction.amount)}</td>
-              <td className="accounts-td">
-                <BudgetStatusBadge status={transaction.status} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Table minWidth={780} className="budget-table-wrap">
+      <TableHead>
+        <TableRow>
+          <TableHeaderCell>Date</TableHeaderCell>
+          <TableHeaderCell>Vendor</TableHeaderCell>
+          <TableHeaderCell>Category</TableHeaderCell>
+          <TableHeaderCell>Description</TableHeaderCell>
+          <TableHeaderCell>Amount</TableHeaderCell>
+          <TableHeaderCell>Status</TableHeaderCell>
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {transactions.map((transaction) => (
+          <TableRow key={transaction.id}>
+            <TableCell>{formatTransactionDate(transaction.transaction_date)}</TableCell>
+            <TableCell>{transaction.vendor ?? "No vendor"}</TableCell>
+            <TableCell>{transaction.category ?? "Uncategorized"}</TableCell>
+            <TableCell className="budget-description-cell">
+              {transaction.description ?? "No description provided."}
+              {transaction.denial_reason && (
+                <div className="budget-table-meta">Denial reason: {transaction.denial_reason}</div>
+              )}
+            </TableCell>
+            <TableCell>{formatMoney(transaction.amount)}</TableCell>
+            <TableCell>
+              <BudgetStatusBadge status={transaction.status} />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }

@@ -3,6 +3,7 @@ import supabase from "../../config/supabaseClient";
 import useRoles from "../../auth/useRoles";
 import { Navigate } from "react-router-dom";
 import { canManageMembers } from "../../auth/roleAccess";
+import { Card, PageHeader } from "../../components/ui";
 
 type AccountStatus = "pending" | "active" | "suspended";
 
@@ -308,11 +309,12 @@ export default function Accounts() {
   }
 
   return (
-    <div className="theme-card accounts-page p-4 p-md-5">
-      <h2 className="accounts-title">Manage Members</h2>
-      <p className="accounts-subtitle">
-        Approve or deny pending accounts, and manage roles for active members.
-      </p>
+    <Card className="accounts-page">
+      <PageHeader
+        title="Manage Members"
+        subtitle="Approve or deny pending accounts, and manage roles for active members."
+        bordered
+      />
 
       <div className="accounts-toolbar">
         <div className="accounts-tabs">
@@ -512,6 +514,6 @@ export default function Accounts() {
       <p className="accounts-tip">
         Tip: when you deny an account, it moves to the Suspended tab.
       </p>
-    </div>
+    </Card>
   );
 }
