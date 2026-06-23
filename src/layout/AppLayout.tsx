@@ -25,8 +25,8 @@ export default function AppLayout() {
             <NavLink to="/app/scheduling" className={linkClass}>
               Scheduling
             </NavLink>
-            <NavLink to="/app/budgets" className={linkClass}>
-              Budgets
+            <NavLink to="/budget" className={linkClass}>
+              Budget
             </NavLink>
             <NavLink to="/app/announcements" className={linkClass}>
               Announcements
