@@ -21,6 +21,7 @@ import EditAnnouncement from "./pages/app/EditAnnouncement";
 import ManageEvents from "./pages/app/ManageEvents";
 import BudgetPage from "./pages/budget/BudgetPage";
 import BudgetAccountPage from "./pages/budget/BudgetAccountPage";
+import BudgetAdminPage from "./pages/BudgetAdminPage";
 
 export default function App() {
   const { session, loading: authLoading } = useAuth();
@@ -76,6 +77,7 @@ export default function App() {
         </Route>
         <Route path="/budget" element={<AppLayout />}>
           <Route index element={<BudgetPage />} />
+          <Route path="admin" element={<BudgetAdminPage />} />
           <Route path=":accountId" element={<BudgetAccountPage />} />
         </Route>
       </Route>

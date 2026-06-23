@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { canManageBudgets } from "../../auth/roleAccess";
 import BudgetAccountTable from "../../components/budget/BudgetAccountTable";
 import BudgetSummaryCards from "../../components/budget/BudgetSummaryCards";
 import { calculateBudgetSummary, type BudgetAccount, type BudgetCycle, type BudgetTransaction } from "../../lib/budget";
 import { getActiveBudgetCycle, getBudgetAccountsForCycle, getTransactionsForAccounts } from "../../lib/budgetQueries";
+import useRoles from "../../auth/useRoles";
 
 function getCycleLabel(cycle: BudgetCycle) {
   if (cycle.name) {
@@ -17,6 +20,7 @@ function getCycleLabel(cycle: BudgetCycle) {
 }
 
 export default function BudgetPage() {
+  const { roles, loading: rolesLoading } = useRoles();
   const [cycle, setCycle] = useState<BudgetCycle | null>(null);
   const [accounts, setAccounts] = useState<BudgetAccount[]>([]);
   const [transactions, setTransactions] = useState<BudgetTransaction[]>([]);
@@ -74,6 +78,7 @@ export default function BudgetPage() {
   }, []);
 
   const summary = useMemo(() => calculateBudgetSummary(accounts, transactions), [accounts, transactions]);
+  const showBudgetAdmin = !rolesLoading && canManageBudgets(roles);
 
   return (
     <section className="theme-card budget-page p-4 p-md-5">
@@ -84,6 +89,11 @@ export default function BudgetPage() {
             {cycle ? `Active cycle: ${getCycleLabel(cycle)}` : "Read-only budget dashboard."}
           </p>
         </div>
+        {showBudgetAdmin && (
+          <Link to="/budget/admin" className="btn btn-outline-secondary">
+            Budget Admin
+          </Link>
+        )}
       </div>
 
       {loading && <p className="accounts-loading">Loading budget dashboard...</p>}
