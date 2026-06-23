@@ -498,6 +498,30 @@ h3 {
   margin-top: 1.4rem;
 }
 
+.budget-management-form {
+  margin-top: 0.9rem;
+  border: 1px solid rgba(71, 32, 114, 0.16);
+  border-radius: 0.95rem;
+  padding: 1rem;
+  background: linear-gradient(180deg, #ffffff 0%, #faf9fe 100%);
+  display: grid;
+  gap: 1rem;
+}
+
+.budget-checkbox-option {
+  align-self: end;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--gray-900);
+  font-weight: 700;
+}
+
+.budget-checkbox-option input {
+  width: auto;
+}
+
 .budget-admin-list {
   margin-top: 0.9rem;
   display: grid;
@@ -578,6 +602,15 @@ h3 {
   color: var(--gray-500);
   font-size: 0.85rem;
   font-weight: 700;
+}
+
+.budget-amount-input {
+  min-width: 120px;
+}
+
+.budget-notes-cell {
+  min-width: 220px;
+  max-width: 320px;
 }
 
 .account-page {

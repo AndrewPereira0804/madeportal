@@ -9,6 +9,7 @@ export type BudgetCycle = {
   start_date: string | null;
   end_date: string | null;
   created_at: string | null;
+  created_by: string | null;
 };
 
 export type BudgetAccount = {
@@ -43,6 +44,11 @@ export type BudgetSummary = {
   spent: number;
   pending: number;
   remaining: number;
+};
+
+export type BudgetRole = {
+  slug: string;
+  name: string;
 };
 
 const moneyFormatter = new Intl.NumberFormat("en-US", {
