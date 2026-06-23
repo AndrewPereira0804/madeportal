@@ -57,9 +57,9 @@ export default function App() {
       <Route path="/pending" element={<Pending />} />
       <Route path="/suspended" element={<Suspended />} />
       <Route path="/admin" element={<Admin />}>
-        <Route index element={<h2 className="h4 mb-0">Select an admin section</h2>} />
+        <Route index element={null} />
         <Route path="accounts" element={<Accounts />} />
-        <Route path="events" element= {<CreateEvent />} />
+        <Route path="events" element={<CreateEvent />} />
       </Route>
 
       <Route element={<RequireAuth />}>

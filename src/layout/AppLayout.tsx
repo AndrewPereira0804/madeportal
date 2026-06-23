@@ -1,7 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/authProvider";
 import useRoles from "../auth/useRoles";
-import { canManageMembers } from "../auth/roleAccess";
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `nav-link app-nav-link${isActive ? " active" : ""}`;
@@ -10,7 +9,6 @@ export default function AppLayout() {
   const { roles } = useRoles();
   const { signOut } = useAuth();
   const navigate = useNavigate();
-  const showMemberManagement = canManageMembers(roles);
 
   async function handleLogout() {
     await signOut();
@@ -34,11 +32,6 @@ export default function AppLayout() {
             <NavLink to="/app/directory" className={linkClass}>
               Directory
             </NavLink>
-            {showMemberManagement && (
-              <NavLink to="/app/members" className={linkClass}>
-                Manage Members
-              </NavLink>
-            )}
             <NavLink to="/app/account" className={linkClass}>
               Account
             </NavLink>
