@@ -7,7 +7,6 @@ import Admin from "./pages/admin/Admin";
 import NotFound from "./pages/NotFound";
 import AppLayout from "./layout/AppLayout";
 import Scheduling from "./pages/app/Scheduling";
-import Budgets from "./pages/app/Budgets";
 import Announcements from "./pages/app/Announcements";
 import Account from "./pages/app/Account";
 import MemberDirectory from "./pages/app/MemberDirectory";
@@ -20,6 +19,8 @@ import CreateEvent from "./pages/admin/CreateEvent";
 import CreateAnnouncement from "./pages/app/CreateAnnouncement";
 import EditAnnouncement from "./pages/app/EditAnnouncement";
 import ManageEvents from "./pages/app/ManageEvents";
+import BudgetPage from "./pages/budget/BudgetPage";
+import BudgetAccountPage from "./pages/budget/BudgetAccountPage";
 
 export default function App() {
   const { session, loading: authLoading } = useAuth();
@@ -67,11 +68,15 @@ export default function App() {
           <Route path="events/manage" element={<ManageEvents />} />
           <Route path="directory" element={<MemberDirectory />} />
           <Route path="members" element={<Accounts />} />
-          <Route path="budgets" element={<Budgets />} />
+          <Route path="budgets" element={<Navigate to="/budget" replace />} />
           <Route path="announcements" element={<Announcements />} />
           <Route path="announcements/create" element={<CreateAnnouncement />} />
           <Route path="announcements/:announcementId/edit" element={<EditAnnouncement />} />
           <Route path="account" element={<Account />} />
+        </Route>
+        <Route path="/budget" element={<AppLayout />}>
+          <Route index element={<BudgetPage />} />
+          <Route path=":accountId" element={<BudgetAccountPage />} />
         </Route>
       </Route>
 
