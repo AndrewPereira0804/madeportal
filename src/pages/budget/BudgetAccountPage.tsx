@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import BudgetSummaryCards from "../../components/budget/BudgetSummaryCards";
 import BudgetTransactionTable from "../../components/budget/BudgetTransactionTable";
+import SubmitExpenseForm from "../../components/budget/SubmitExpenseForm";
 import { calculateBudgetSummary, type BudgetAccount, type BudgetTransaction } from "../../lib/budget";
 import { getBudgetAccount, getTransactionsForAccount } from "../../lib/budgetQueries";
 
@@ -11,6 +12,15 @@ export default function BudgetAccountPage() {
   const [transactions, setTransactions] = useState<BudgetTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const refreshTransactions = useCallback(async () => {
+    if (!accountId) {
+      return;
+    }
+
+    const budgetTransactions = await getTransactionsForAccount(accountId);
+    setTransactions(budgetTransactions);
+  }, [accountId]);
 
   useEffect(() => {
     let ignore = false;
@@ -83,6 +93,8 @@ export default function BudgetAccountPage() {
       {!loading && !errorMessage && account && (
         <>
           <BudgetSummaryCards summary={summary} />
+
+          <SubmitExpenseForm budgetAccountId={account.id} onSubmitted={refreshTransactions} />
 
           <div className="budget-section-heading">
             <div>

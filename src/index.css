@@ -407,6 +407,24 @@ h3 {
   margin-top: 1.35rem;
 }
 
+.budget-submit-form {
+  margin-top: 1.35rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--gray-200);
+  display: grid;
+  gap: 1rem;
+}
+
+.budget-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.budget-form-full {
+  grid-column: 1 / -1;
+}
+
 .budget-alert,
 .budget-empty-state {
   margin-top: 1rem;
@@ -460,6 +478,106 @@ h3 {
   border: 1px solid rgba(37, 111, 84, 0.28);
   background: rgba(37, 111, 84, 0.1);
   color: #256f54;
+}
+
+.budget-admin-metrics {
+  margin-top: 1.2rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.budget-admin-subvalue {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--gray-700);
+  font-weight: 700;
+}
+
+.budget-admin-section {
+  margin-top: 1.4rem;
+}
+
+.budget-admin-list {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.budget-request-card {
+  border: 1px solid rgba(71, 32, 114, 0.16);
+  border-radius: 0.95rem;
+  padding: 1rem;
+  background:
+    radial-gradient(circle at 96% 0%, rgba(117, 72, 168, 0.1), transparent 34%),
+    linear-gradient(180deg, #ffffff 0%, #faf9fe 100%);
+  box-shadow: 0 10px 22px rgba(24, 24, 33, 0.08);
+}
+
+.budget-request-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.budget-request-amount {
+  color: var(--royal-900);
+  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.budget-request-account {
+  margin-top: 0.2rem;
+  color: var(--gray-700);
+  font-weight: 700;
+}
+
+.budget-request-details {
+  margin: 0.95rem 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem 1rem;
+}
+
+.budget-request-details div {
+  min-width: 0;
+}
+
+.budget-request-details dt {
+  color: var(--gray-500);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+}
+
+.budget-request-details dd {
+  margin: 0.16rem 0 0;
+  color: var(--gray-900);
+  overflow-wrap: anywhere;
+}
+
+.budget-request-description {
+  grid-column: 1 / -1;
+}
+
+.budget-request-actions {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed rgba(71, 32, 114, 0.22);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.budget-admin-saving {
+  color: var(--gray-500);
+  font-size: 0.85rem;
+  font-weight: 700;
 }
 
 .account-page {
@@ -752,6 +870,15 @@ h3 {
 
   .budget-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .budget-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .budget-admin-metrics,
+  .budget-request-details {
+    grid-template-columns: 1fr;
   }
 
   .accounts-search {

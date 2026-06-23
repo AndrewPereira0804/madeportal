@@ -3,6 +3,22 @@ import type { BudgetAccount, BudgetCycle, BudgetTransaction, BudgetTransactionSt
 
 type RawRow = Record<string, unknown>;
 
+export type SubmittedBudgetTransactionInput = {
+  budget_account_id: string;
+  submitted_by: string;
+  amount: number;
+  vendor: string | null;
+  category: string;
+  description: string;
+  transaction_date: string;
+};
+
+export type BudgetSubmitterProfile = {
+  user_id: string;
+  name: string | null;
+  email: string | null;
+};
+
 const validTransactionStatuses = new Set<BudgetTransactionStatus>([
   "submitted",
   "approved",
@@ -123,6 +139,14 @@ function normalizeBudgetTransaction(row: RawRow): BudgetTransaction {
   };
 }
 
+function normalizeSubmitterProfile(row: RawRow): BudgetSubmitterProfile {
+  return {
+    user_id: toRequiredString(row.user_id),
+    name: toStringOrNull(row.name),
+    email: toStringOrNull(row.email),
+  };
+}
+
 export async function getActiveBudgetCycle() {
   const { data, error } = await supabase.from("budget_cycles").select("*");
 
@@ -184,4 +208,126 @@ export async function getBudgetAccount(accountId: string) {
 
 export async function getTransactionsForAccount(accountId: string) {
   return getTransactionsForAccounts([accountId]);
+}
+
+export async function getBudgetTransactionsByStatus(statuses: BudgetTransactionStatus[]) {
+  if (statuses.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("budget_transactions")
+    .select(
+      "id, budget_account_id, submitted_by, amount, vendor, category, description, transaction_date, status, receipt_url, approved_by, approved_at, denial_reason, created_at"
+    )
+    .in("status", statuses)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return ((data ?? []) as RawRow[]).map(normalizeBudgetTransaction);
+}
+
+export async function getBudgetAccountsByIds(accountIds: string[]) {
+  if (accountIds.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("budget_accounts")
+    .select("id, cycle_id, role_slug, allocated_amount, notes, created_at, created_by")
+    .in("id", accountIds)
+    .order("role_slug", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return ((data ?? []) as RawRow[]).map(normalizeBudgetAccount);
+}
+
+export async function getSubmitterProfilesByIds(userIds: string[]) {
+  if (userIds.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("user_id,name,email")
+    .in("user_id", userIds);
+
+  if (error) {
+    throw error;
+  }
+
+  return ((data ?? []) as RawRow[]).map(normalizeSubmitterProfile);
+}
+
+export async function submitBudgetTransaction(input: SubmittedBudgetTransactionInput) {
+  const { error } = await supabase.from("budget_transactions").insert({
+    budget_account_id: input.budget_account_id,
+    submitted_by: input.submitted_by,
+    amount: input.amount,
+    vendor: input.vendor,
+    category: input.category,
+    description: input.description,
+    transaction_date: input.transaction_date,
+    status: "submitted",
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function updateBudgetTransactionStatus(
+  transactionId: string,
+  payload: Partial<Pick<BudgetTransaction, "status" | "approved_by" | "approved_at" | "denial_reason">>,
+  currentStatus: BudgetTransactionStatus
+) {
+  const { count, error } = await supabase
+    .from("budget_transactions")
+    .update(payload, { count: "exact" })
+    .eq("id", transactionId)
+    .eq("status", currentStatus);
+
+  if (error) {
+    throw error;
+  }
+
+  if (count === 0) {
+    throw new Error("This request was already changed or is no longer available.");
+  }
+}
+
+export async function approveBudgetTransaction(transactionId: string, approverId: string) {
+  await updateBudgetTransactionStatus(
+    transactionId,
+    {
+      status: "approved",
+      approved_by: approverId,
+      approved_at: new Date().toISOString(),
+      denial_reason: null,
+    },
+    "submitted"
+  );
+}
+
+export async function denyBudgetTransaction(transactionId: string, approverId: string, denialReason: string) {
+  await updateBudgetTransactionStatus(
+    transactionId,
+    {
+      status: "denied",
+      denial_reason: denialReason,
+      approved_by: approverId,
+      approved_at: new Date().toISOString(),
+    },
+    "submitted"
+  );
+}
+
+export async function markBudgetTransactionReimbursed(transactionId: string) {
+  await updateBudgetTransactionStatus(transactionId, { status: "reimbursed" }, "approved");
 }
