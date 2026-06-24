@@ -1749,6 +1749,16 @@ button:disabled {
   padding: 0.45rem 0.75rem;
 }
 
+.directory-filter {
+  width: min(100%, 240px);
+  min-height: 2.6rem;
+  font-weight: 650;
+}
+
+.directory-filter-status {
+  width: min(100%, 190px);
+}
+
 .accounts-search:focus,
 .directory-search:focus {
   outline: 0;
@@ -2603,6 +2613,12 @@ button:disabled {
     padding-bottom: 1rem;
     border-right: 0;
     border-bottom: 1px solid rgba(43, 32, 20, 0.1);
+  }
+
+  .directory-search,
+  .directory-filter,
+  .directory-filter-status {
+    width: 100%;
   }
 
   .budget-form-grid,

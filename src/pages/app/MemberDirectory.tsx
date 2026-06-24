@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { getChapterStatus, type ChapterStatus } from "../../auth/roleAccess";
 import supabase from "../../config/supabaseClient";
 import { useAuth } from "../../auth/authContext";
 import ProfileDetails from "./ProfileDetails";
@@ -17,6 +18,16 @@ import { Button, Card, PageHeader } from "../../components/ui";
 type DirectoryRoleRow = RawUserRoleRow & {
   user_id?: unknown;
 };
+
+type ChapterFilter = "all" | ChapterStatus;
+type MajorFilter = "all" | "none" | string;
+
+const chapterFilterOptions: { value: ChapterFilter; label: string }[] = [
+  { value: "all", label: "All member types" },
+  { value: "brother", label: "Brother" },
+  { value: "neophyte", label: "Neophyte" },
+  { value: "alumni", label: "Alumni" },
+];
 
 function normalizeDirectoryRoles(rows: DirectoryRoleRow[]) {
   const rolesByUser: Record<string, RoleDetail[]> = {};
@@ -52,6 +63,8 @@ export default function MemberDirectory() {
   const [rolesByUser, setRolesByUser] = useState<Record<string, RoleDetail[]>>({});
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [majorFilter, setMajorFilter] = useState<MajorFilter>("all");
+  const [chapterFilter, setChapterFilter] = useState<ChapterFilter>("all");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
@@ -63,6 +76,8 @@ export default function MemberDirectory() {
     }
     return lookup;
   }, [majors]);
+
+  const hasProfilesWithoutMajor = useMemo(() => profiles.some((profile) => profile.major === null), [profiles]);
 
   const loadDirectory = useCallback(async () => {
     setLoading(true);
@@ -153,13 +168,29 @@ export default function MemberDirectory() {
 
   const filteredProfiles = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) {
-      return profiles;
-    }
 
     return profiles.filter((profile) => {
       const majorName = profile.major === null ? "" : majorById.get(profile.major)?.major ?? "";
-      const roleNames = (rolesByUser[profile.user_id] ?? []).map((role) => role.name ?? role.slug);
+      const memberRoles = rolesByUser[profile.user_id] ?? [];
+      const roleSlugs = memberRoles.map((role) => role.slug);
+      const chapterStatus = getChapterStatus(roleSlugs);
+
+      if (majorFilter !== "all") {
+        const profileMajorValue = profile.major === null ? "none" : String(profile.major);
+        if (profileMajorValue !== majorFilter) {
+          return false;
+        }
+      }
+
+      if (chapterFilter !== "all" && chapterStatus !== chapterFilter) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      const roleNames = memberRoles.map((role) => role.name ?? role.slug);
       const haystack = [
         profile.name ?? "",
         profile.email ?? "",
@@ -174,11 +205,26 @@ export default function MemberDirectory() {
 
       return haystack.includes(query);
     });
-  }, [majorById, profiles, rolesByUser, search]);
+  }, [chapterFilter, majorById, majorFilter, profiles, rolesByUser, search]);
 
-  const selectedProfile = profiles.find((profile) => profile.user_id === selectedUserId) ?? null;
+  const effectiveSelectedUserId = useMemo(() => {
+    if (selectedUserId && filteredProfiles.some((profile) => profile.user_id === selectedUserId)) {
+      return selectedUserId;
+    }
+
+    return filteredProfiles.find((profile) => profile.user_id === userId)?.user_id ?? filteredProfiles[0]?.user_id ?? null;
+  }, [filteredProfiles, selectedUserId, userId]);
+
+  const selectedProfile = effectiveSelectedUserId
+    ? filteredProfiles.find((profile) => profile.user_id === effectiveSelectedUserId) ?? null
+    : null;
   const selectedRoles = selectedProfile ? rolesByUser[selectedProfile.user_id] ?? [] : [];
   const isSelectedOwnProfile = selectedProfile?.user_id === userId;
+  const hasActiveFilters = search.trim() !== "" || majorFilter !== "all" || chapterFilter !== "all";
+  const activeCountLabel =
+    filteredProfiles.length === profiles.length
+      ? `${filteredProfiles.length} active`
+      : `${filteredProfiles.length} of ${profiles.length} active`;
 
   function handleProfileSaved(updatedProfile: ProfileRow) {
     setProfiles((current) =>
@@ -187,6 +233,12 @@ export default function MemberDirectory() {
         .filter((profile) => profile.status === "active")
         .sort((a, b) => profileSortValue(a).localeCompare(profileSortValue(b)))
     );
+  }
+
+  function handleClearFilters() {
+    setSearch("");
+    setMajorFilter("all");
+    setChapterFilter("all");
   }
 
   return (
@@ -209,7 +261,40 @@ export default function MemberDirectory() {
           className="form-control directory-search"
           placeholder="Search"
         />
-        <span className="directory-count">{filteredProfiles.length} active</span>
+        <select
+          id="directory-major-filter"
+          className="form-select directory-filter"
+          value={majorFilter}
+          onChange={(event) => setMajorFilter(event.target.value)}
+          aria-label="Filter by major"
+        >
+          <option value="all">All majors</option>
+          {hasProfilesWithoutMajor && <option value="none">No major listed</option>}
+          {majors.map((major) => (
+            <option key={major.id} value={major.id}>
+              {major.major}
+            </option>
+          ))}
+        </select>
+        <select
+          id="directory-chapter-filter"
+          className="form-select directory-filter directory-filter-status"
+          value={chapterFilter}
+          onChange={(event) => setChapterFilter(event.target.value as ChapterFilter)}
+          aria-label="Filter by member type"
+        >
+          {chapterFilterOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {hasActiveFilters && (
+          <Button type="button" variant="ghost" size="sm" onClick={handleClearFilters}>
+            Clear
+          </Button>
+        )}
+        <span className="directory-count">{activeCountLabel}</span>
       </div>
 
       {errorMessage && <div className="alert alert-danger mt-3 mb-0">{errorMessage}</div>}
@@ -221,7 +306,7 @@ export default function MemberDirectory() {
         <div className="directory-layout mt-4">
           <div className="directory-list" aria-label="Active members">
             {filteredProfiles.map((profile) => {
-              const isSelected = profile.user_id === selectedUserId;
+              const isSelected = profile.user_id === effectiveSelectedUserId;
               const memberRoles = rolesByUser[profile.user_id] ?? [];
 
               return (
