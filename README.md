@@ -38,6 +38,8 @@ Role slugs:
 - `admin` is used for admin access checks
 - `ea` and `eda` are used with `admin` for chapter/member-management access
 - `treasurer` is additive for budget administration
+- Budget navigation is shown to budget managers or users whose roles are listed as budget-account-capable in `src/auth/roleAccess.ts`.
+- Budget-account-capable roles are currently a frontend helper list; replace this with an admin-managed source if role budget eligibility needs to change without code edits.
 
 ## Supabase Relationship & RLS Working Notes (current snapshot, **not final**)
 

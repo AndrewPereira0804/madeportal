@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
+import {
+  canAccessBudgetAccount,
+  canAccessBudgets,
+  canManageBudgets,
+} from "../../auth/roleAccess";
+import useRoles from "../../auth/useRoles";
 import BudgetSummaryCards from "../../components/budget/BudgetSummaryCards";
 import BudgetTransactionTable from "../../components/budget/BudgetTransactionTable";
 import SubmitExpenseForm from "../../components/budget/SubmitExpenseForm";
@@ -9,6 +15,7 @@ import { getBudgetAccount, getTransactionsForAccount } from "../../lib/budgetQue
 
 export default function BudgetAccountPage() {
   const { accountId } = useParams<{ accountId: string }>();
+  const { roles, loading: rolesLoading } = useRoles();
   const [account, setAccount] = useState<BudgetAccount | null>(null);
   const [transactions, setTransactions] = useState<BudgetTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +45,10 @@ export default function BudgetAccountPage() {
 
       try {
         const budgetAccount = await getBudgetAccount(accountId);
-        const budgetTransactions = budgetAccount ? await getTransactionsForAccount(budgetAccount.id) : [];
+        const canViewAccount =
+          budgetAccount &&
+          (canManageBudgets(roles) || canAccessBudgetAccount(roles, budgetAccount.role_slug));
+        const budgetTransactions = canViewAccount ? await getTransactionsForAccount(budgetAccount.id) : [];
 
         if (!ignore) {
           setAccount(budgetAccount);
@@ -58,17 +68,38 @@ export default function BudgetAccountPage() {
       }
     }
 
+    if (rolesLoading || !canAccessBudgets(roles)) {
+      if (!rolesLoading) {
+        setLoading(false);
+      }
+      return;
+    }
+
     void loadBudgetAccount();
 
     return () => {
       ignore = true;
     };
-  }, [accountId]);
+  }, [accountId, roles, rolesLoading]);
 
   const summary = useMemo(
     () => calculateBudgetSummary(account ? [account] : [], transactions),
     [account, transactions]
   );
+  const hasBudgetAdminAccess = canManageBudgets(roles);
+
+  if (!rolesLoading && !canAccessBudgets(roles)) {
+    return <Navigate to="/app" replace />;
+  }
+
+  if (
+    !loading &&
+    account &&
+    !hasBudgetAdminAccess &&
+    !canAccessBudgetAccount(roles, account.role_slug)
+  ) {
+    return <Navigate to="/app/budget" replace />;
+  }
 
   return (
     <Card className="budget-page">
@@ -80,7 +111,7 @@ export default function BudgetAccountPage() {
         actions={<Button to="/app/budget" variant="outline-secondary">Back to Budget</Button>}
       />
 
-      {loading && (
+      {(loading || rolesLoading) && (
         <div className="budget-loading">
           <div className="spinner-border spinner-border-sm text-primary" role="status" />
           <span>Loading budget account...</span>

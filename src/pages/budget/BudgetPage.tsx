@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { canManageBudgets } from "../../auth/roleAccess";
+import { Navigate } from "react-router-dom";
+import {
+  canAccessBudgetAccount,
+  canAccessBudgets,
+  canManageBudgets,
+} from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
 import BudgetAccountTable from "../../components/budget/BudgetAccountTable";
 import BudgetSummaryCards from "../../components/budget/BudgetSummaryCards";
@@ -20,7 +25,7 @@ function getCycleLabel(cycle: BudgetCycle) {
 }
 
 export default function BudgetPage() {
-  const { roles } = useRoles();
+  const { roles, loading: rolesLoading } = useRoles();
   const [cycle, setCycle] = useState<BudgetCycle | null>(null);
   const [accounts, setAccounts] = useState<BudgetAccount[]>([]);
   const [transactions, setTransactions] = useState<BudgetTransaction[]>([]);
@@ -46,13 +51,16 @@ export default function BudgetPage() {
         }
 
         const budgetAccounts = await getBudgetAccountsForCycle(activeCycle.id);
+        const accountsAvailableToUser = canManageBudgets(roles)
+          ? budgetAccounts
+          : budgetAccounts.filter((account) => canAccessBudgetAccount(roles, account.role_slug));
         const budgetTransactions = await getTransactionsForAccounts(
-          budgetAccounts.map((account) => account.id)
+          accountsAvailableToUser.map((account) => account.id)
         );
 
         if (!ignore) {
           setCycle(activeCycle);
-          setAccounts(budgetAccounts);
+          setAccounts(accountsAvailableToUser);
           setTransactions(budgetTransactions);
         }
       } catch (error) {
@@ -70,15 +78,44 @@ export default function BudgetPage() {
       }
     }
 
+    if (rolesLoading || !canAccessBudgets(roles)) {
+      if (!rolesLoading) {
+        setLoading(false);
+      }
+      return;
+    }
+
     void loadBudget();
 
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [roles, rolesLoading]);
 
-  const summary = useMemo(() => calculateBudgetSummary(accounts, transactions), [accounts, transactions]);
   const hasBudgetAdminAccess = canManageBudgets(roles);
+  const visibleAccounts = useMemo(
+    () =>
+      hasBudgetAdminAccess
+        ? accounts
+        : accounts.filter((account) => canAccessBudgetAccount(roles, account.role_slug)),
+    [accounts, hasBudgetAdminAccess, roles]
+  );
+  const visibleAccountIds = useMemo(
+    () => new Set(visibleAccounts.map((account) => account.id)),
+    [visibleAccounts]
+  );
+  const visibleTransactions = useMemo(
+    () => transactions.filter((transaction) => visibleAccountIds.has(transaction.budget_account_id)),
+    [transactions, visibleAccountIds]
+  );
+  const summary = useMemo(
+    () => calculateBudgetSummary(visibleAccounts, visibleTransactions),
+    [visibleAccounts, visibleTransactions]
+  );
+
+  if (!rolesLoading && !canAccessBudgets(roles)) {
+    return <Navigate to="/app" replace />;
+  }
 
   return (
     <Card className="budget-page">
@@ -96,7 +133,7 @@ export default function BudgetPage() {
         }
       />
 
-      {loading && (
+      {(loading || rolesLoading) && (
         <div className="budget-loading">
           <div className="spinner-border spinner-border-sm text-primary" role="status" />
           <span>Loading budget dashboard...</span>
@@ -108,7 +145,7 @@ export default function BudgetPage() {
       {!loading && !errorMessage && !cycle && (
         <EmptyState
           title="No active budget cycle"
-          description="No active budget cycle is available right now."
+          description="Contact the Treasurer to confirm when budgets will be available."
         />
       )}
 
@@ -118,17 +155,17 @@ export default function BudgetPage() {
 
           <SectionHeader
             title="Budget accounts"
-            description={`Showing ${accounts.length} account${accounts.length === 1 ? "" : "s"} available to you.`}
+            description={`Showing ${visibleAccounts.length} account${visibleAccounts.length === 1 ? "" : "s"} available to you.`}
           />
 
-          {accounts.length === 0 ? (
+          {visibleAccounts.length === 0 ? (
             <EmptyState
               compact
-              title="No accounts visible"
-              description="No budget accounts are visible for this cycle."
+              title="No budget account assigned"
+              description="Your budget role does not have an account in this cycle. Contact the Treasurer to confirm your allocation."
             />
           ) : (
-            <BudgetAccountTable accounts={accounts} transactions={transactions} />
+            <BudgetAccountTable accounts={visibleAccounts} transactions={visibleTransactions} />
           )}
         </>
       )}

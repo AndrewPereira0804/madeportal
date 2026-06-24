@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import supabase from "../../config/supabaseClient";
-import { canViewEvent } from "../../auth/roleAccess";
+import { canAccessBudgets, canViewEvent } from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
 import {
   ActionCard,
@@ -112,6 +112,7 @@ export default function Dashboard() {
   }, [events, roles]);
 
   const roleSummary = roles.length > 0 ? roles.slice(0, 3).join(", ") : "member";
+  const hasBudgetAccess = canAccessBudgets(roles);
 
   return (
     <div className="dashboard-page">
@@ -206,13 +207,15 @@ export default function Dashboard() {
       </div>
 
       <div className="action-card-grid" aria-label="Quick actions">
-        <ActionCard
-          to="/app/budget"
-          eyebrow="Finance"
-          title="Review budget position"
-          description="View balances and expenses."
-          meta="Budget"
-        />
+        {hasBudgetAccess && (
+          <ActionCard
+            to="/app/budget"
+            eyebrow="Finance"
+            title="Review budget position"
+            description="View balances and expenses."
+            meta="Budget"
+          />
+        )}
         <ActionCard
           to="/app/scheduling"
           eyebrow="Scheduling"

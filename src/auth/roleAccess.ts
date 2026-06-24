@@ -30,12 +30,30 @@ const budgetManagerRoleSlugs = new Set([
   "treasurer",
 ]);
 
+const budgetAccountRoleSlugs = new Set([
+  "social-chair",
+  "rush-chair",
+  "cs-chair",
+  "community-service-chair",
+  "philo-chair",
+  "philanthropy-chair",
+  "scholarship",
+  "membered",
+  "member-educator",
+  "preceptor",
+  "hm",
+  "house-manager",
+  "hsm",
+  "health-safety-manager",
+  "stew",
+  "steward",
+  "treasurer",
+]);
+
 const fullEventManagerRoleSlugs = memberManagerRoleSlugs;
 
 const chairRoleSlugs = new Set([
   "social-chair",
-  "recruitment-chair",
-  "recruitment",
   "rush-chair",
   "cs-chair",
   "community-service-chair",
@@ -149,6 +167,24 @@ export function canManageMembers(roles: string[]) {
 export function canManageBudgets(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
   return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, budgetManagerRoleSlugs);
+}
+
+export function getBudgetAccountRoleSlugs(roles: string[]) {
+  const roleSet = normalizeRoleSet(roles);
+  return [...budgetAccountRoleSlugs].filter((roleSlug) => roleSet.has(roleSlug));
+}
+
+export function canAccessBudgets(roles: string[]) {
+  return canManageBudgets(roles) || getBudgetAccountRoleSlugs(roles).length > 0;
+}
+
+export function canAccessBudgetAccount(roles: string[], accountRoleSlug: string) {
+  if (canManageBudgets(roles)) {
+    return true;
+  }
+
+  const roleSet = normalizeRoleSet(roles);
+  return budgetAccountRoleSlugs.has(normalizeRoleSlug(accountRoleSlug)) && roleSet.has(normalizeRoleSlug(accountRoleSlug));
 }
 
 export function canManageAllEvents(roles: string[]) {
