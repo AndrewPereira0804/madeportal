@@ -121,8 +121,8 @@ export default function Dashboard() {
     <div className="dashboard-page">
       <Card className="dashboard-hero" padding="lg">
         <PageHeader
-          eyebrow="Dashboard"
-          title="Portal"
+          eyebrow="MASS DELTA"
+          title="Dashboard"
           subtitle="Announcements, events, budgets, and member tools."
           actions={<Button to="/app/announcements/create">Post update</Button>}
         />
@@ -218,10 +218,10 @@ export default function Dashboard() {
           meta="Budget"
         />
         <ActionCard
-          to="/app/events/manage"
+          to="/app/scheduling"
           eyebrow="Scheduling"
-          title="Manage calendar operations"
-          description="Create or update events."
+          title="Calendar"
+          description="View upcoming events."
           meta="Events"
         />
         <ActionCard

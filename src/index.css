@@ -305,6 +305,175 @@ textarea {
   color: var(--gold) !important;
 }
 
+/* App splash */
+
+.app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(207, 181, 59, 0.18), transparent 38%),
+    linear-gradient(145deg, rgba(67, 20, 100, 0.98) 0%, rgba(34, 0, 47, 1) 54%, rgba(20, 6, 28, 1) 100%);
+  animation: app-splash-exit 2.35s cubic-bezier(0.22, 0.8, 0.2, 1) both;
+}
+
+.app-splash::before,
+.app-splash::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.app-splash::before {
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 82px 82px;
+  mask-image: radial-gradient(circle at center, black, transparent 68%);
+  opacity: 0.38;
+}
+
+.app-splash::after {
+  width: min(72vmin, 680px);
+  height: min(72vmin, 680px);
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(207, 181, 59, 0.28), rgba(207, 181, 59, 0.08) 42%, transparent 70%);
+  filter: blur(10px);
+  animation: app-splash-glow 2.35s ease both;
+}
+
+.app-splash__stage {
+  position: relative;
+  z-index: 1;
+  width: min(96vmin, 920px);
+  aspect-ratio: 1;
+  animation: app-splash-stage 2.35s cubic-bezier(0.22, 0.8, 0.2, 1) both;
+}
+
+.app-splash__stage::before {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.28), transparent 64%);
+  filter: blur(22px);
+  transform: translateY(8%);
+}
+
+.app-splash__piece {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  object-fit: contain;
+  will-change: opacity, transform;
+  user-select: none;
+}
+
+.app-splash__piece--shield {
+  z-index: 3;
+  animation: app-splash-shield 2.35s cubic-bezier(0.22, 0.8, 0.2, 1) both;
+}
+
+.app-splash__piece--phoenix {
+  z-index: 2;
+  animation: app-splash-phoenix 2.35s cubic-bezier(0.22, 0.8, 0.2, 1) both;
+}
+
+@keyframes app-splash-exit {
+  0%,
+  86% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes app-splash-glow {
+  0% {
+    opacity: 0;
+    transform: scale(0.62);
+  }
+
+  56% {
+    opacity: 0;
+    transform: scale(0.78);
+  }
+
+  76%,
+  88% {
+    opacity: 0.95;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+
+@keyframes app-splash-stage {
+  0% {
+    transform: scale(0.94);
+  }
+
+  76% {
+    transform: scale(1);
+  }
+
+  100% {
+    transform: scale(1.045);
+  }
+}
+
+@keyframes app-splash-phoenix {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 7%, 0) scale(0.96);
+  }
+
+  12% {
+    opacity: 0;
+    transform: translate3d(0, 7%, 0) scale(0.96);
+  }
+
+  34% {
+    opacity: 1;
+  }
+
+  58%,
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes app-splash-shield {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -20%, 0) scale(0.96);
+  }
+
+  42% {
+    opacity: 0;
+    transform: translate3d(0, -20%, 0) scale(0.96);
+  }
+
+  68%,
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
 /* Public and auth surfaces */
 
 .theme-shell {
@@ -474,13 +643,16 @@ textarea {
 }
 
 .app-shell__brand-mark--crest {
-  width: 3.1rem;
-  height: 3.1rem;
-  padding: 0.18rem;
-  border-color: rgba(207, 181, 59, 0.58);
+  width: 3.55rem;
+  height: 3.55rem;
+  padding: 0.08rem;
+  border-color: rgba(207, 181, 59, 0.78);
   background:
-    linear-gradient(180deg, rgba(255, 250, 242, 0.98), rgba(238, 231, 218, 0.88)),
-    rgba(255, 250, 242, 0.9);
+    linear-gradient(180deg, rgba(255, 250, 242, 1), rgba(244, 233, 211, 0.96)),
+    rgba(255, 250, 242, 0.98);
+  box-shadow:
+    0 0 0 1px rgba(255, 250, 242, 0.08),
+    0 10px 24px rgba(0, 0, 0, 0.24);
 }
 
 .app-shell__brand-mark--crest::before,
@@ -489,11 +661,19 @@ textarea {
 }
 
 .app-shell__brand-crest {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 108%;
+  height: 108%;
   object-fit: contain;
-  filter: drop-shadow(0 1px 1px rgba(34, 0, 47, 0.2));
+  object-position: bottom -2px right 0px;
+  transform: translate(-50%, -50%);
+  filter:
+    saturate(1.12)
+    contrast(1.08)
+    drop-shadow(0 1px 1px rgba(34, 0, 47, 0.22));
 }
 
 .app-shell__brand-copy {
@@ -2334,6 +2514,12 @@ button:disabled {
     font-weight: 850;
   }
 
+  .app-shell__mobile-brand .app-shell__brand-mark--crest {
+    width: 2.85rem;
+    height: 2.85rem;
+    padding: 0.06rem;
+  }
+
   .app-shell__menu-button {
     border: 1px solid rgba(255, 250, 242, 0.18);
     border-radius: var(--radius-sm);
@@ -2494,5 +2680,25 @@ button:disabled {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-splash,
+  .app-splash::after,
+  .app-splash__stage,
+  .app-splash__piece {
+    animation: none !important;
+  }
+
+  .app-splash {
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  .app-splash__stage,
+  .app-splash__piece {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }

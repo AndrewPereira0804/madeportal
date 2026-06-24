@@ -4,6 +4,8 @@ export type { PageShellProps } from "./PageShell";
 export { default as AppShell } from "./AppShell";
 export type { AppShellNavItem, AppShellProps } from "./AppShell";
 
+export { default as SplashScreen } from "./SplashScreen";
+
 export { default as PageHeader } from "./PageHeader";
 export type { PageHeaderProps } from "./PageHeader";
 

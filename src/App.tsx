@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
@@ -23,11 +24,27 @@ import ManageEvents from "./pages/app/ManageEvents";
 import BudgetPage from "./pages/budget/BudgetPage";
 import BudgetAccountPage from "./pages/budget/BudgetAccountPage";
 import BudgetAdminPage from "./pages/BudgetAdminPage";
+import SplashScreen from "./components/ui/SplashScreen";
 
 export default function App() {
+  const [splashComplete, setSplashComplete] = useState(false);
   const { session, loading: authLoading } = useAuth();
   const { status, loading: statusLoading } = useStatus();
   const location = useLocation();
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSplashComplete(true);
+    }, 2400);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  if (!splashComplete) {
+    return <SplashScreen />;
+  }
 
   if (authLoading || statusLoading) {
     return (
