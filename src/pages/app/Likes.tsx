@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import supabase from "../../config/supabaseClient";
-import { useAuth } from "../../auth/authProvider";
+import { useAuth } from "../../auth/authContext";
 
 type LikesProps = {
     announcementId: number | string;

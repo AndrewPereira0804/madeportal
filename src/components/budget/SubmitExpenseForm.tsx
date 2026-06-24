@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { useAuth } from "../../auth/authProvider";
+import { useAuth } from "../../auth/authContext";
 import { submitBudgetTransaction } from "../../lib/budgetQueries";
+import { Button, Card, Input, SectionHeader, Select, Textarea } from "../ui";
 
 const categories = [
   "Food",
@@ -121,23 +122,21 @@ export default function SubmitExpenseForm({ budgetAccountId, onSubmitted }: Subm
   }
 
   return (
-    <form className="budget-submit-form" onSubmit={handleSubmit}>
-      <div>
-        <h2 className="h4 mb-1">Submit expense</h2>
-        <p className="text-body-secondary mb-0">Expenses are submitted for review before they count as approved.</p>
-      </div>
+    <Card variant="flat" padding="md" className="budget-submit-surface">
+      <form className="budget-submit-form" onSubmit={handleSubmit}>
+        <SectionHeader
+          size="sm"
+          title="Submit expense"
+          description="Expenses are submitted for review before they count as approved."
+        />
 
-      {errorMessage && <div className="alert alert-danger mb-0">{errorMessage}</div>}
-      {successMessage && <div className="alert alert-success mb-0">{successMessage}</div>}
+        {errorMessage && <div className="alert alert-danger mb-0">{errorMessage}</div>}
+        {successMessage && <div className="alert alert-success mb-0">{successMessage}</div>}
 
-      <div className="budget-form-grid">
-        <div>
-          <label className="form-label" htmlFor="expenseAmount">
-            Amount
-          </label>
-          <input
+        <div className="budget-form-grid">
+          <Input
             id="expenseAmount"
-            className="form-control"
+            label="Amount"
             type="number"
             min="0"
             step="0.01"
@@ -146,42 +145,27 @@ export default function SubmitExpenseForm({ budgetAccountId, onSubmitted }: Subm
             onChange={(event) => setDraft((current) => ({ ...current, amount: event.target.value }))}
             disabled={saving}
           />
-        </div>
 
-        <div>
-          <label className="form-label" htmlFor="expenseDate">
-            Transaction date
-          </label>
-          <input
+          <Input
             id="expenseDate"
-            className="form-control"
+            label="Transaction date"
             type="date"
             value={draft.transactionDate}
             onChange={(event) => setDraft((current) => ({ ...current, transactionDate: event.target.value }))}
             disabled={saving}
           />
-        </div>
 
-        <div>
-          <label className="form-label" htmlFor="expenseVendor">
-            Vendor
-          </label>
-          <input
+          <Input
             id="expenseVendor"
-            className="form-control"
+            label="Vendor"
             value={draft.vendor}
             onChange={(event) => setDraft((current) => ({ ...current, vendor: event.target.value }))}
             disabled={saving}
           />
-        </div>
 
-        <div>
-          <label className="form-label" htmlFor="expenseCategory">
-            Category
-          </label>
-          <select
+          <Select
             id="expenseCategory"
-            className="form-select"
+            label="Category"
             value={draft.category}
             onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))}
             disabled={saving}
@@ -192,29 +176,23 @@ export default function SubmitExpenseForm({ budgetAccountId, onSubmitted }: Subm
                 {category}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
 
-        <div className="budget-form-full">
-          <label className="form-label" htmlFor="expenseDescription">
-            Description
-          </label>
-          <textarea
+          <Textarea
             id="expenseDescription"
-            className="form-control"
+            label="Description"
+            className="budget-form-full"
             rows={3}
             value={draft.description}
             onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
             disabled={saving}
           />
         </div>
-      </div>
 
-      <div>
-        <button type="submit" className="btn btn-primary" disabled={saving}>
+        <Button type="submit" loading={saving}>
           {saving ? "Submitting..." : "Submit expense"}
-        </button>
-      </div>
-    </form>
+        </Button>
+      </form>
+    </Card>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Likes from "./Likes";
 import supabase from "../../config/supabaseClient";
 import { useNavigate } from "react-router-dom";
+import { Badge, Button } from "../../components/ui";
 
 export type AnnouncementData = {
     id: number | string;
@@ -34,7 +35,7 @@ async function getAuthorName(authorId: string | null): Promise<string> {
         .single();
 
     if (error) {
-        console.log("Error fetching author name:", error);
+        console.error("Error fetching author name:", error);
         return "Unknown";
     }
 
@@ -80,7 +81,7 @@ export default function Announcement({
         <article className="announcement-card">
             <div className="announcement-card-top">
                 <h2 className="announcement-title">{title}</h2>
-                <span className="announcement-visibility">{visibility}</span>
+                <Badge variant="info">{visibility}</Badge>
             </div>
 
             <p className="announcement-content">{body}</p>
@@ -99,27 +100,29 @@ export default function Announcement({
                 {showActions && (
                     <>
                         {canDelete && (
-                            <button
+                            <Button
                                 type="button"
-                                className="delete-button"
+                                variant="danger"
+                                size="sm"
                                 onClick={() => {
                                     void onDelete(id);
                                 }}
                                 disabled={isDeleting}
                             >
                                 {isDeleting ? "Deleting..." : "Delete"}
-                            </button>
+                            </Button>
                         )}
                         {canEdit && (
-                            <button
+                            <Button
                                 type="button"
-                                className="edit-button"
+                                variant="outline-secondary"
+                                size="sm"
                                 onClick={() => {
                                     navigate(`/app/announcements/${id}/edit`);
                                 }}
                             >
                                 Edit
-                            </button>
+                            </Button>
                         )}
                     </>
                 )}

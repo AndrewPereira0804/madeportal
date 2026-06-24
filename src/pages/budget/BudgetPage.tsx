@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { canManageBudgets } from "../../auth/roleAccess";
+import useRoles from "../../auth/useRoles";
 import BudgetAccountTable from "../../components/budget/BudgetAccountTable";
 import BudgetSummaryCards from "../../components/budget/BudgetSummaryCards";
+import { Button, Card, EmptyState, PageHeader, SectionHeader } from "../../components/ui";
 import { calculateBudgetSummary, type BudgetAccount, type BudgetCycle, type BudgetTransaction } from "../../lib/budget";
 import { getActiveBudgetCycle, getBudgetAccountsForCycle, getTransactionsForAccounts } from "../../lib/budgetQueries";
 
@@ -17,6 +20,7 @@ function getCycleLabel(cycle: BudgetCycle) {
 }
 
 export default function BudgetPage() {
+  const { roles } = useRoles();
   const [cycle, setCycle] = useState<BudgetCycle | null>(null);
   const [accounts, setAccounts] = useState<BudgetAccount[]>([]);
   const [transactions, setTransactions] = useState<BudgetTransaction[]>([]);
@@ -74,45 +78,60 @@ export default function BudgetPage() {
   }, []);
 
   const summary = useMemo(() => calculateBudgetSummary(accounts, transactions), [accounts, transactions]);
+  const hasBudgetAdminAccess = canManageBudgets(roles);
 
   return (
-    <section className="theme-card budget-page p-4 p-md-5">
-      <div className="budget-page-header">
-        <div>
-          <h1 className="page-title">Budget</h1>
-          <p className="page-subtitle mb-0">
-            {cycle ? `Active cycle: ${getCycleLabel(cycle)}` : "Read-only budget dashboard."}
-          </p>
-        </div>
-      </div>
+    <Card className="budget-page">
+      <PageHeader
+        eyebrow="Massachusetts Delta finance"
+        title="Budget"
+        subtitle={cycle ? `Active cycle: ${getCycleLabel(cycle)}` : "Read-only budget dashboard."}
+        bordered
+        actions={
+          hasBudgetAdminAccess ? (
+            <Button to="/app/budget/admin" variant="outline-secondary">
+              Budget Admin
+            </Button>
+          ) : undefined
+        }
+      />
 
-      {loading && <p className="accounts-loading">Loading budget dashboard...</p>}
+      {loading && (
+        <div className="budget-loading">
+          <div className="spinner-border spinner-border-sm text-primary" role="status" />
+          <span>Loading budget dashboard...</span>
+        </div>
+      )}
+
       {errorMessage && <div className="accounts-alert budget-alert">{errorMessage}</div>}
 
       {!loading && !errorMessage && !cycle && (
-        <p className="budget-empty-state">No active budget cycle is available.</p>
+        <EmptyState
+          title="No active budget cycle"
+          description="No active budget cycle is available right now."
+        />
       )}
 
       {!loading && !errorMessage && cycle && (
         <>
           <BudgetSummaryCards summary={summary} />
 
-          <div className="budget-section-heading">
-            <div>
-              <h2 className="h4 mb-1">Budget accounts</h2>
-              <p className="text-body-secondary mb-0">
-                Showing {accounts.length} account{accounts.length === 1 ? "" : "s"} available to you.
-              </p>
-            </div>
-          </div>
+          <SectionHeader
+            title="Budget accounts"
+            description={`Showing ${accounts.length} account${accounts.length === 1 ? "" : "s"} available to you.`}
+          />
 
           {accounts.length === 0 ? (
-            <p className="budget-empty-state">No budget accounts are visible for this cycle.</p>
+            <EmptyState
+              compact
+              title="No accounts visible"
+              description="No budget accounts are visible for this cycle."
+            />
           ) : (
             <BudgetAccountTable accounts={accounts} transactions={transactions} />
           )}
         </>
       )}
-    </section>
+    </Card>
   );
 }

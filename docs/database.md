@@ -96,7 +96,7 @@ Frontend usage:
 
 - `src/auth/useStatus.tsx` reads `status`.
 - `src/pages/Register.tsx` inserts pending profiles.
-- `src/pages/admin/Accounts.tsx` reads profiles and updates status.
+- `src/pages/app/ManageMembers.tsx` reads profiles and updates status.
 - `src/pages/app/Announcement.tsx` reads author names.
 
 ### public.roles
@@ -110,7 +110,7 @@ Columns:
 
 Frontend usage:
 
-- `src/pages/admin/Accounts.tsx` reads all roles for role editing.
+- `src/pages/app/ManageMembers.tsx` reads all roles for role editing.
 
 ### public.user_roles
 
@@ -126,7 +126,7 @@ Columns:
 Frontend usage:
 
 - `src/auth/useRoles.tsx` reads roles for the current user.
-- `src/pages/admin/Accounts.tsx` reads and edits user roles.
+- `src/pages/app/ManageMembers.tsx` reads and edits user roles.
 
 ### public.announcements
 
@@ -288,7 +288,7 @@ Do not infer new permissions from role names alone. Check the permission section
 
 ### Member Management
 
-The Manage Members workflow is available at `/app/members`.
+The Manage Members workflow is available at `/app/manage/members`.
 
 Frontend visibility:
 
@@ -312,7 +312,7 @@ Expected capabilities:
 - Insert and delete user role assignments.
 - Read role catalog.
 
-The `/admin` route remains admin-only. `ea` and `eda` should not need the `admin` role to use `/app/members`.
+The legacy `/admin` route redirects to `/app/manage`. `ea` and `eda` should not need the `admin` role to use `/app/manage/members`.
 
 ### Announcements
 
@@ -714,6 +714,18 @@ Current mismatch:
 - Repo file uses helper names different from hosted policies.
 
 Do not run this file against hosted Supabase without a deliberate migration plan.
+
+### supabase/events_management_access_policies.sql
+
+Purpose:
+
+- Adds `public.can_manage_events(uuid)` for full event managers.
+- Adds additive event RLS policies so `admin`, `ea`, `eda`, and president/vice-president slug variants can read, create, update, and delete events.
+
+Rollout note:
+
+- This file is intended to fix hosted policy gaps where event managers without the `brother` role cannot view or manage calendar events.
+- It does not remove existing event visibility or owner policies.
 
 ## Known Drift And Cleanup Items
 

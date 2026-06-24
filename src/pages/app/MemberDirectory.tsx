@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import supabase from "../../config/supabaseClient";
-import { useAuth } from "../../auth/authProvider";
+import { useAuth } from "../../auth/authContext";
 import ProfileDetails from "./ProfileDetails";
 import ProfileEditForm from "./ProfileEditForm";
 import type { MajorRow, ProfileRow, RawMajorRow, RawProfileRow, RawUserRoleRow, RoleDetail } from "./profileTypes";
@@ -12,6 +12,7 @@ import {
   profileSortValue,
   toCleanString,
 } from "./profileTypes";
+import { Button, Card, PageHeader } from "../../components/ui";
 
 type DirectoryRoleRow = RawUserRoleRow & {
   user_id?: unknown;
@@ -189,23 +190,24 @@ export default function MemberDirectory() {
   }
 
   return (
-    <section className="theme-card directory-page p-4 p-md-5">
-      <div className="d-flex justify-content-between align-items-start gap-3 flex-wrap">
-        <div>
-          <h1 className="page-title">Member Directory</h1>
-          <p className="page-subtitle mb-0">Active member profiles.</p>
-        </div>
-        <button type="button" className="btn btn-outline-secondary" onClick={loadDirectory}>
-          Refresh
-        </button>
-      </div>
+    <Card className="directory-page">
+      <PageHeader
+        title="Member Directory"
+        subtitle="Active member profiles."
+        bordered
+        actions={
+          <Button type="button" variant="outline-secondary" onClick={loadDirectory}>
+            Refresh
+          </Button>
+        }
+      />
 
       <div className="directory-toolbar">
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           className="form-control directory-search"
-          placeholder="Search active members..."
+          placeholder="Search"
         />
         <span className="directory-count">{filteredProfiles.length} active</span>
       </div>
@@ -261,6 +263,6 @@ export default function MemberDirectory() {
           </div>
         </div>
       )}
-    </section>
+    </Card>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import supabase from "../../config/supabaseClient";
+import { Button, Input, Select } from "../../components/ui";
 import type { MajorRow, ProfileDraft, ProfileRow, RawProfileRow } from "./profileTypes";
 import { buildProfileUpdatePayload, normalizeProfile, PROFILE_COLUMNS, profileToDraft } from "./profileTypes";
 
@@ -92,91 +93,66 @@ export default function ProfileEditForm({ profile, majors, currentUserId, idPref
       {successMessage && <div className="alert alert-success mb-3">{successMessage}</div>}
 
       <div className="d-grid gap-3">
-        <div>
-          <label className="form-label" htmlFor={`${idPrefix}Name`}>
-            Name
-          </label>
-          <input
-            id={`${idPrefix}Name`}
-            className="form-control"
-            value={draft.name}
-            onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
-            disabled={saving}
-          />
-        </div>
+        <Input
+          id={`${idPrefix}Name`}
+          label="Name"
+          value={draft.name}
+          onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
+          disabled={saving}
+        />
 
-        <div>
-          <label className="form-label" htmlFor={`${idPrefix}Phone`}>
-            Phone
-          </label>
-          <input
-            id={`${idPrefix}Phone`}
-            className="form-control"
-            type="tel"
-            value={draft.phone}
-            onChange={(event) => setDraft((current) => ({ ...current, phone: event.target.value }))}
-            disabled={saving}
-          />
-        </div>
+        <Input
+          id={`${idPrefix}Phone`}
+          label="Phone"
+          type="tel"
+          value={draft.phone}
+          onChange={(event) => setDraft((current) => ({ ...current, phone: event.target.value }))}
+          disabled={saving}
+        />
 
-        <div>
-          <label className="form-label" htmlFor={`${idPrefix}GradYear`}>
-            Graduation year
-          </label>
-          <input
-            id={`${idPrefix}GradYear`}
-            className="form-control"
-            type="number"
-            min="1900"
-            max="2200"
-            inputMode="numeric"
-            value={draft.gradYear}
-            onChange={(event) => setDraft((current) => ({ ...current, gradYear: event.target.value }))}
-            disabled={saving}
-          />
-        </div>
+        <Input
+          id={`${idPrefix}GradYear`}
+          label="Graduation year"
+          type="number"
+          min="1900"
+          max="2200"
+          inputMode="numeric"
+          value={draft.gradYear}
+          onChange={(event) => setDraft((current) => ({ ...current, gradYear: event.target.value }))}
+          disabled={saving}
+        />
 
-        <div>
-          <label className="form-label" htmlFor={`${idPrefix}Major`}>
-            Major
-          </label>
-          <select
-            id={`${idPrefix}Major`}
-            className="form-select"
-            value={draft.majorId}
-            onChange={(event) => setDraft((current) => ({ ...current, majorId: event.target.value }))}
-            disabled={saving}
-          >
+        <Select
+          id={`${idPrefix}Major`}
+          label="Major"
+          value={draft.majorId}
+          onChange={(event) => setDraft((current) => ({ ...current, majorId: event.target.value }))}
+          disabled={saving}
+        >
             <option value="">No info provided</option>
             {majors.map((major) => (
               <option key={major.id} value={major.id}>
                 {major.major}
               </option>
             ))}
-          </select>
-        </div>
+        </Select>
 
-        <div>
-          <label className="form-label" htmlFor={`${idPrefix}Hometown`}>
-            Hometown
-          </label>
-          <input
-            id={`${idPrefix}Hometown`}
-            className="form-control"
-            value={draft.hometown}
-            onChange={(event) => setDraft((current) => ({ ...current, hometown: event.target.value }))}
-            disabled={saving}
-          />
-        </div>
+        <Input
+          id={`${idPrefix}Hometown`}
+          label="Hometown"
+          value={draft.hometown}
+          onChange={(event) => setDraft((current) => ({ ...current, hometown: event.target.value }))}
+          disabled={saving}
+        />
       </div>
 
       <div className="d-flex gap-2 flex-wrap mt-4">
-        <button type="submit" className="btn btn-primary" disabled={saving}>
+        <Button type="submit" disabled={saving} loading={saving}>
           {saving ? "Saving..." : "Save changes"}
-        </button>
-        <button type="button" className="btn btn-outline-secondary" onClick={resetDraft} disabled={saving}>
+        </Button>
+        <Button type="button" variant="outline-secondary" onClick={resetDraft} disabled={saving}>
           Reset
-        </button>
+        </Button>
       </div>
     </form>
   );

@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import type { SubmitHandler } from "react-hook-form";
 import supabase from "../config/supabaseClient";
-import { useAuth } from "../auth/authProvider";
+import { useAuth } from "../auth/authContext";
 import { Navigate, useNavigate } from "react-router-dom";
+import { Button, Input } from "../components/ui";
 
 type FormValues = {
   name: string;
@@ -69,7 +70,6 @@ export default function Register() {
       return;
     }
 
-    // if a profiles table exists and you want to mark the account pending
     if (data.user) {
       const profileError = await createPendingProfile(data.user.id, name, email);
       if (profileError) {
@@ -78,11 +78,9 @@ export default function Register() {
       }
     }
 
-    // redirect or show a message; supabase sends confirmation email by default
     navigate("/pending");
   };
 
-  // already logged in? send them away
   if (session) {
     return <Navigate to="/" replace />;
   }
@@ -95,53 +93,43 @@ export default function Register() {
         {errorMessage && <div className="alert alert-danger mt-3 mb-0">{errorMessage}</div>}
 
         <form className="mt-4 d-grid gap-3" onSubmit={handleSubmit(onSubmit)}>
-          <div>
-            <input
-              type="text"
-              className="form-control"
-              {...register("name", { required: "Name is required" })}
-              placeholder="Name"
-            />
-            {errors.name && <div className="form-error mt-1">{errors.name.message}</div>}
-          </div>
+          <Input
+            type="text"
+            label="Name"
+            error={errors.name?.message}
+            {...register("name", { required: "Name is required" })}
+            placeholder="Name"
+          />
 
-          <div>
-            <input
-              type="email"
-              className="form-control"
-              {...register("email", { required: "Email is required" })}
-              placeholder="Email"
-            />
-            {errors.email && <div className="form-error mt-1">{errors.email.message}</div>}
-          </div>
+          <Input
+            type="email"
+            label="Email"
+            error={errors.email?.message}
+            {...register("email", { required: "Email is required" })}
+            placeholder="Email"
+          />
 
-          <div>
-            <input
-              type="password"
-              className="form-control"
-              {...register("password", { required: "Password is required" })}
-              placeholder="Password"
-            />
-            {errors.password && <div className="form-error mt-1">{errors.password.message}</div>}
-          </div>
+          <Input
+            type="password"
+            label="Password"
+            error={errors.password?.message}
+            {...register("password", { required: "Password is required" })}
+            placeholder="Password"
+          />
 
-          <div>
-            <input
-              type="password"
-              className="form-control"
-              {...register("repeatPassword", {
-                required: "Repeat password is required",
-              })}
-              placeholder="Repeat Password"
-            />
-            {errors.repeatPassword && (
-              <div className="form-error mt-1">{errors.repeatPassword.message}</div>
-            )}
-          </div>
+          <Input
+            type="password"
+            label="Repeat password"
+            error={errors.repeatPassword?.message}
+            {...register("repeatPassword", {
+              required: "Repeat password is required",
+            })}
+            placeholder="Repeat password"
+          />
 
-          <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+          <Button type="submit" disabled={isSubmitting} loading={isSubmitting}>
             Register
-          </button>
+          </Button>
         </form>
       </section>
     </div>

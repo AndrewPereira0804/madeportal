@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import BudgetSummaryCards from "../../components/budget/BudgetSummaryCards";
 import BudgetTransactionTable from "../../components/budget/BudgetTransactionTable";
 import SubmitExpenseForm from "../../components/budget/SubmitExpenseForm";
+import { Button, Card, EmptyState, PageHeader, SectionHeader } from "../../components/ui";
 import { calculateBudgetSummary, type BudgetAccount, type BudgetTransaction } from "../../lib/budget";
 import { getBudgetAccount, getTransactionsForAccount } from "../../lib/budgetQueries";
 
@@ -70,24 +71,29 @@ export default function BudgetAccountPage() {
   );
 
   return (
-    <section className="theme-card budget-page p-4 p-md-5">
-      <div className="budget-page-header">
-        <div>
-          <h1 className="page-title">{account ? account.role_slug : "Budget account"}</h1>
-          <p className="page-subtitle mb-0">
-            {account?.notes ?? "Read-only account details and transaction activity."}
-          </p>
-        </div>
-        <Link to="/budget" className="btn btn-outline-secondary">
-          Back to Budget
-        </Link>
-      </div>
+    <Card className="budget-page">
+      <PageHeader
+        eyebrow="Budget account"
+        title={account ? account.role_slug : "Budget account"}
+        subtitle={account?.notes ?? "Read-only account details and transaction activity."}
+        bordered
+        actions={<Button to="/app/budget" variant="outline-secondary">Back to Budget</Button>}
+      />
 
-      {loading && <p className="accounts-loading">Loading budget account...</p>}
+      {loading && (
+        <div className="budget-loading">
+          <div className="spinner-border spinner-border-sm text-primary" role="status" />
+          <span>Loading budget account...</span>
+        </div>
+      )}
+
       {errorMessage && <div className="accounts-alert budget-alert">{errorMessage}</div>}
 
       {!loading && !errorMessage && !account && (
-        <p className="budget-empty-state">This budget account is not available.</p>
+        <EmptyState
+          title="Account unavailable"
+          description="This budget account is not available."
+        />
       )}
 
       {!loading && !errorMessage && account && (
@@ -96,18 +102,14 @@ export default function BudgetAccountPage() {
 
           <SubmitExpenseForm budgetAccountId={account.id} onSubmitted={refreshTransactions} />
 
-          <div className="budget-section-heading">
-            <div>
-              <h2 className="h4 mb-1">Transactions</h2>
-              <p className="text-body-secondary mb-0">
-                Showing {transactions.length} transaction{transactions.length === 1 ? "" : "s"} returned by Supabase.
-              </p>
-            </div>
-          </div>
+          <SectionHeader
+            title="Transactions"
+            description={`Showing ${transactions.length} transaction${transactions.length === 1 ? "" : "s"} returned by Supabase.`}
+          />
 
           <BudgetTransactionTable transactions={transactions} />
         </>
       )}
-    </section>
+    </Card>
   );
 }

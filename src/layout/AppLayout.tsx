@@ -1,9 +1,17 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { useAuth } from "../auth/authProvider";
+import { Outlet, useNavigate } from "react-router-dom";
+import { useAuth } from "../auth/authContext";
+import { canAccessManagement } from "../auth/roleAccess";
 import useRoles from "../auth/useRoles";
+import { AppShell, type AppShellNavItem } from "../components/ui";
 
-const linkClass = ({ isActive }: { isActive: boolean }) =>
-  `nav-link app-nav-link${isActive ? " active" : ""}`;
+const baseNavItems: AppShellNavItem[] = [
+  { to: "/app", label: "Dashboard", description: "Overview", end: true },
+  { to: "/app/scheduling", label: "Calendar", description: "Events" },
+  { to: "/app/budget", label: "Budgets", description: "Finance" },
+  { to: "/app/announcements", label: "Announcements", description: "Posts" },
+  { to: "/app/directory", label: "Directory", description: "Members" },
+  { to: "/app/account", label: "Account", description: "Profile" },
+];
 
 export default function AppLayout() {
   const { roles } = useRoles();
@@ -15,46 +23,14 @@ export default function AppLayout() {
     navigate("/login", { replace: true });
   }
 
-  return (
-    <div className="app-layout">
-      <nav className="navbar app-nav navbar-expand-lg">
-        <div className="container-fluid px-3 py-2 gap-2">
-          <div className="navbar-nav flex-row flex-wrap gap-1">
-            <NavLink to="/app/scheduling" className={linkClass}>
-              Scheduling
-            </NavLink>
-            <NavLink to="/budget" className={linkClass}>
-              Budget
-            </NavLink>
-            <NavLink to="/app/announcements" className={linkClass}>
-              Announcements
-            </NavLink>
-            <NavLink to="/app/directory" className={linkClass}>
-              Directory
-            </NavLink>
-            <NavLink to="/app/account" className={linkClass}>
-              Account
-            </NavLink>
-            {roles.includes("admin") && (
-              <NavLink to="/admin" className={linkClass}>
-                Admin
-              </NavLink>
-            )}
-          </div>
+  const roleLabel = roles.length > 0 ? roles.join(", ") : "member";
+  const navItems = canAccessManagement(roles)
+    ? [...baseNavItems, { to: "/app/manage", label: "Management", description: "Chapter" }]
+    : baseNavItems;
 
-          <div className="ms-lg-auto d-flex align-items-center gap-2 flex-wrap">
-            <span className="badge rounded-pill text-bg-light">
-              Roles: {roles.join(", ") || "none"}
-            </span>
-            <button type="button" className="btn btn-outline-light btn-sm" onClick={handleLogout}>
-              Logout
-            </button>
-          </div>
-        </div>
-      </nav>
-      <main className="app-main">
-        <Outlet />
-      </main>
-    </div>
+  return (
+    <AppShell navItems={navItems} roleLabel={roleLabel} onLogout={handleLogout}>
+      <Outlet />
+    </AppShell>
   );
 }

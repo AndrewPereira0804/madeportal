@@ -1,14 +1,14 @@
-import { Link } from "react-router-dom";
+import { Button } from "../components/ui";
 
 export default function NotFound() {
   return (
     <div className="theme-shell">
       <section className="theme-card p-4 p-md-5 text-center">
-        <h1 className="page-title">404 - Not Found</h1>
-        <p className="page-subtitle mt-3">The page you requested could not be found.</p>
-        <Link to="/" className="btn btn-primary mt-4">
+        <h1 className="page-title">Page not found</h1>
+        <p className="page-subtitle mt-3">That Portal route is not available.</p>
+        <Button to="/" className="mt-4">
           Go Home
-        </Link>
+        </Button>
       </section>
     </div>
   );

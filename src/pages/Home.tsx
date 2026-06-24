@@ -1,15 +1,19 @@
-import { useAuth } from "../auth/authProvider";
-import { Link, Navigate } from "react-router-dom";
+import { useAuth } from "../auth/authContext";
+import { canAccessManagement } from "../auth/roleAccess";
+import { Navigate } from "react-router-dom";
 import useRoles from "../auth/useRoles";
 import { useStatus } from "../auth/useStatus";
+import { Button } from "../components/ui";
 
 export default function Home() {
   const { session, signOut } = useAuth();
   const { roles, loading: rolesLoading } = useRoles();
   const { status, loading: statusLoading } = useStatus();
   
-  if (!rolesLoading && roles.includes("admin")) {
-    return <Navigate to="/admin" replace />;
+  const hasManagementAccess = canAccessManagement(roles);
+
+  if (!rolesLoading && hasManagementAccess) {
+    return <Navigate to="/app/manage" replace />;
   }
 
   if(!statusLoading && status == "active") {
@@ -19,30 +23,30 @@ export default function Home() {
   return (
     <div className="theme-shell">
       <section className="theme-card p-4 p-md-5">
-        <h1 className="page-title">Welcome to the SAE Massachusetts Delta Portal</h1>
+        <h1 className="page-title">Chapter Portal</h1>
         <p className="page-subtitle mt-3">
-          Use the links below to sign in, register, or jump into the app.
+          Private chapter operations for scheduling, announcements, budgets, roles, and member tools.
         </p>
 
         <div className="d-flex flex-wrap gap-2 mt-4">
-          <Link to="/login" className="btn btn-primary">
+          <Button to="/login">
             Login
-          </Link>
-          <Link to="/register" className="btn btn-outline-secondary">
+          </Button>
+          <Button to="/register" variant="outline-secondary">
             Register
-          </Link>
-          <Link to="/app" className="btn btn-outline-secondary">
+          </Button>
+          <Button to="/app" variant="outline-secondary">
             App
-          </Link>
-          {roles.includes("admin") && (
-            <Link to="/admin" className="btn btn-outline-gold">
-              Admin
-            </Link>
+          </Button>
+          {hasManagementAccess && (
+            <Button to="/app/manage" variant="outline-gold">
+              Management
+            </Button>
           )}
           {session && (
-            <button type="button" className="btn btn-outline-dark" onClick={signOut}>
+            <Button type="button" variant="outline-dark" onClick={signOut}>
               Logout
-            </button>
+            </Button>
           )}
         </div>
       </section>

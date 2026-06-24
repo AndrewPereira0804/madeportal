@@ -1,7 +1,9 @@
 import { useForm } from "react-hook-form";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../auth/authProvider";
+import { useAuth } from "../../auth/authContext";
 import supabase from "../../config/supabaseClient";
+import { Button, Card, Input, PageHeader, Textarea } from "../../components/ui";
 
 type FormValues = {
   title: string;
@@ -28,6 +30,7 @@ async function addAnnouncement(
 export default function CreateAnnouncement() {
   const navigate = useNavigate();
   const { session } = useAuth();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -35,8 +38,10 @@ export default function CreateAnnouncement() {
   } = useForm<FormValues>();
 
   const onSubmit = async (formData: FormValues) => {
+    setErrorMessage(null);
+
     if (!session?.user?.id) {
-      alert("You must be logged in to create an announcement.");
+      setErrorMessage("You must be logged in to create an announcement.");
       return;
     }
 
@@ -48,40 +53,51 @@ export default function CreateAnnouncement() {
     );
 
     if (error) {
-      alert("Failed to create announcement: " + error.message);
+      setErrorMessage("Failed to create announcement: " + error.message);
       return;
     }
 
-    alert("Announcement created successfully!");
     navigate("/app/announcements");
   };
 
   return (
-    <>
-      <h1>Create Announcement</h1>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <div>
-          <input
+    <Card>
+      <PageHeader
+        title="Create Announcement"
+        subtitle="Share a chapter update or notice with members."
+        bordered
+        actions={
+          <Button type="button" variant="outline-secondary" onClick={() => navigate("/app/announcements")}>
+            Cancel
+          </Button>
+        }
+      />
+
+      <form className="mt-4" onSubmit={handleSubmit(onSubmit)}>
+        {errorMessage && <div className="alert alert-danger mb-3">{errorMessage}</div>}
+
+        <div className="d-grid gap-3">
+          <Input
             type="text"
-            className="form-control"
+            label="Title"
+            error={errors.title ? "Title is required." : undefined}
             {...register("title", { required: true })}
             placeholder="Title"
           />
-          {errors.title && <div className="form-error mt-1">Title is required.</div>}
 
-          <textarea
-            className="form-control mt-3"
+          <Textarea
+            label="Body"
+            error={errors.body ? "Body is required." : undefined}
             {...register("body", { required: true })}
             placeholder="Body"
-            rows={5}
+            rows={6}
           />
-          {errors.body && <div className="form-error mt-1">Body is required.</div>}
         </div>
 
-        <button type="submit" className="btn btn-primary mt-4" disabled={isSubmitting}>
+        <Button type="submit" className="mt-4" loading={isSubmitting}>
           Create Announcement
-        </button>
+        </Button>
       </form>
-    </>
+    </Card>
   );
 }

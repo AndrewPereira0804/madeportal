@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
-import { useAuth } from "../../auth/authProvider";
+import { useAuth } from "../../auth/authContext";
 import supabase from "../../config/supabaseClient";
+import { canModerateAnnouncements } from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
+import { Button, Card, Input, PageHeader, Textarea } from "../../components/ui";
 
 type FormValues = {
   title: string;
@@ -48,8 +50,9 @@ export default function EditAnnouncement() {
   const { roles, loading: rolesLoading } = useRoles();
   const [loadingAnnouncement, setLoadingAnnouncement] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [announcementAuthorId, setAnnouncementAuthorId] = useState<string | null>(null);
-  const isAdmin = roles.includes("admin");
+  const canModerate = canModerateAnnouncements(roles);
   const {
     register,
     handleSubmit,
@@ -92,7 +95,7 @@ export default function EditAnnouncement() {
       }
 
       const canEditAnnouncement =
-        data.author_id === session?.user?.id || isAdmin;
+        data.author_id === session?.user?.id || canModerate;
 
       if (!canEditAnnouncement) {
         setLoadError("You can only edit your own announcements unless you are an admin.");
@@ -113,24 +116,26 @@ export default function EditAnnouncement() {
     return () => {
       ignore = true;
     };
-  }, [announcementId, isAdmin, reset, rolesLoading, session?.user?.id]);
+  }, [announcementId, canModerate, reset, rolesLoading, session?.user?.id]);
 
   const onSubmit = async (formData: FormValues) => {
+    setSubmitError(null);
+
     if (!announcementId) {
-      alert("Announcement ID is missing.");
+      setSubmitError("Announcement ID is missing.");
       return;
     }
 
     if (!session?.user?.id) {
-      alert("You must be logged in to edit an announcement.");
+      setSubmitError("You must be logged in to edit an announcement.");
       return;
     }
 
     const canEditAnnouncement =
-      announcementAuthorId === session.user.id || isAdmin;
+      announcementAuthorId === session.user.id || canModerate;
 
     if (!canEditAnnouncement) {
-      alert("You can only edit your own announcements unless you are an admin.");
+      setSubmitError("You can only edit your own announcements unless you are an admin.");
       return;
     }
 
@@ -142,59 +147,70 @@ export default function EditAnnouncement() {
     );
 
     if (error) {
-      alert("Failed to edit announcement: " + error.message);
+      setSubmitError("Failed to edit announcement: " + error.message);
       return;
     }
 
     if (count === 0) {
-      alert("Edit was blocked or no matching announcement was found.");
+      setSubmitError("Edit was blocked or no matching announcement was found.");
       return;
     }
 
-    alert("Announcement edited successfully!");
     navigate("/app/announcements");
   };
 
   return (
-    <>
-      <h1>Edit Announcement</h1>
-      {loadingAnnouncement && <p>Loading announcement...</p>}
-      {loadError && <div className="form-error mb-3">{loadError}</div>}
+    <Card>
+      <PageHeader
+        title="Edit Announcement"
+        subtitle="Update the title and body for this announcement."
+        bordered
+        actions={
+          <Button type="button" variant="outline-secondary" onClick={() => navigate("/app/announcements")}>
+            Cancel
+          </Button>
+        }
+      />
+
+      {loadingAnnouncement && <p className="mt-4 mb-0">Loading announcement...</p>}
+      {loadError && <div className="form-error mb-3 mt-4">{loadError}</div>}
       {!loadingAnnouncement && !loadError && (
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div>
-            <input
+        <form className="mt-4" onSubmit={handleSubmit(onSubmit)}>
+          {submitError && <div className="alert alert-danger mb-3">{submitError}</div>}
+
+          <div className="d-grid gap-3">
+            <Input
               type="text"
-              className="form-control"
+              label="Title"
+              error={errors.title ? "Title is required." : undefined}
               {...register("title", { required: true })}
               placeholder="Title"
             />
-            {errors.title && <div className="form-error mt-1">Title is required.</div>}
 
-            <textarea
-              className="form-control mt-3"
+            <Textarea
+              label="Body"
+              error={errors.body ? "Body is required." : undefined}
               {...register("body", { required: true })}
               placeholder="Body"
-              rows={5}
+              rows={6}
             />
-            {errors.body && <div className="form-error mt-1">Body is required.</div>}
           </div>
 
           <div className="d-flex gap-2 mt-4">
-            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+            <Button type="submit" loading={isSubmitting}>
               {isSubmitting ? "Saving..." : "Save Changes"}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="btn btn-outline-secondary"
+              variant="outline-secondary"
               onClick={() => navigate("/app/announcements")}
               disabled={isSubmitting}
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       )}
-    </>
+    </Card>
   );
 }

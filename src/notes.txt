@@ -1,8 +1,14 @@
 June 23:
 Created budget page functionality, appears to function as intended, but uses the slug as the page header. should change
-nav bar is a bit of a mess but its okay for now.
 site still gives silly login successful popup
 scheduling page seems functional but maybe not optimal display
 admin page is kinda leftover and redundant, should decide how to handle that
 announcement likes display weirdly, looks like author names arent displaying correctly
 account page and member directory both let the user update their details. should decide where that functionality lives
+admin page is a little funny
+timezones off in calendar
+use names instead of role slugs where appropriate
+
+June 24:
+testing: as a logged out user, going to / displays basic home page (do i need that page?). going to /fakepage throws not found and then 
+returns to /login as intended. /admin goes back to log in. 

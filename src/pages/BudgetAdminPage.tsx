@@ -1,10 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { canManageBudgets } from "../auth/roleAccess";
-import { useAuth } from "../auth/authProvider";
+import { useAuth } from "../auth/authContext";
 import useRoles from "../auth/useRoles";
 import BudgetStatusBadge from "../components/budget/BudgetStatusBadge";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  MetricCard,
+  PageHeader,
+  SectionHeader,
+  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableRow,
+  Textarea,
+} from "../components/ui";
 import {
   calculateBudgetSummary,
   formatMoney,
@@ -454,41 +472,39 @@ export default function BudgetAdminPage() {
 
   if (rolesLoading) {
     return (
-      <section className="theme-card budget-page p-4 p-md-5">
-        <div className="d-flex align-items-center gap-2">
+      <Card className="budget-page">
+        <div className="budget-loading">
           <div className="spinner-border spinner-border-sm text-primary" role="status" />
           <span>Loading budget admin...</span>
         </div>
-      </section>
+      </Card>
     );
   }
 
   if (!hasBudgetAccess) {
-    return <Navigate to="/budget" replace />;
+    return <Navigate to="/app/budget" replace />;
   }
 
   if (loading) {
     return (
-      <section className="theme-card budget-page p-4 p-md-5">
-        <div className="d-flex align-items-center gap-2">
+      <Card className="budget-page">
+        <div className="budget-loading">
           <div className="spinner-border spinner-border-sm text-primary" role="status" />
           <span>Loading budget admin...</span>
         </div>
-      </section>
+      </Card>
     );
   }
 
   return (
-    <section className="theme-card budget-page p-4 p-md-5">
-      <div className="budget-page-header">
-        <div>
-          <h1 className="page-title">Budget Admin</h1>
-          <p className="page-subtitle mb-0">Review expense requests and manage budget allocations.</p>
-        </div>
-        <Link to="/budget" className="btn btn-outline-secondary">
-          Back to Budget
-        </Link>
-      </div>
+    <Card className="budget-page">
+      <PageHeader
+        eyebrow="Budget administration"
+        title="Budget Admin"
+        subtitle="Review expense requests and manage budget allocations."
+        bordered
+        actions={<Button to="/app/budget" variant="outline-secondary">Back to Budget</Button>}
+      />
 
       {errorMessage && <div className="alert alert-danger budget-alert">{errorMessage}</div>}
       {successMessage && <div className="alert alert-success budget-alert">{successMessage}</div>}
@@ -503,22 +519,25 @@ export default function BudgetAdminPage() {
         savingKey={savingKey}
         actions={(transaction) => (
           <>
-            <button
+            <Button
               type="button"
-              className="btn btn-primary btn-sm"
+              size="sm"
+              loading={savingKey === `approve-${transaction.id}`}
               disabled={savingKey === `approve-${transaction.id}`}
               onClick={() => approveRequest(transaction.id)}
             >
               Approve
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="btn btn-outline-danger btn-sm"
+              size="sm"
+              variant="danger"
+              loading={savingKey === `deny-${transaction.id}`}
               disabled={savingKey === `deny-${transaction.id}`}
               onClick={() => denyRequest(transaction.id)}
             >
               Deny
-            </button>
+            </Button>
           </>
         )}
       />
@@ -530,14 +549,15 @@ export default function BudgetAdminPage() {
         roles={roles}
         savingKey={savingKey}
         actions={(transaction) => (
-          <button
+          <Button
             type="button"
-            className="btn btn-primary btn-sm"
+            size="sm"
+            loading={savingKey === `reimburse-${transaction.id}`}
             disabled={savingKey === `reimburse-${transaction.id}`}
             onClick={() => markReimbursed(transaction.id)}
           >
             Mark Reimbursed
-          </button>
+          </Button>
         )}
       />
 
@@ -574,7 +594,7 @@ export default function BudgetAdminPage() {
         onDraftChange={setAccountDraft}
         onCreate={handleCreateAccount}
       />
-    </section>
+    </Card>
   );
 }
 
@@ -591,16 +611,13 @@ function BudgetAdminMetrics({
 }) {
   return (
     <div className="budget-admin-metrics">
-      <div className="budget-summary-card">
-        <span className="budget-summary-label">Pending requests</span>
-        <strong className="budget-summary-value">{pendingCount}</strong>
-        <span className="budget-admin-subvalue">{formatMoney(pendingTotal)}</span>
-      </div>
-      <div className="budget-summary-card">
-        <span className="budget-summary-label">Approved, not reimbursed</span>
-        <strong className="budget-summary-value">{approvedCount}</strong>
-        <span className="budget-admin-subvalue">{formatMoney(approvedTotal)}</span>
-      </div>
+      <MetricCard label="Pending requests" value={pendingCount} detail={formatMoney(pendingTotal)} tone="warning" />
+      <MetricCard
+        label="Approved, not reimbursed"
+        value={approvedCount}
+        detail={formatMoney(approvedTotal)}
+        tone="info"
+      />
     </div>
   );
 }
@@ -622,16 +639,19 @@ function BudgetRequestSection({
 }) {
   return (
     <section className="budget-admin-section">
-      <div className="budget-section-heading">
-        <h2 className="h4 mb-0">{title}</h2>
-      </div>
+      <SectionHeader title={title} size="md" />
 
       {rows.length === 0 ? (
-        <p className="budget-empty-state">{emptyText}</p>
+        <EmptyState compact title={emptyText} />
       ) : (
         <div className="budget-admin-list">
           {rows.map(({ transaction, account, submitter }) => (
-            <article key={transaction.id} className="budget-request-card">
+            <Card
+              key={transaction.id}
+              variant="flat"
+              padding="md"
+              className={`budget-request-card${transaction.status === "submitted" ? " budget-request-card--pending" : ""}`}
+            >
               <div className="budget-request-main">
                 <div>
                   <div className="budget-request-amount">{formatMoney(transaction.amount)}</div>
@@ -673,7 +693,7 @@ function BudgetRequestSection({
                 {savingKey?.endsWith(transaction.id) && <span className="budget-admin-saving">Saving...</span>}
                 {actions(transaction)}
               </div>
-            </article>
+            </Card>
           ))}
         </div>
       )}
@@ -698,50 +718,33 @@ function BudgetCyclesSection({
 }) {
   return (
     <section className="budget-admin-section">
-      <div className="budget-section-heading">
-        <h2 className="h4 mb-0">Budget Cycles</h2>
-      </div>
+      <SectionHeader title="Budget Cycles" size="md" />
 
-      <div className="budget-management-form">
+      <Card variant="flat" padding="md" className="budget-management-form">
         <div className="budget-form-grid">
-          <div>
-            <label className="form-label" htmlFor="cycleName">
-              Name
-            </label>
-            <input
-              id="cycleName"
-              className="form-control"
-              value={draft.name}
-              onChange={(event) => onDraftChange({ ...draft, name: event.target.value })}
-              disabled={savingKey === "create-cycle"}
-            />
-          </div>
-          <div>
-            <label className="form-label" htmlFor="cycleStart">
-              Start date
-            </label>
-            <input
-              id="cycleStart"
-              className="form-control"
-              type="date"
-              value={draft.startDate}
-              onChange={(event) => onDraftChange({ ...draft, startDate: event.target.value })}
-              disabled={savingKey === "create-cycle"}
-            />
-          </div>
-          <div>
-            <label className="form-label" htmlFor="cycleEnd">
-              End date
-            </label>
-            <input
-              id="cycleEnd"
-              className="form-control"
-              type="date"
-              value={draft.endDate}
-              onChange={(event) => onDraftChange({ ...draft, endDate: event.target.value })}
-              disabled={savingKey === "create-cycle"}
-            />
-          </div>
+          <Input
+            id="cycleName"
+            label="Name"
+            value={draft.name}
+            onChange={(event) => onDraftChange({ ...draft, name: event.target.value })}
+            disabled={savingKey === "create-cycle"}
+          />
+          <Input
+            id="cycleStart"
+            label="Start date"
+            type="date"
+            value={draft.startDate}
+            onChange={(event) => onDraftChange({ ...draft, startDate: event.target.value })}
+            disabled={savingKey === "create-cycle"}
+          />
+          <Input
+            id="cycleEnd"
+            label="End date"
+            type="date"
+            value={draft.endDate}
+            onChange={(event) => onDraftChange({ ...draft, endDate: event.target.value })}
+            disabled={savingKey === "create-cycle"}
+          />
           <label className="budget-checkbox-option">
             <input
               type="checkbox"
@@ -752,57 +755,62 @@ function BudgetCyclesSection({
             Set active immediately
           </label>
         </div>
-        <button type="button" className="btn btn-primary" onClick={onCreate} disabled={savingKey === "create-cycle"}>
+        <Button
+          type="button"
+          onClick={onCreate}
+          loading={savingKey === "create-cycle"}
+          disabled={savingKey === "create-cycle"}
+        >
           {savingKey === "create-cycle" ? "Creating..." : "Create cycle"}
-        </button>
-      </div>
+        </Button>
+      </Card>
 
       {cycles.length === 0 ? (
-        <p className="budget-empty-state">No budget cycles are available.</p>
+        <EmptyState compact title="No budget cycles are available." />
       ) : (
-        <div className="accounts-table-wrap budget-table-wrap">
-          <table className="accounts-table budget-table">
-            <thead>
-              <tr>
-                <th className="accounts-th">Name</th>
-                <th className="accounts-th">Start</th>
-                <th className="accounts-th">End</th>
-                <th className="accounts-th">Status</th>
-                <th className="accounts-th">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cycles.map((cycle) => (
-                <tr key={cycle.id}>
-                  <td className="accounts-td">
-                    <strong>{cycle.name ?? "Untitled cycle"}</strong>
-                  </td>
-                  <td className="accounts-td">{cycle.start_date ?? "No start date"}</td>
-                  <td className="accounts-td">{cycle.end_date ?? "No end date"}</td>
-                  <td className="accounts-td">
-                    {cycle.is_active ? (
-                      <span className="budget-status-badge budget-status-approved">Active</span>
-                    ) : (
-                      <span className="budget-status-badge budget-status-submitted">Inactive</span>
-                    )}
-                  </td>
-                  <td className="accounts-td">
-                    {!cycle.is_active && (
-                      <button
-                        type="button"
-                        className="btn btn-outline-secondary btn-sm"
-                        onClick={() => onSetActive(cycle.id)}
-                        disabled={savingKey === "set-active-cycle"}
-                      >
-                        Set Active
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table minWidth={720} className="budget-table-wrap">
+          <TableHead>
+            <TableRow>
+              <TableHeaderCell>Name</TableHeaderCell>
+              <TableHeaderCell>Start</TableHeaderCell>
+              <TableHeaderCell>End</TableHeaderCell>
+              <TableHeaderCell>Status</TableHeaderCell>
+              <TableHeaderCell>Actions</TableHeaderCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {cycles.map((cycle) => (
+              <TableRow key={cycle.id}>
+                <TableCell>
+                  <strong>{cycle.name ?? "Untitled cycle"}</strong>
+                </TableCell>
+                <TableCell>{cycle.start_date ?? "No start date"}</TableCell>
+                <TableCell>{cycle.end_date ?? "No end date"}</TableCell>
+                <TableCell>
+                  {cycle.is_active ? (
+                    <Badge variant="active">Active</Badge>
+                  ) : (
+                    <Badge variant="neutral">Inactive</Badge>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {!cycle.is_active && (
+                    <Button
+                      type="button"
+                      variant="outline-secondary"
+                      size="sm"
+                      loading={savingKey === "set-active-cycle"}
+                      disabled={savingKey === "set-active-cycle"}
+                      onClick={() => onSetActive(cycle.id)}
+                    >
+                      Set Active
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
     </section>
   );
@@ -837,123 +845,117 @@ function ActiveCycleAccountsSection({
 }) {
   return (
     <section className="budget-admin-section">
-      <div className="budget-section-heading">
-        <div>
-          <h2 className="h4 mb-1">Active Cycle Budget Accounts</h2>
-          <p className="text-body-secondary mb-0">
-            {activeCycle ? activeCycle.name ?? "Active cycle" : "No active budget cycle"}
-          </p>
-        </div>
-      </div>
+      <SectionHeader
+        title="Active Cycle Budget Accounts"
+        description={activeCycle ? activeCycle.name ?? "Active cycle" : "No active budget cycle"}
+      />
 
       {!activeCycle ? (
-        <p className="budget-empty-state">No active budget cycle.</p>
+        <EmptyState compact title="No active budget cycle." />
       ) : accounts.length === 0 ? (
-        <p className="budget-empty-state">No budget accounts for active cycle.</p>
+        <EmptyState compact title="No budget accounts for active cycle." />
       ) : (
-        <div className="accounts-table-wrap budget-table-wrap">
-          <table className="accounts-table budget-table">
-            <thead>
-              <tr>
-                <th className="accounts-th">Role / Chair</th>
-                <th className="accounts-th">Role slug</th>
-                <th className="accounts-th">Allocated</th>
-                <th className="accounts-th">Approved / reimbursed</th>
-                <th className="accounts-th">Pending</th>
-                <th className="accounts-th">Remaining</th>
-                <th className="accounts-th">Notes</th>
-                <th className="accounts-th">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {accounts.map((account) => {
-                const accountTransactions = transactions.filter(
-                  (transaction) => transaction.budget_account_id === account.id
-                );
-                const summary = calculateBudgetSummary([account], accountTransactions);
-                const transactionCount = accountTransactions.length;
-                const isEditing = editingAccountId === account.id && editDraft;
+        <Table minWidth={980} className="budget-table-wrap">
+          <TableHead>
+            <TableRow>
+              <TableHeaderCell>Role / Chair</TableHeaderCell>
+              <TableHeaderCell>Role slug</TableHeaderCell>
+              <TableHeaderCell>Allocated</TableHeaderCell>
+              <TableHeaderCell>Approved / reimbursed</TableHeaderCell>
+              <TableHeaderCell>Pending</TableHeaderCell>
+              <TableHeaderCell>Remaining</TableHeaderCell>
+              <TableHeaderCell>Notes</TableHeaderCell>
+              <TableHeaderCell>Actions</TableHeaderCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {accounts.map((account) => {
+              const accountTransactions = transactions.filter(
+                (transaction) => transaction.budget_account_id === account.id
+              );
+              const summary = calculateBudgetSummary([account], accountTransactions);
+              const transactionCount = accountTransactions.length;
+              const isEditing = editingAccountId === account.id && editDraft;
 
-                return (
-                  <tr key={account.id}>
-                    <td className="accounts-td">{roleLabel(account.role_slug, roles)}</td>
-                    <td className="accounts-td">{account.role_slug}</td>
-                    <td className="accounts-td">
-                      {isEditing ? (
-                        <input
-                          className="form-control budget-amount-input"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={editDraft.allocatedAmount}
-                          onChange={(event) => onEditDraftChange({ ...editDraft, allocatedAmount: event.target.value })}
+              return (
+                <TableRow key={account.id}>
+                  <TableCell>{roleLabel(account.role_slug, roles)}</TableCell>
+                  <TableCell>{account.role_slug}</TableCell>
+                  <TableCell>
+                    {isEditing ? (
+                      <input
+                        className="form-control ui-input budget-amount-input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editDraft.allocatedAmount}
+                        onChange={(event) => onEditDraftChange({ ...editDraft, allocatedAmount: event.target.value })}
+                        disabled={savingKey === `save-account-${account.id}`}
+                      />
+                    ) : (
+                      formatMoney(summary.allocated)
+                    )}
+                  </TableCell>
+                  <TableCell>{formatMoney(summary.spent)}</TableCell>
+                  <TableCell>{formatMoney(summary.pending)}</TableCell>
+                  <TableCell className={summary.remaining < 0 ? "budget-remaining--negative" : "budget-remaining"}>
+                    {formatMoney(summary.remaining)}
+                  </TableCell>
+                  <TableCell className="budget-notes-cell">
+                    {isEditing ? (
+                      <textarea
+                        className="form-control ui-textarea"
+                        rows={2}
+                        value={editDraft.notes}
+                        onChange={(event) => onEditDraftChange({ ...editDraft, notes: event.target.value })}
+                        disabled={savingKey === `save-account-${account.id}`}
+                      />
+                    ) : (
+                      account.notes ?? "No notes"
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {isEditing ? (
+                      <div className="budget-row-actions">
+                        <Button
+                          type="button"
+                          size="sm"
+                          loading={savingKey === `save-account-${account.id}`}
                           disabled={savingKey === `save-account-${account.id}`}
-                        />
-                      ) : (
-                        formatMoney(summary.allocated)
-                      )}
-                    </td>
-                    <td className="accounts-td">{formatMoney(summary.spent)}</td>
-                    <td className="accounts-td">{formatMoney(summary.pending)}</td>
-                    <td className="accounts-td">{formatMoney(summary.remaining)}</td>
-                    <td className="accounts-td budget-notes-cell">
-                      {isEditing ? (
-                        <textarea
-                          className="form-control"
-                          rows={2}
-                          value={editDraft.notes}
-                          onChange={(event) => onEditDraftChange({ ...editDraft, notes: event.target.value })}
-                          disabled={savingKey === `save-account-${account.id}`}
-                        />
-                      ) : (
-                        account.notes ?? "No notes"
-                      )}
-                    </td>
-                    <td className="accounts-td">
-                      {isEditing ? (
-                        <div className="accounts-actions">
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
-                            onClick={() => onSave(account.id)}
-                            disabled={savingKey === `save-account-${account.id}`}
-                          >
-                            Save
-                          </button>
-                          <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onCancelEdit}>
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="accounts-actions">
-                          <button
-                            type="button"
-                            className="btn btn-outline-secondary btn-sm"
-                            onClick={() => onStartEdit(account)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-outline-danger btn-sm"
-                            onClick={() => onDelete(account)}
-                            disabled={transactionCount > 0 || savingKey === `delete-account-${account.id}`}
-                            title={transactionCount > 0 ? "Cannot delete budget accounts with transactions." : undefined}
-                          >
-                            Delete
-                          </button>
-                          {transactionCount > 0 && (
-                            <div className="accounts-user-meta">Cannot delete budget accounts with transactions.</div>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                          onClick={() => onSave(account.id)}
+                        >
+                          Save
+                        </Button>
+                        <Button type="button" size="sm" variant="outline-secondary" onClick={onCancelEdit}>
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="budget-row-actions">
+                        <Button type="button" size="sm" variant="outline-secondary" onClick={() => onStartEdit(account)}>
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="danger"
+                          onClick={() => onDelete(account)}
+                          disabled={transactionCount > 0 || savingKey === `delete-account-${account.id}`}
+                          title={transactionCount > 0 ? "Cannot delete budget accounts with transactions." : undefined}
+                        >
+                          Delete
+                        </Button>
+                        {transactionCount > 0 && (
+                          <div className="budget-table-meta">Cannot delete budget accounts with transactions.</div>
+                        )}
+                      </div>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       )}
     </section>
   );
@@ -978,71 +980,64 @@ function CreateBudgetAccountSection({
 }) {
   return (
     <section className="budget-admin-section">
-      <div className="budget-section-heading">
-        <h2 className="h4 mb-0">Create Budget Account</h2>
-      </div>
+      <SectionHeader title="Create Budget Account" size="md" />
 
       {!activeCycle ? (
-        <p className="budget-empty-state">No active budget cycle.</p>
+        <EmptyState compact title="No active budget cycle." />
       ) : roles.length === 0 ? (
-        <p className="budget-empty-state">No roles available.</p>
+        <EmptyState compact title="No roles available." />
       ) : availableRoles.length === 0 ? (
-        <p className="budget-empty-state">Every visible role already has a budget account for this cycle.</p>
+        <EmptyState
+          compact
+          title="All roles assigned"
+          description="Every visible role already has a budget account for this cycle."
+        />
       ) : (
-        <div className="budget-management-form">
+        <Card variant="flat" padding="md" className="budget-management-form">
           <div className="budget-form-grid">
-            <div>
-              <label className="form-label" htmlFor="accountRole">
-                Role
-              </label>
-              <select
-                id="accountRole"
-                className="form-select"
-                value={draft.roleSlug}
-                onChange={(event) => onDraftChange({ ...draft, roleSlug: event.target.value })}
-                disabled={savingKey === "create-account"}
-              >
-                <option value="">Choose a role</option>
-                {availableRoles.map((role) => (
-                  <option key={role.slug} value={role.slug}>
-                    {role.name} ({role.slug})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="form-label" htmlFor="accountAmount">
-                Allocated amount
-              </label>
-              <input
-                id="accountAmount"
-                className="form-control"
-                type="number"
-                min="0"
-                step="0.01"
-                value={draft.allocatedAmount}
-                onChange={(event) => onDraftChange({ ...draft, allocatedAmount: event.target.value })}
-                disabled={savingKey === "create-account"}
-              />
-            </div>
-            <div className="budget-form-full">
-              <label className="form-label" htmlFor="accountNotes">
-                Notes
-              </label>
-              <textarea
-                id="accountNotes"
-                className="form-control"
-                rows={2}
-                value={draft.notes}
-                onChange={(event) => onDraftChange({ ...draft, notes: event.target.value })}
-                disabled={savingKey === "create-account"}
-              />
-            </div>
+            <Select
+              id="accountRole"
+              label="Role"
+              value={draft.roleSlug}
+              onChange={(event) => onDraftChange({ ...draft, roleSlug: event.target.value })}
+              disabled={savingKey === "create-account"}
+            >
+              <option value="">Choose a role</option>
+              {availableRoles.map((role) => (
+                <option key={role.slug} value={role.slug}>
+                  {role.name} ({role.slug})
+                </option>
+              ))}
+            </Select>
+            <Input
+              id="accountAmount"
+              label="Allocated amount"
+              type="number"
+              min="0"
+              step="0.01"
+              value={draft.allocatedAmount}
+              onChange={(event) => onDraftChange({ ...draft, allocatedAmount: event.target.value })}
+              disabled={savingKey === "create-account"}
+            />
+            <Textarea
+              id="accountNotes"
+              label="Notes"
+              className="budget-form-full"
+              rows={2}
+              value={draft.notes}
+              onChange={(event) => onDraftChange({ ...draft, notes: event.target.value })}
+              disabled={savingKey === "create-account"}
+            />
           </div>
-          <button type="button" className="btn btn-primary" onClick={onCreate} disabled={savingKey === "create-account"}>
+          <Button
+            type="button"
+            onClick={onCreate}
+            loading={savingKey === "create-account"}
+            disabled={savingKey === "create-account"}
+          >
             {savingKey === "create-account" ? "Creating..." : "Create budget account"}
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
     </section>
   );

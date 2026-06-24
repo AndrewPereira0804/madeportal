@@ -2,8 +2,10 @@ import Announcement, { type AnnouncementData } from "./Announcement";
 import { useEffect, useState } from "react";
 import supabase from "../../config/supabaseClient";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../auth/authProvider";
+import { useAuth } from "../../auth/authContext";
+import { canModerateAnnouncements } from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
+import { Button, Card, EmptyState, PageHeader } from "../../components/ui";
 
 type AnnouncementRow = {
     id: AnnouncementData["id"];
@@ -31,7 +33,7 @@ export default function Announcements() {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<AnnouncementRow["id"] | null>(null);
     const userId = session?.user?.id;
-    const isAdmin = roles.includes("admin");
+    const canModerate = canModerateAnnouncements(roles);
 
     useEffect(() => {
         let ignore = false;
@@ -95,7 +97,7 @@ export default function Announcements() {
                     setAnnouncements([]);
                     setErrorMessage(`Could not load announcements: ${message}`);
                 }
-                console.log("Error fetching announcements:", error);
+                console.error("Error fetching announcements:", error);
             } finally {
                 if (!ignore) {
                     setLoading(false);
@@ -136,32 +138,35 @@ export default function Announcements() {
             const message =
                 error instanceof Error ? error.message : "An unexpected error occurred while deleting.";
             setErrorMessage(`Could not delete announcement: ${message}`);
-            console.log("Error deleting announcement:", error);
+            console.error("Error deleting announcement:", error);
         } finally {
             setDeletingId(null);
         }
     }
 
     return (
-        <section className="theme-card announcements-page p-4 p-md-5">
-            <div className="announcements-header">
-                <h1 className="page-title">Announcements</h1>
-                <p className="page-subtitle mt-2">Latest chapter updates and notices.</p>
-                <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => navigate("create")}
-                >
-                    Create Announcement
-                </button>
-            </div>
+        <Card className="announcements-page">
+            <PageHeader
+                title="Announcements"
+                subtitle="Latest chapter updates and notices."
+                bordered
+                actions={
+                    <Button type="button" onClick={() => navigate("create")}>
+                        Create Announcement
+                    </Button>
+                }
+            />
 
             {loading && <p className="announcements-state">Loading announcements...</p>}
             {errorMessage && (
                 <p className="announcements-state announcements-state-error">{errorMessage}</p>
             )}
             {!loading && !errorMessage && announcements.length === 0 && (
-                <p className="announcements-state">No announcements yet.</p>
+                <EmptyState
+                    title="No announcements yet"
+                    description="Chapter updates, notices, and operational posts will appear here."
+                    action={<Button type="button" onClick={() => navigate("create")}>Create announcement</Button>}
+                />
             )}
 
             {!loading && !errorMessage && announcements.length > 0 && (
@@ -179,12 +184,12 @@ export default function Announcements() {
                             likedByCurrentUser={announcement.likedByCurrentUser}
                             onDelete={handleDelete}
                             isDeleting={deletingId === announcement.id}
-                            canDelete={announcement.author_id === userId || isAdmin}
+                            canDelete={announcement.author_id === userId || canModerate}
                             canEdit={announcement.author_id === userId}
                         />
                     ))}
                 </div>
             )}
-        </section>
+        </Card>
     );
 }
