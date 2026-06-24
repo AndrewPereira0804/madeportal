@@ -126,6 +126,11 @@ export function hasAdminRole(roles: string[]) {
   return normalizeRoleSet(roles).has("admin");
 }
 
+export function hasPresidentOrVicePresidentRole(roles: string[]) {
+  const roleSet = normalizeRoleSet(roles);
+  return hasAnyRole(roleSet, presidentRoleSlugs) || hasAnyRole(roleSet, vicePresidentRoleSlugs);
+}
+
 export function getStatusRedirectPath(status: string | null, currentPath: string) {
   if (status === "pending" && currentPath !== "/pending") {
     return "/pending";
@@ -172,6 +177,11 @@ export function canManageBudgets(roles: string[]) {
 export function getBudgetAccountRoleSlugs(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
   return [...budgetAccountRoleSlugs].filter((roleSlug) => roleSet.has(roleSlug));
+}
+
+export function getChairRoleSlugs(roles: string[]) {
+  const roleSet = normalizeRoleSet(roles);
+  return [...chairRoleSlugs].filter((roleSlug) => roleSet.has(roleSlug));
 }
 
 export function canAccessBudgets(roles: string[]) {
@@ -236,6 +246,10 @@ export function canViewEvent(roles: string[], event: EventVisibility, currentUse
 
 export function canModerateAnnouncements(roles: string[]) {
   return !hasAlumniBaseline(roles) && hasAdminRole(roles);
+}
+
+export function canCreateAnnouncements(roles: string[]) {
+  return !hasAlumniBaseline(roles) && (hasAdminRole(roles) || hasPresidentOrVicePresidentRole(roles));
 }
 
 export function canAccessManagement(roles: string[]) {
