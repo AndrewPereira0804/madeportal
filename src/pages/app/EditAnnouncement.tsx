@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/authContext";
 import supabase from "../../config/supabaseClient";
+import { canModerateAnnouncements } from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
 import { Button, Card, Input, PageHeader, Textarea } from "../../components/ui";
 
@@ -51,7 +52,7 @@ export default function EditAnnouncement() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [announcementAuthorId, setAnnouncementAuthorId] = useState<string | null>(null);
-  const isAdmin = roles.includes("admin");
+  const canModerate = canModerateAnnouncements(roles);
   const {
     register,
     handleSubmit,
@@ -94,7 +95,7 @@ export default function EditAnnouncement() {
       }
 
       const canEditAnnouncement =
-        data.author_id === session?.user?.id || isAdmin;
+        data.author_id === session?.user?.id || canModerate;
 
       if (!canEditAnnouncement) {
         setLoadError("You can only edit your own announcements unless you are an admin.");
@@ -115,7 +116,7 @@ export default function EditAnnouncement() {
     return () => {
       ignore = true;
     };
-  }, [announcementId, isAdmin, reset, rolesLoading, session?.user?.id]);
+  }, [announcementId, canModerate, reset, rolesLoading, session?.user?.id]);
 
   const onSubmit = async (formData: FormValues) => {
     setSubmitError(null);
@@ -131,7 +132,7 @@ export default function EditAnnouncement() {
     }
 
     const canEditAnnouncement =
-      announcementAuthorId === session.user.id || isAdmin;
+      announcementAuthorId === session.user.id || canModerate;
 
     if (!canEditAnnouncement) {
       setSubmitError("You can only edit your own announcements unless you are an admin.");

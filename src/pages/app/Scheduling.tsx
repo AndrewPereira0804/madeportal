@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import supabase from "../../config/supabaseClient";
+import { useAuth } from "../../auth/authContext";
+import { canManageEvents as canManageRoleEvents, canViewEvent } from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
 import { Badge, Button, Card, EmptyState, PageHeader, SectionHeader, Select } from "../../components/ui";
 
@@ -21,9 +23,6 @@ type EventRow = {
   visible_to_alum: boolean;
   visible_to_neophyte: boolean;
 };
-
-const fullCrudRoles = ["admin", "ea", "eda"];
-const ownCrudRoles = ["membered", "scholarship", "treasurer", "hm", "hsm", "rec", "stew"];
 
 function formatEastern(dateIso: string) {
   return new Date(dateIso).toLocaleString("en-US", {
@@ -142,7 +141,9 @@ function isDayWithinWindow(day: Date, window: CalendarWindow) {
 }
 
 export default function Scheduling() {
+  const { session } = useAuth();
   const { roles, loading: rolesLoading } = useRoles();
+  const userId = session?.user?.id ?? null;
   const [events, setEvents] = useState<EventRow[]>([]);
   const [windows, setWindows] = useState<CalendarWindow[]>([]);
   const [selectedWindowId, setSelectedWindowId] = useState<string>("all");
@@ -154,16 +155,7 @@ export default function Scheduling() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const hasFullCrud = useMemo(() => roles.some((role) => fullCrudRoles.includes(role)), [roles]);
-  const hasOwnCrud = useMemo(() => roles.some((role) => ownCrudRoles.includes(role)), [roles]);
-  const canManageEvents = hasFullCrud || hasOwnCrud;
-
-  const canViewEvent = (event: EventRow) => {
-    if (roles.includes("brother")) return true;
-    if (event.visible_to_alum && roles.includes("alum")) return true;
-    if (event.visible_to_neophyte && roles.includes("neophyte")) return true;
-    return false;
-  };
+  const canManageEvents = useMemo(() => canManageRoleEvents(roles), [roles]);
 
   useEffect(() => {
     async function fetchCalendarData() {
@@ -203,7 +195,7 @@ export default function Scheduling() {
   }, []);
 
   const filteredEvents = events
-    .filter((event) => canViewEvent(event))
+    .filter((event) => canViewEvent(roles, event, userId))
     .filter((event) => {
       if (selectedWindowId === "all") return true;
       const matchingWindows = getWindowsForEvent(event, windows);

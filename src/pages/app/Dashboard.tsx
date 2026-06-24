@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import supabase from "../../config/supabaseClient";
+import { canViewEvent } from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
 import {
   ActionCard,
@@ -106,12 +107,7 @@ export default function Dashboard() {
 
   const visibleEvents = useMemo(() => {
     return events
-      .filter((event) => {
-        if (roles.includes("brother")) return true;
-        if (event.visible_to_alum && roles.includes("alum")) return true;
-        if (event.visible_to_neophyte && roles.includes("neophyte")) return true;
-        return false;
-      })
+      .filter((event) => canViewEvent(roles, event))
       .slice(0, 4);
   }, [events, roles]);
 
@@ -211,7 +207,7 @@ export default function Dashboard() {
 
       <div className="action-card-grid" aria-label="Quick actions">
         <ActionCard
-          to="/budget"
+          to="/app/budget"
           eyebrow="Finance"
           title="Review budget position"
           description="View balances and expenses."

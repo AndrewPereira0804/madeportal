@@ -77,7 +77,7 @@ export default function BudgetAccountPage() {
         title={account ? account.role_slug : "Budget account"}
         subtitle={account?.notes ?? "Read-only account details and transaction activity."}
         bordered
-        actions={<Button to="/budget" variant="outline-secondary">Back to Budget</Button>}
+        actions={<Button to="/app/budget" variant="outline-secondary">Back to Budget</Button>}
       />
 
       {loading && (

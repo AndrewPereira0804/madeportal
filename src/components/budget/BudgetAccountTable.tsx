@@ -47,7 +47,7 @@ export default function BudgetAccountTable({ accounts, transactions }: BudgetAcc
                 {formatMoney(summary.remaining)}
               </TableCell>
               <TableCell>
-                <Button to={`/budget/${account.id}`} variant="outline-secondary" size="sm">
+                <Button to={`/app/budget/${account.id}`} variant="outline-secondary" size="sm">
                   View transactions
                 </Button>
               </TableCell>

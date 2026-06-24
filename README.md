@@ -1,13 +1,25 @@
-@@ -97,50 +97,189 @@ Protected member routes:
+Protected app routes:
+- `/app`: dashboard
+- `/app/scheduling`: chapter calendar
+- `/app/events/manage`: event management for permitted chapter operators
+- `/app/manage`: chapter management hub for `admin`, `ea`, and `eda`
+- `/app/manage/members`: member approval, role assignment, and status management
+- `/app/budget`: budget dashboard
+- `/app/budget/admin`: budget administration for `admin`, `ea`, `eda`, and `treasurer`
+- `/app/budget/:accountId`: budget account detail
+- `/app/announcements`: announcement feed
 - `/app/announcements/create`
 - `/app/announcements/:announcementId/edit`
-- `/app/members`: member management UI for `admin`, `ea`, and `eda`
 - `/app/account`
+- `/app/system-admin`: future system-admin surface, restricted to `admin`
 
-Admin routes:
-- `/admin`: requires `admin` role
-- `/admin/accounts`: account and role management UI
-- `/admin/events`: currently placeholder page
+Legacy compatibility redirects:
+- `/admin` -> `/app/manage`
+- `/admin/accounts` -> `/app/manage/members`
+- `/admin/events` -> `/app/events/manage`
+- `/budget` -> `/app/budget`
+- `/budget/admin` -> `/app/budget/admin`
+- `/budget/:accountId` -> `/app/budget/:accountId`
 
 ## Supabase Data Model (minimum used by current code)
 
@@ -24,7 +36,8 @@ Status values expected by UI:
 
 Role slugs:
 - `admin` is used for admin access checks
-- `ea` and `eda` are used with `admin` for member-management access
+- `ea` and `eda` are used with `admin` for chapter/member-management access
+- `treasurer` is additive for budget administration
 
 ## Supabase Relationship & RLS Working Notes (current snapshot, **not final**)
 
@@ -171,6 +184,7 @@ Repository policy files:
 - `supabase/admin_accounts_policies.sql`
 - `supabase/announcements_policies.sql`
 - `supabase/events_calendar_policies.sql`
+- `supabase/events_management_access_policies.sql`
 
 Important:
 - Some live policy/function configuration may exist only in the hosted Supabase project and may not be fully mirrored in this repo.

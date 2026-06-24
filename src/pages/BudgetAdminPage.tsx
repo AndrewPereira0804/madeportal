@@ -482,7 +482,7 @@ export default function BudgetAdminPage() {
   }
 
   if (!hasBudgetAccess) {
-    return <Navigate to="/budget" replace />;
+    return <Navigate to="/app/budget" replace />;
   }
 
   if (loading) {
@@ -503,7 +503,7 @@ export default function BudgetAdminPage() {
         title="Budget Admin"
         subtitle="Review expense requests and manage budget allocations."
         bordered
-        actions={<Button to="/budget" variant="outline-secondary">Back to Budget</Button>}
+        actions={<Button to="/app/budget" variant="outline-secondary">Back to Budget</Button>}
       />
 
       {errorMessage && <div className="alert alert-danger budget-alert">{errorMessage}</div>}

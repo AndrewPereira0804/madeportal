@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import supabase from "../../config/supabaseClient";
 import useRoles from "../../auth/useRoles";
 import { Navigate } from "react-router-dom";
-import { canManageMembers } from "../../auth/roleAccess";
+import {
+  canManageMembers,
+  normalizeRoleSlugsForAssignment,
+  toggleRoleForAssignment,
+} from "../../auth/roleAccess";
 import { Button, Card, PageHeader, Tabs } from "../../components/ui";
 
 type AccountStatus = "pending" | "active" | "suspended";
@@ -253,7 +257,7 @@ export default function Accounts() {
 
     const current = users.find((u) => u.user_id === userId)?.roleSlugs ?? [];
     const currentSet = new Set(current);
-    const nextSet = new Set(nextSlugs);
+    const nextSet = new Set(normalizeRoleSlugsForAssignment(nextSlugs));
 
     const toAdd = [...nextSet].filter((r) => !currentSet.has(r));
     const toRemove = [...currentSet].filter((r) => !nextSet.has(r));
@@ -293,13 +297,11 @@ export default function Accounts() {
 
   function startEditing(u: UserVM) {
     setEditingUserId(u.user_id);
-    setDraftRoleSlugs([...u.roleSlugs].sort());
+    setDraftRoleSlugs(normalizeRoleSlugsForAssignment(u.roleSlugs));
   }
 
   function toggleDraftRole(slug: string) {
-    setDraftRoleSlugs((prev) =>
-      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
-    );
+    setDraftRoleSlugs((prev) => toggleRoleForAssignment(prev, slug));
   }
 
   const allRoleSlugs = useMemo(

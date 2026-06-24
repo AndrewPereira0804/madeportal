@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { canManageBudgets } from "../../auth/roleAccess";
+import useRoles from "../../auth/useRoles";
 import BudgetAccountTable from "../../components/budget/BudgetAccountTable";
 import BudgetSummaryCards from "../../components/budget/BudgetSummaryCards";
-import { Card, EmptyState, PageHeader, SectionHeader } from "../../components/ui";
+import { Button, Card, EmptyState, PageHeader, SectionHeader } from "../../components/ui";
 import { calculateBudgetSummary, type BudgetAccount, type BudgetCycle, type BudgetTransaction } from "../../lib/budget";
 import { getActiveBudgetCycle, getBudgetAccountsForCycle, getTransactionsForAccounts } from "../../lib/budgetQueries";
 
@@ -18,6 +20,7 @@ function getCycleLabel(cycle: BudgetCycle) {
 }
 
 export default function BudgetPage() {
+  const { roles } = useRoles();
   const [cycle, setCycle] = useState<BudgetCycle | null>(null);
   const [accounts, setAccounts] = useState<BudgetAccount[]>([]);
   const [transactions, setTransactions] = useState<BudgetTransaction[]>([]);
@@ -75,6 +78,7 @@ export default function BudgetPage() {
   }, []);
 
   const summary = useMemo(() => calculateBudgetSummary(accounts, transactions), [accounts, transactions]);
+  const hasBudgetAdminAccess = canManageBudgets(roles);
 
   return (
     <Card className="budget-page">
@@ -83,6 +87,13 @@ export default function BudgetPage() {
         title="Budget"
         subtitle={cycle ? `Active cycle: ${getCycleLabel(cycle)}` : "Read-only budget dashboard."}
         bordered
+        actions={
+          hasBudgetAdminAccess ? (
+            <Button to="/app/budget/admin" variant="outline-secondary">
+              Budget Admin
+            </Button>
+          ) : undefined
+        }
       />
 
       {loading && (

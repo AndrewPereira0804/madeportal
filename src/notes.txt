@@ -8,3 +8,7 @@ account page and member directory both let the user update their details. should
 admin page is a little funny
 timezones off in calendar
 use names instead of role slugs where appropriate
+
+June 24:
+testing: as a logged out user, going to / displays basic home page (do i need that page?). going to /fakepage throws not found and then 
+returns to /login as intended. /admin goes back to log in. 

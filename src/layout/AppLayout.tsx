@@ -1,12 +1,13 @@
 import { Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/authContext";
+import { canAccessManagement } from "../auth/roleAccess";
 import useRoles from "../auth/useRoles";
 import { AppShell, type AppShellNavItem } from "../components/ui";
 
 const baseNavItems: AppShellNavItem[] = [
   { to: "/app", label: "Dashboard", description: "Overview", end: true },
   { to: "/app/scheduling", label: "Calendar", description: "Events" },
-  { to: "/budget", label: "Budgets", description: "Finance" },
+  { to: "/app/budget", label: "Budgets", description: "Finance" },
   { to: "/app/announcements", label: "Announcements", description: "Posts" },
   { to: "/app/directory", label: "Directory", description: "Members" },
   { to: "/app/account", label: "Account", description: "Profile" },
@@ -23,8 +24,8 @@ export default function AppLayout() {
   }
 
   const roleLabel = roles.length > 0 ? roles.join(", ") : "member";
-  const navItems = roles.includes("admin")
-    ? [...baseNavItems, { to: "/admin", label: "Admin", description: "Tools" }]
+  const navItems = canAccessManagement(roles)
+    ? [...baseNavItems, { to: "/app/manage", label: "Management", description: "Chapter" }]
     : baseNavItems;
 
   return (

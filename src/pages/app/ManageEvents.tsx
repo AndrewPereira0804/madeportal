@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import supabase from "../../config/supabaseClient";
 import { useAuth } from "../../auth/authContext";
+import { canManageEvent, canManageEvents as canManageRoleEvents } from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
 import { Badge, Button, Card, EmptyState, Input, PageHeader, SectionHeader, Textarea } from "../../components/ui";
 
@@ -26,9 +27,6 @@ type EventDraft = {
   visible_to_alum: boolean;
   visible_to_neophyte: boolean;
 };
-
-const fullCrudRoles = ["admin", "ea", "eda"];
-const ownCrudRoles = ["membered", "scholarship", "treasurer", "hm", "hsm", "rec", "stew"];
 
 function toLocalInputValue(dateIso: string) {
   const date = new Date(dateIso);
@@ -70,15 +68,10 @@ export default function ManageEvents() {
   });
 
   const userId = session?.user?.id ?? null;
-  const hasFullCrud = useMemo(() => roles.some((role) => fullCrudRoles.includes(role)), [roles]);
-  const hasOwnCrud = useMemo(() => roles.some((role) => ownCrudRoles.includes(role)), [roles]);
-  const canManage = hasFullCrud || hasOwnCrud;
+  const canManage = useMemo(() => canManageRoleEvents(roles), [roles]);
 
   const canEditOrDeleteEvent = (event: EventRow) => {
-    if (!userId) return false;
-    if (hasFullCrud) return true;
-    if (!hasOwnCrud) return false;
-    return event.created_by === userId;
+    return canManageEvent(roles, event.created_by, userId);
   };
 
   useEffect(() => {

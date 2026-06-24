@@ -1,4 +1,5 @@
 import { useAuth } from "../auth/authContext";
+import { canAccessManagement } from "../auth/roleAccess";
 import { Navigate } from "react-router-dom";
 import useRoles from "../auth/useRoles";
 import { useStatus } from "../auth/useStatus";
@@ -9,8 +10,10 @@ export default function Home() {
   const { roles, loading: rolesLoading } = useRoles();
   const { status, loading: statusLoading } = useStatus();
   
-  if (!rolesLoading && roles.includes("admin")) {
-    return <Navigate to="/admin" replace />;
+  const hasManagementAccess = canAccessManagement(roles);
+
+  if (!rolesLoading && hasManagementAccess) {
+    return <Navigate to="/app/manage" replace />;
   }
 
   if(!statusLoading && status == "active") {
@@ -35,9 +38,9 @@ export default function Home() {
           <Button to="/app" variant="outline-secondary">
             App
           </Button>
-          {roles.includes("admin") && (
-            <Button to="/admin" variant="outline-gold">
-              Admin
+          {hasManagementAccess && (
+            <Button to="/app/manage" variant="outline-gold">
+              Management
             </Button>
           )}
           {session && (

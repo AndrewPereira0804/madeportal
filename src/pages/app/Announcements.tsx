@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import supabase from "../../config/supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/authContext";
+import { canModerateAnnouncements } from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
 import { Button, Card, EmptyState, PageHeader } from "../../components/ui";
 
@@ -32,7 +33,7 @@ export default function Announcements() {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<AnnouncementRow["id"] | null>(null);
     const userId = session?.user?.id;
-    const isAdmin = roles.includes("admin");
+    const canModerate = canModerateAnnouncements(roles);
 
     useEffect(() => {
         let ignore = false;
@@ -183,7 +184,7 @@ export default function Announcements() {
                             likedByCurrentUser={announcement.likedByCurrentUser}
                             onDelete={handleDelete}
                             isDeleting={deletingId === announcement.id}
-                            canDelete={announcement.author_id === userId || isAdmin}
+                            canDelete={announcement.author_id === userId || canModerate}
                             canEdit={announcement.author_id === userId}
                         />
                     ))}
