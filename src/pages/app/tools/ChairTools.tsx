@@ -3,6 +3,7 @@ import { Navigate, useParams } from "react-router-dom";
 import {
   canAccessBudgetAccount,
   canAccessChairTool,
+  canManageCommunityServiceEvents,
   canManageFormalEvents,
   canManagePartyEvents,
   canManageBudgets,
@@ -15,10 +16,12 @@ import { getRoleLabel, normalizeRoleSlugForDisplay } from "../../../auth/roleDis
 import { ActionCard, Badge, Button, Card, EmptyState, MetricCard, PageHeader, SectionHeader } from "../../../components/ui";
 import { calculateBudgetSummary, formatMoney, type BudgetAccount, type BudgetCycle, type BudgetTransaction } from "../../../lib/budget";
 import { getActiveBudgetCycle, getBudgetAccountsForCycle, getTransactionsForAccount } from "../../../lib/budgetQueries";
+import CommunityServiceEventsTool from "./CommunityServiceEventsTool";
 import FormalEventsTool from "./FormalEventsTool";
 import PartyEventsTool from "./PartyEventsTool";
 
 const socialChairRoleSlug = "social-chair";
+const communityServiceChairRoleSlugs = new Set(["cs-chair", "community-service-chair"]);
 
 function uniqueRoleSlugs(roleSlugs: string[]) {
   const seen = new Set<string>();
@@ -122,6 +125,8 @@ export function ChairToolPage() {
   const canUseBudgetAdminAccess = canManageBudgets(roles);
   const canUsePartyTool = normalizedRoleSlug === socialChairRoleSlug && canManagePartyEvents(roles);
   const canUseFormalTool = normalizedRoleSlug === socialChairRoleSlug && canManageFormalEvents(roles);
+  const canUseCommunityServiceTool =
+    communityServiceChairRoleSlugs.has(normalizedRoleSlug) && canManageCommunityServiceEvents(roles);
 
   const [cycle, setCycle] = useState<BudgetCycle | null>(null);
   const [account, setAccount] = useState<BudgetAccount | null>(null);
@@ -229,6 +234,10 @@ export function ChairToolPage() {
     return <FormalEventsTool />;
   }
 
+  if (nestedToolPath === "community-service-events" && communityServiceChairRoleSlugs.has(normalizedRoleSlug)) {
+    return <CommunityServiceEventsTool />;
+  }
+
   if (nestedToolPath) {
     return (
       <Card className="tools-page">
@@ -290,6 +299,24 @@ export function ChairToolPage() {
                     meta="Formal"
                   />
                 )}
+              </div>
+            </>
+          )}
+
+          {canUseCommunityServiceTool && (
+            <>
+              <SectionHeader
+                title="Community Service tools"
+                description="Service event creation, attendance tracking, hours, and Nationals logging status."
+              />
+              <div className="action-card-grid tools-grid">
+                <ActionCard
+                  to={`/app/tools/${normalizedRoleSlug}/community-service-events`}
+                  eyebrow="Events"
+                  title="Community service events"
+                  description="Create service events and track brother hours logged with Nationals."
+                  meta="Community Service"
+                />
               </div>
             </>
           )}

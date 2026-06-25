@@ -205,6 +205,7 @@ Frontend usage:
 - `src/pages/app/ManageEvents.tsx` creates, updates, and deletes events.
 - `src/pages/app/tools/PartyEventsTool.tsx` creates party events and updates party event `details`.
 - `src/pages/app/tools/FormalEventsTool.tsx` creates formal events and updates formal event `details` for cost, attendee, payment, and setup checklist state.
+- `src/pages/app/tools/CommunityServiceEventsTool.tsx` creates community service events and updates event `details` for organization, location, attendance hours, and Nationals logging state.
 
 Important: frontend supplies `created_by`; do not rely on the `gen_random_uuid()` default because it can produce invalid foreign keys.
 

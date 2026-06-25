@@ -107,6 +107,7 @@ const ownEventManagerRoleSlugs = new Set([
 ]);
 
 const socialChairEventToolRoleSlugs = new Set(["social-chair"]);
+const communityServiceEventToolRoleSlugs = new Set(["cs-chair", "community-service-chair"]);
 
 const eventTypeManagerRoleSlugs: Record<EventTypeSlug, string[]> = {
   party: ["social-chair", "hsm", "health-safety-manager"],
@@ -336,6 +337,11 @@ export function canManagePartyEvents(roles: string[]) {
 export function canManageFormalEvents(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
   return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, socialChairEventToolRoleSlugs);
+}
+
+export function canManageCommunityServiceEvents(roles: string[]) {
+  const roleSet = normalizeRoleSet(roles);
+  return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, communityServiceEventToolRoleSlugs);
 }
 
 export function canViewEvent(roles: string[], event: EventVisibility, currentUserId?: string | null) {

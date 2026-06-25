@@ -20,7 +20,10 @@ export const eventTypeOptions = [
 ] as const;
 
 export const generalEventTypeOptions = eventTypeOptions.filter(
-  (eventType) => eventType.slug !== "party" && eventType.slug !== "formal"
+  (eventType) =>
+    eventType.slug !== "party" &&
+    eventType.slug !== "formal" &&
+    eventType.slug !== "community_service"
 );
 
 export type EventTypeSlug = (typeof eventTypeOptions)[number]["slug"];

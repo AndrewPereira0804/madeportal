@@ -6,6 +6,7 @@ Protected app routes:
 - `/app/tools/:roleSlug/*`: role-specific chair tool surface
 - `/app/tools/social-chair/party-events`: party event creator and checklist tool for `social-chair`
 - `/app/tools/social-chair/formal-events`: formal event creator, payment calculator, attendee table, and setup checklist tool for `social-chair`
+- `/app/tools/cs-chair/community-service-events`: community service event creator, attendance hours table, and Nationals logging tracker for `cs-chair`
 - `/app/manage`: chapter management hub for `admin`, `ea`, and `eda`
 - `/app/manage/members`: member approval, role assignment, and status management
 - `/app/budget`: budget dashboard

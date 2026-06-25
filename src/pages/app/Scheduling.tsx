@@ -4,7 +4,9 @@ import { useAuth } from "../../auth/authContext";
 import { canManageEvents as canManageRoleEvents, canViewEvent } from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
 import { Badge, Button, Card, EmptyState, PageHeader, SectionHeader, Select } from "../../components/ui";
+import { normalizeCommunityServiceEventDetails } from "../../lib/communityServiceEvents";
 import { getEventTypeClassName, getEventTypeLabel, type EventTypeSlug } from "../../lib/eventTypes";
+import { normalizeFormalEventDetails } from "../../lib/formalEvents";
 import { normalizePartyEventDetails } from "../../lib/partyEvents";
 
 type CalendarWindow = {
@@ -144,6 +146,59 @@ function isDayWithinWindow(day: Date, window: CalendarWindow) {
   return dayStart >= start && dayStart <= end;
 }
 
+function EventTypePublicDetails({ event }: { event: EventRow }) {
+  if (event.event_type === "party") {
+    const details = normalizePartyEventDetails(event.details);
+
+    return (
+      <div className="event-public-details">
+        <p>
+          <strong>Theme:</strong> {details.theme || "Not set"}
+        </p>
+        <p>
+          <strong>Invite list:</strong>{" "}
+          {details.inviteListUrl ? (
+            <a href={details.inviteListUrl} target="_blank" rel="noreferrer">
+              Google Sheets
+            </a>
+          ) : (
+            "Not set"
+          )}
+        </p>
+      </div>
+    );
+  }
+
+  if (event.event_type === "formal") {
+    const details = normalizeFormalEventDetails(event.details);
+
+    return (
+      <div className="event-public-details">
+        <p>
+          <strong>Theme:</strong> {details.theme || "Not set"}
+        </p>
+      </div>
+    );
+  }
+
+  if (event.event_type === "community_service") {
+    const details = normalizeCommunityServiceEventDetails(event.details);
+
+    return (
+      <div className="event-public-details">
+        <p>
+          <strong>Organization:</strong> {details.organization || "Not set"}
+        </p>
+        <p>
+          <strong>Location:</strong> {details.location || "Not set"}
+        </p>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 export default function Scheduling() {
   const { session } = useAuth();
   const { roles, loading: rolesLoading } = useRoles();
@@ -156,6 +211,7 @@ export default function Scheduling() {
     return new Date(today.getFullYear(), today.getMonth(), 1);
   });
   const [selectedDateKey, setSelectedDateKey] = useState(() => toDateKey(new Date()));
+  const [expandedEventIds, setExpandedEventIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -250,6 +306,19 @@ export default function Scheduling() {
   }, [filteredEvents, monthGridDays]);
 
   const selectedDayEvents = eventsByDay.get(selectedDateKey) ?? [];
+
+  function toggleEventExpanded(eventId: string) {
+    setExpandedEventIds((current) => {
+      const next = new Set(current);
+      if (next.has(eventId)) {
+        next.delete(eventId);
+      } else {
+        next.add(eventId);
+      }
+
+      return next;
+    });
+  }
 
   return (
     <Card>
@@ -412,50 +481,62 @@ export default function Scheduling() {
             )}
             {selectedDayEvents.map((event) => {
               const matchingWindows = getWindowsForEvent(event, windows);
-              const partyDetails = event.event_type === "party" ? normalizePartyEventDetails(event.details) : null;
+              const isExpanded = expandedEventIds.has(event.id);
+              const expandedContentId = `event-details-${event.id}`;
+
               return (
-                <article key={event.id} className="event-detail-card">
-                  <div className="d-flex justify-content-between gap-2 flex-wrap">
-                    <h2 className="h5 mb-0">{event.title}</h2>
-                  </div>
-                  <p className="mb-1 mt-2">{event.description || "No description provided."}</p>
-                  <p className="mb-1">
-                    <strong>Starts:</strong> {formatEastern(event.start)}
-                  </p>
-                  <p className="mb-1">
-                    <strong>Ends:</strong> {formatEastern(event.end)}
-                  </p>
-                  {partyDetails && (
-                    <div className="event-public-details">
-                      <p>
-                        <strong>Theme:</strong> {partyDetails.theme || "Not set"}
+                <article
+                  key={event.id}
+                  className={`event-detail-card event-detail-card--expandable ${isExpanded ? "is-expanded" : ""}`}
+                >
+                  <button
+                    type="button"
+                    className="event-detail-summary"
+                    aria-expanded={isExpanded}
+                    aria-controls={expandedContentId}
+                    onClick={() => toggleEventExpanded(event.id)}
+                  >
+                    <span className="event-detail-summary-main">
+                      <span className="event-detail-title-row">
+                        <span className="event-detail-title">{event.title}</span>
+                        <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName(event.event_type)}`}>
+                          {getEventTypeLabel(event.event_type)}
+                        </Badge>
+                      </span>
+                      <span className="event-detail-time">
+                        {formatEastern(event.start)} to {formatEastern(event.end)}
+                      </span>
+                      <span className="event-detail-preview">{event.description || "No description provided."}</span>
+                    </span>
+                    <span className="event-detail-toggle-label">{isExpanded ? "Hide details" : "View details"}</span>
+                  </button>
+
+                  {isExpanded && (
+                    <div id={expandedContentId} className="event-detail-expanded">
+                      <p className="mb-1">{event.description || "No description provided."}</p>
+                      <p className="mb-1">
+                        <strong>Starts:</strong> {formatEastern(event.start)}
                       </p>
-                      <p>
-                        <strong>Invite list:</strong>{" "}
-                        {partyDetails.inviteListUrl ? (
-                          <a href={partyDetails.inviteListUrl} target="_blank" rel="noreferrer">
-                            Google Sheets
-                          </a>
-                        ) : (
-                          "Not set"
-                        )}
+                      <p className="mb-1">
+                        <strong>Ends:</strong> {formatEastern(event.end)}
                       </p>
+                      <EventTypePublicDetails event={event} />
+                      <p className="mb-1 text-body-secondary">
+                        <strong>Schedule windows:</strong>{" "}
+                        {matchingWindows.length > 0
+                          ? matchingWindows.map((window) => window.label).join(", ")
+                          : "Outside configured school windows"}
+                      </p>
+                      <div className="d-flex gap-2 flex-wrap mt-2">
+                        <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName(event.event_type)}`}>
+                          {getEventTypeLabel(event.event_type)}
+                        </Badge>
+                        <Badge variant="info">brother</Badge>
+                        {event.visible_to_alum && <Badge variant="info">alum</Badge>}
+                        {event.visible_to_neophyte && <Badge variant="info">neophyte</Badge>}
+                      </div>
                     </div>
                   )}
-                  <p className="mb-1 text-body-secondary">
-                    <strong>Schedule windows:</strong>{" "}
-                    {matchingWindows.length > 0
-                      ? matchingWindows.map((window) => window.label).join(", ")
-                      : "Outside configured school windows"}
-                  </p>
-                  <div className="d-flex gap-2 flex-wrap mt-2">
-                    <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName(event.event_type)}`}>
-                      {getEventTypeLabel(event.event_type)}
-                    </Badge>
-                    <Badge variant="info">brother</Badge>
-                    {event.visible_to_alum && <Badge variant="info">alum</Badge>}
-                    {event.visible_to_neophyte && <Badge variant="info">neophyte</Badge>}
-                  </div>
                 </article>
               );
             })}
