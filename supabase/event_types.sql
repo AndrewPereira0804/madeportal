@@ -4,6 +4,14 @@ alter table public.events
 alter table public.events
   add column if not exists details jsonb;
 
+insert into public.roles (slug, name)
+values
+  ('alumni-chair', 'Alumni Chairman'),
+  ('chapter-dev', 'Chapter Development'),
+  ('professional-dev', 'Professional Development')
+on conflict (slug) do update
+set name = excluded.name;
+
 update public.events
 set event_type = 'brotherhood_event'
 where event_type is null or btrim(event_type) = '';
@@ -40,6 +48,7 @@ alter table public.events
       'scholarship',
       'professional_development',
       'brotherhood_event',
+      'hsm_event',
       'work_party',
       'new_member_meeting',
       'new_member_event'
@@ -91,16 +100,16 @@ as $$
       from public.user_roles
       where user_id = check_user_id
         and (
-          (check_event_type in ('party', 'formal', 'sorority_fraternity') and role_slug = 'social-chair')
+          (check_event_type in ('party', 'formal') and role_slug in ('social-chair', 'hsm', 'health-safety-manager'))
+          or (check_event_type = 'alumni_event' and role_slug in ('alumni-chair', 'alumni-chairman'))
+          or (check_event_type = 'brotherhood_event' and role_slug in ('chapter-dev', 'chapter-dev-chair', 'chapter-development', 'chapter-development-chair', 'hsm', 'health-safety-manager'))
           or (check_event_type = 'community_service' and role_slug in ('cs-chair', 'community-service-chair'))
+          or (check_event_type = 'hsm_event' and role_slug in ('hsm', 'health-safety-manager'))
+          or (check_event_type in ('new_member_meeting', 'new_member_event') and role_slug in ('membered', 'member-educator'))
           or (check_event_type = 'philanthropy' and role_slug in ('philo-chair', 'philanthropy-chair'))
-          or (check_event_type = 'house_meeting' and role_slug in ('hm', 'house-manager'))
-          or (check_event_type = 'alumni_event' and role_slug in ('rec', 'recorder'))
-          or (check_event_type = 'rush' and role_slug = 'rush-chair')
-          or (check_event_type in ('scholarship', 'professional_development') and role_slug = 'scholarship')
-          or (check_event_type = 'brotherhood_event' and role_slug in ('stew', 'steward'))
-          or (check_event_type = 'work_party' and role_slug in ('hm', 'house-manager', 'stew', 'steward'))
-          or (check_event_type in ('new_member_meeting', 'new_member_event') and role_slug in ('membered', 'member-educator', 'preceptor'))
+          or (check_event_type = 'professional_development' and role_slug in ('professional-dev', 'professional-dev-chair', 'professional-development', 'professional-development-chair'))
+          or (check_event_type = 'scholarship' and role_slug = 'scholarship')
+          or (check_event_type = 'work_party' and role_slug in ('hm', 'house-manager'))
         )
     );
 $$;

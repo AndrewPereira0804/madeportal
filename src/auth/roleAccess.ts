@@ -33,12 +33,21 @@ const budgetManagerRoleSlugs = new Set([
 ]);
 
 const budgetAccountRoleSlugs = new Set([
+  "alumni-chair",
+  "alumni-chairman",
+  "chapter-dev",
+  "chapter-dev-chair",
+  "chapter-development",
+  "chapter-development-chair",
   "social-chair",
-  "rush-chair",
   "cs-chair",
   "community-service-chair",
   "philo-chair",
   "philanthropy-chair",
+  "professional-dev",
+  "professional-dev-chair",
+  "professional-development",
+  "professional-development-chair",
   "scholarship",
   "membered",
   "member-educator",
@@ -60,26 +69,34 @@ const fullEventManagerRoleSlugs = new Set([
 ]);
 
 const canonicalChairToolRoleSlugs = [
+  "alumni-chair",
+  "chapter-dev",
   "social-chair",
-  "rush-chair",
   "cs-chair",
   "philo-chair",
+  "professional-dev",
   "scholarship",
   "membered",
-  "preceptor",
   "hm",
   "hsm",
   "rec",
-  "stew",
 ];
 
 const chairRoleSlugs = new Set([
   ...canonicalChairToolRoleSlugs,
+  "alumni-chairman",
+  "chapter-dev-chair",
+  "chapter-development",
+  "chapter-development-chair",
   "community-service-chair",
   "philanthropy-chair",
   "member-educator",
   "house-manager",
   "health-safety-manager",
+  "professional-dev-chair",
+  "professional-development",
+  "professional-development-chair",
+  "preceptor",
   "recorder",
   "steward",
 ]);
@@ -89,24 +106,37 @@ const ownEventManagerRoleSlugs = new Set([
   "treasurer",
 ]);
 
-const partyEventManagerRoleSlugs = new Set(["social-chair"]);
+const socialChairEventToolRoleSlugs = new Set(["social-chair"]);
 
 const eventTypeManagerRoleSlugs: Record<EventTypeSlug, string[]> = {
-  party: ["social-chair"],
-  formal: ["social-chair"],
-  sorority_fraternity: ["social-chair"],
+  party: ["social-chair", "hsm", "health-safety-manager"],
+  formal: ["social-chair", "hsm", "health-safety-manager"],
+  sorority_fraternity: [],
   dei: [],
   community_service: ["cs-chair", "community-service-chair"],
   philanthropy: ["philo-chair", "philanthropy-chair"],
-  house_meeting: ["hm", "house-manager"],
-  alumni_event: ["rec", "recorder"],
-  rush: ["rush-chair"],
+  house_meeting: [],
+  alumni_event: ["alumni-chair", "alumni-chairman"],
+  rush: [],
   scholarship: ["scholarship"],
-  professional_development: ["scholarship"],
-  brotherhood_event: ["stew", "steward"],
-  work_party: ["hm", "house-manager", "stew", "steward"],
-  new_member_meeting: ["membered", "member-educator", "preceptor"],
-  new_member_event: ["membered", "member-educator", "preceptor"],
+  professional_development: [
+    "professional-dev",
+    "professional-dev-chair",
+    "professional-development",
+    "professional-development-chair",
+  ],
+  brotherhood_event: [
+    "chapter-dev",
+    "chapter-dev-chair",
+    "chapter-development",
+    "chapter-development-chair",
+    "hsm",
+    "health-safety-manager",
+  ],
+  hsm_event: ["hsm", "health-safety-manager"],
+  work_party: ["hm", "house-manager"],
+  new_member_meeting: ["membered", "member-educator"],
+  new_member_event: ["membered", "member-educator"],
 };
 
 function normalizeRoleSlug(roleSlug: string) {
@@ -300,7 +330,12 @@ export function canManageEvent(
 
 export function canManagePartyEvents(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
-  return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, partyEventManagerRoleSlugs);
+  return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, socialChairEventToolRoleSlugs);
+}
+
+export function canManageFormalEvents(roles: string[]) {
+  const roleSet = normalizeRoleSet(roles);
+  return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, socialChairEventToolRoleSlugs);
 }
 
 export function canViewEvent(roles: string[], event: EventVisibility, currentUserId?: string | null) {

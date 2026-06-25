@@ -3,6 +3,7 @@ import { Navigate, useParams } from "react-router-dom";
 import {
   canAccessBudgetAccount,
   canAccessChairTool,
+  canManageFormalEvents,
   canManagePartyEvents,
   canManageBudgets,
   getChairRoleSlugs,
@@ -14,6 +15,7 @@ import { getRoleLabel, normalizeRoleSlugForDisplay } from "../../../auth/roleDis
 import { ActionCard, Badge, Button, Card, EmptyState, MetricCard, PageHeader, SectionHeader } from "../../../components/ui";
 import { calculateBudgetSummary, formatMoney, type BudgetAccount, type BudgetCycle, type BudgetTransaction } from "../../../lib/budget";
 import { getActiveBudgetCycle, getBudgetAccountsForCycle, getTransactionsForAccount } from "../../../lib/budgetQueries";
+import FormalEventsTool from "./FormalEventsTool";
 import PartyEventsTool from "./PartyEventsTool";
 
 const socialChairRoleSlug = "social-chair";
@@ -119,6 +121,7 @@ export function ChairToolPage() {
   const canViewTool = Boolean(normalizedRoleSlug && canAccessChairTool(roles, normalizedRoleSlug));
   const canUseBudgetAdminAccess = canManageBudgets(roles);
   const canUsePartyTool = normalizedRoleSlug === socialChairRoleSlug && canManagePartyEvents(roles);
+  const canUseFormalTool = normalizedRoleSlug === socialChairRoleSlug && canManageFormalEvents(roles);
 
   const [cycle, setCycle] = useState<BudgetCycle | null>(null);
   const [account, setAccount] = useState<BudgetAccount | null>(null);
@@ -222,6 +225,10 @@ export function ChairToolPage() {
     return <PartyEventsTool />;
   }
 
+  if (nestedToolPath === "formal-events" && normalizedRoleSlug === socialChairRoleSlug) {
+    return <FormalEventsTool />;
+  }
+
   if (nestedToolPath) {
     return (
       <Card className="tools-page">
@@ -258,20 +265,31 @@ export function ChairToolPage() {
 
       {!loading && !errorMessage && (
         <>
-          {canUsePartyTool && (
+          {(canUsePartyTool || canUseFormalTool) && (
             <>
               <SectionHeader
                 title="Social chair tools"
-                description="Party-specific event creation and checklist tracking."
+                description="Social event creation, guest lists, payment tracking, and checklist work."
               />
               <div className="action-card-grid tools-grid">
-                <ActionCard
-                  to="/app/tools/social-chair/party-events"
-                  eyebrow="Events"
-                  title="Party events"
-                  description="Create party events and manage pre/post party checklists."
-                  meta="Party"
-                />
+                {canUsePartyTool && (
+                  <ActionCard
+                    to="/app/tools/social-chair/party-events"
+                    eyebrow="Events"
+                    title="Party events"
+                    description="Create party events and manage pre/post party checklists."
+                    meta="Party"
+                  />
+                )}
+                {canUseFormalTool && (
+                  <ActionCard
+                    to="/app/tools/social-chair/formal-events"
+                    eyebrow="Events"
+                    title="Formal events"
+                    description="Create formal events, calculate brother payments, and manage setup work."
+                    meta="Formal"
+                  />
+                )}
               </div>
             </>
           )}

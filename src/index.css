@@ -1770,9 +1770,80 @@ button:disabled {
   align-items: start;
 }
 
+.formal-event-card {
+  gap: 1.1rem;
+}
+
+.formal-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.formal-cost-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 0.65rem;
+  align-items: end;
+}
+
+.formal-event-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+  gap: 0.85rem;
+  align-items: start;
+}
+
+.formal-attendee-panel {
+  min-width: 0;
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(43, 32, 20, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.formal-attendee-add {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(120px, 0.45fr) auto;
+  gap: 0.55rem;
+  align-items: end;
+}
+
+.formal-paid-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--text-primary);
+  font-weight: 750;
+}
+
+.formal-paid-toggle input {
+  accent-color: var(--accent);
+}
+
 @media (max-width: 760px) {
   .party-checklist-grid,
-  .party-checklist-add {
+  .party-checklist-add,
+  .formal-cost-form,
+  .formal-attendee-add {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1080px) {
+  .formal-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .formal-event-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .formal-metric-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -2776,6 +2847,12 @@ button:disabled {
   --event-type-color: #4b006e;
   --event-type-bg: rgba(75, 0, 110, 0.1);
   --event-type-border: rgba(75, 0, 110, 0.24);
+}
+
+.event-type--hsm_event {
+  --event-type-color: #6b4968;
+  --event-type-bg: rgba(107, 73, 104, 0.11);
+  --event-type-border: rgba(107, 73, 104, 0.26);
 }
 
 .event-type--work_party {

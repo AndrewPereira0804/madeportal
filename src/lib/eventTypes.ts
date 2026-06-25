@@ -13,12 +13,15 @@ export const eventTypeOptions = [
   { slug: "scholarship", label: "Scholarship" },
   { slug: "professional_development", label: "Professional Development" },
   { slug: defaultEventType, label: "Brotherhood Event" },
+  { slug: "hsm_event", label: "HSM Event" },
   { slug: "work_party", label: "Work Party" },
   { slug: "new_member_meeting", label: "New Member Meeting" },
   { slug: "new_member_event", label: "New Member Event" },
 ] as const;
 
-export const generalEventTypeOptions = eventTypeOptions.filter((eventType) => eventType.slug !== "party");
+export const generalEventTypeOptions = eventTypeOptions.filter(
+  (eventType) => eventType.slug !== "party" && eventType.slug !== "formal"
+);
 
 export type EventTypeSlug = (typeof eventTypeOptions)[number]["slug"];
 

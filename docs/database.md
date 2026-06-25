@@ -1,10 +1,10 @@
 # Database Contract
 
-Last updated: 2026-05-23
+Last updated: 2026-06-25
 
 ## Source Of Truth
 
-Hosted Supabase is currently the canonical database source of truth. This document records the latest schema and RLS policy snapshot provided from the hosted project so code changes can be checked against the database contract before implementation.
+Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. Function bodies and trigger attachments still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
 
 Schema exports in this document are for context only. Do not run them directly as migrations because export order, enum placeholders, constraints, policies, and triggers may be incomplete.
 
@@ -15,7 +15,7 @@ Before database-related changes:
 1. Read this file.
 2. Check the relevant frontend code.
 3. Check the relevant SQL file under `supabase/`.
-4. If behavior depends on hosted RLS/policies/functions, ask for a fresh Supabase export before changing assumptions.
+4. If behavior depends on hosted functions/triggers or policies not covered by the latest provided export, ask for a fresh Supabase export before changing assumptions.
 
 ## Safety Notes
 
@@ -91,6 +91,9 @@ Referenced by:
 - `announcement_likes.user_id`
 - `events.created_by`
 - `transactions.created_by`
+- `budget_accounts.created_by`
+- `budget_transactions.submitted_by`
+- `budget_transactions.approved_by`
 
 Frontend usage:
 
@@ -186,17 +189,22 @@ Columns:
 - `created_by uuid default gen_random_uuid() references public.profiles(user_id)`
 - `visible_to_alum boolean not null`
 - `visible_to_neophyte boolean not null`
+- `event_type text not null default 'brotherhood_event'`
+- `details jsonb not null default '{}'::jsonb`
 
-Pending repo rollout:
+Event type constraints:
 
-- `supabase/event_types.sql` adds `event_type text not null default 'brotherhood_event'` with an allowed-value check constraint. The 2026-05-23 hosted snapshot did not include this column.
-- `supabase/event_types.sql` adds `details jsonb not null default '{}'::jsonb` for type-specific event details such as party themes, invite list links, and party checklists.
+- The 2026-06-25 hosted schema export allows: `party`, `formal`, `sorority_fraternity`, `dei`, `community_service`, `philanthropy`, `house_meeting`, `alumni_event`, `rush`, `scholarship`, `professional_development`, `brotherhood_event`, `work_party`, `new_member_meeting`, `new_member_event`.
+- The current repo rollout adds `hsm_event`; apply `supabase/event_types.sql` before creating HSM events.
+- `details` must be a JSON object.
+- `supabase/event_types.sql` remains the repo reconciliation/reference script for environments that do not yet have these columns or constraints.
 
 Frontend usage:
 
 - `src/pages/app/Scheduling.tsx` reads events.
 - `src/pages/app/ManageEvents.tsx` creates, updates, and deletes events.
 - `src/pages/app/tools/PartyEventsTool.tsx` creates party events and updates party event `details`.
+- `src/pages/app/tools/FormalEventsTool.tsx` creates formal events and updates formal event `details` for cost, attendee, payment, and setup checklist state.
 
 Important: frontend supplies `created_by`; do not rely on the `gen_random_uuid()` default because it can produce invalid foreign keys.
 
@@ -215,28 +223,14 @@ Frontend usage:
 
 - `src/pages/app/Scheduling.tsx` reads calendar windows.
 
-### public.budgets
-
-Purpose: budget master records.
-
-Columns:
-
-- `id uuid primary key default gen_random_uuid()`
-- `committee text not null`
-- `amount double precision`
-
-Frontend usage:
-
-- Current budget page is placeholder.
-
 ### public.transactions
 
-Purpose: budget-linked financial records.
+Purpose: legacy budget-linked financial records from the older budget model.
 
 Columns:
 
 - `id uuid primary key default gen_random_uuid()`
-- `budget_id uuid not null default gen_random_uuid() references public.budgets(id)`
+- `budget_id uuid not null default gen_random_uuid()`
 - `amount double precision not null`
 - `vendor text default 'N/A'`
 - `date timestamp without time zone default now()`
@@ -246,7 +240,88 @@ Frontend usage:
 
 - No current frontend workflow.
 
-Important: `budget_id` and `created_by` defaults can produce invalid foreign keys. Future frontend code should supply explicit valid IDs.
+Important:
+
+- The 2026-06-25 hosted schema export did not include `public.budgets` or a foreign key from `transactions.budget_id`.
+- Current frontend budget work should use `budget_cycles`, `budget_accounts`, and `budget_transactions` instead.
+- `budget_id` and `created_by` defaults can produce invalid IDs. Do not build new budget workflows on this table without a deliberate migration plan.
+
+### public.budget_cycles
+
+Purpose: budget period/cycle records.
+
+Columns:
+
+- `id uuid primary key default gen_random_uuid()`
+- `name text not null`
+- `start_date date not null`
+- `end_date date not null`
+- `is_active boolean not null default false`
+- `created_at timestamptz not null default now()`
+- `created_by uuid references auth.users(id)`
+
+Referenced by:
+
+- `budget_accounts.cycle_id`
+
+Frontend usage:
+
+- `src/lib/budgetQueries.ts` reads, creates, and marks active budget cycles.
+- `src/pages/budget/BudgetPage.tsx` and `src/pages/BudgetAdminPage.tsx` read active cycle state.
+
+### public.budget_accounts
+
+Purpose: role-scoped budget allocations within a cycle.
+
+Columns:
+
+- `id uuid primary key default gen_random_uuid()`
+- `cycle_id uuid not null references public.budget_cycles(id)`
+- `role_slug text not null references public.roles(slug)`
+- `allocated_amount numeric not null default 0 check (allocated_amount >= 0)`
+- `notes text`
+- `created_at timestamptz not null default now()`
+- `created_by uuid references public.profiles(user_id)`
+
+Referenced by:
+
+- `budget_transactions.budget_account_id`
+
+Frontend usage:
+
+- `src/lib/budgetQueries.ts` reads, creates, updates, and deletes budget accounts.
+- `src/pages/budget/BudgetPage.tsx`, `src/pages/budget/BudgetAccountPage.tsx`, `src/pages/BudgetAdminPage.tsx`, and `src/pages/app/tools/ChairTools.tsx` read account allocations.
+
+### public.budget_transactions
+
+Purpose: expense and reimbursement records for budget accounts.
+
+Columns:
+
+- `id uuid primary key default gen_random_uuid()`
+- `budget_account_id uuid not null references public.budget_accounts(id)`
+- `submitted_by uuid not null references public.profiles(user_id)`
+- `amount numeric not null check (amount > 0)`
+- `vendor text`
+- `category text`
+- `description text not null`
+- `transaction_date date not null default current_date`
+- `status text not null default 'submitted'`
+- `receipt_url text`
+- `approved_by uuid references public.profiles(user_id)`
+- `approved_at timestamptz`
+- `denial_reason text`
+- `created_at timestamptz not null default now()`
+
+Current hosted constraints from the 2026-06-25 schema export:
+
+- `status` must be one of: `submitted`, `approved`, `denied`, `reimbursed`.
+
+Frontend usage:
+
+- `src/lib/budgetQueries.ts` reads, inserts, approves, denies, and reimburses budget transactions.
+- `src/components/budget/SubmitExpenseForm.tsx` inserts submitted transactions.
+- Budget dashboard, account detail, admin review, and chair tool views display these records.
 
 ### public.audit_log
 
@@ -254,7 +329,7 @@ Purpose: audit trail for sensitive/admin actions.
 
 Columns:
 
-- `id bigint primary key`
+- `id bigint primary key default nextval('audit_log_id_seq'::regclass)`
 - `actor_id uuid references auth.users(id)`
 - `action text not null`
 - `target_user_id uuid references auth.users(id)`
@@ -266,13 +341,15 @@ Frontend usage:
 
 ## Role Catalog
 
-Current hosted `public.roles` rows:
+Current hosted `public.roles` rows plus repo rollout additions:
 
 | Slug | Name |
 | --- | --- |
 | `admin` | Admin |
 | `alum` | Alumni |
+| `alumni-chair` | Alumni Chairman |
 | `brother` | Brother |
+| `chapter-dev` | Chapter Development |
 | `cs-chair` | Community Service Chairman |
 | `ea` | Eminent Archon |
 | `eda` | Eminent Deputy Archon |
@@ -282,13 +359,14 @@ Current hosted `public.roles` rows:
 | `neophyte` | Neophyte |
 | `philo-chair` | Philanthropy Chairman |
 | `preceptor` | Preceptor |
+| `professional-dev` | Professional Development |
 | `rec` | Recorder |
 | `scholarship` | Scholarship Chairman |
 | `social-chair` | Social Chairman |
 | `stew` | Steward |
 | `treasurer` | Treasurer |
 
-Do not infer new permissions from role names alone. Check the permission sections and hosted RLS policies before changing behavior.
+Rows marked by this repo rollout (`alumni-chair`, `chapter-dev`, `professional-dev`) may not exist in older hosted exports; `supabase/event_types.sql` inserts them idempotently. Do not infer new permissions from role names alone. Check the permission sections and hosted RLS policies before changing behavior.
 
 ## Permission Intent
 
@@ -332,7 +410,7 @@ Hosted policy snapshot:
 
 Repo SQL may not match hosted policy intent. The current hosted `active_users_can_read_announcements` policy is more restrictive than the repo's older `Authenticated users can read announcements` policy.
 
-Important: the latest schema export includes `announcement_likes`, but did not include RLS policy or trigger exports for that table. Treat those as external/unverified state until a fresh policy/function export is provided.
+Important: the 2026-06-25 RLS policy export includes current-user read, insert, and delete policies for `announcement_likes`. Trigger state for keeping `announcements.likes` synchronized remains external/unverified until a fresh function/trigger export is provided.
 
 ### Events
 
@@ -347,7 +425,16 @@ Hosted policy snapshot:
 Frontend currently uses a stricter/higher-level role split for event management:
 
 - Full CRUD roles: `admin`, `ea`, `eda`, `rec`, `recorder`.
-- Event-type CRUD roles are mapped centrally in `src/auth/roleAccess.ts`; for example `social-chair` manages social event types, `cs-chair` manages community service, `philo-chair` manages philanthropy, `rush-chair` manages rush, and `membered`/`preceptor` manage new-member event types.
+- `social-chair`: `party`, `formal`.
+- `alumni-chair`: `alumni_event`.
+- `chapter-dev`: `brotherhood_event`.
+- `cs-chair`: `community_service`.
+- `hm`: `work_party`.
+- `hsm`: `brotherhood_event`, `party`, `formal`, `hsm_event`.
+- `membered`: `new_member_meeting`, `new_member_event`.
+- `philo-chair`: `philanthropy`.
+- `professional-dev`: `professional_development`.
+- `scholarship`: `scholarship`.
 - Own-event fallback roles remain for legacy event records where applicable.
 
 This is a known area where hosted RLS and frontend role intent should be re-verified before changing event behavior.
@@ -357,6 +444,24 @@ This is a known area where hosted RLS and frontend role intent should be re-veri
 Hosted policy snapshot currently allows authenticated users to select, insert, update, and delete calendars.
 
 There are multiple duplicate SELECT policies in hosted state. Treat this as external state to clean up deliberately, not as a frontend bug.
+
+### Budgets
+
+Current schema snapshot:
+
+- Active budget workflows use `budget_cycles`, `budget_accounts`, and `budget_transactions`.
+- The older `transactions` table remains in the hosted schema export but is not used by current frontend budget workflows.
+- No `budgets` table appears in the 2026-06-25 hosted schema export.
+
+Frontend visibility:
+
+- Budget administration is available to `admin`, `ea`, `eda`, and `treasurer`.
+- Budget dashboard/account access is shown to budget managers or users whose roles are budget-account-capable in `src/auth/roleAccess.ts`.
+
+Hosted policy notes:
+
+- The 2026-06-25 RLS policy export verifies the budget table policies listed below.
+- The helper function bodies behind `current_user_is_active()`, `is_budget_manager()`, and `can_access_budget_account(uuid)` were not included in the policy export. Ask for hosted function definitions before changing budget access assumptions.
 
 ## Helper Functions
 
@@ -573,9 +678,21 @@ Repo SQL includes `has_role`, `can_full_crud_events`, and `can_create_owned_even
 
 Do not assume repo helper names match hosted helper names for events unless the relevant SQL file has been reconciled with hosted functions.
 
+### Other Policy Helpers
+
+The 2026-06-25 RLS policy export references these helper functions, but the export did not include their hosted definitions:
+
+- `public.current_user_is_active()`
+- `public.is_budget_manager()`
+- `public.can_access_budget_account(uuid)`
+- `public.can_manage_events(uuid)`
+- `public.can_manage_event_type(uuid, text)`
+
+Repo SQL defines or references some event helpers, but hosted function bodies should be verified before changing access behavior that depends on any of these helpers.
+
 ## Hosted RLS Policy Snapshot
 
-This section reflects the policy export provided on 2026-05-23.
+This section reflects the policy export provided on 2026-06-25.
 
 ### public.announcements
 
@@ -593,15 +710,50 @@ Note: this direct `announcements.likes` update policy is legacy for the current 
 
 ### public.announcement_likes
 
-The latest schema export includes this table, but no RLS policy export was provided for it.
+- `Users can read own announcement likes`
+  - SELECT to authenticated.
+  - Allows rows where `user_id = auth.uid()`.
+- `Users can like announcements`
+  - INSERT to authenticated.
+  - Requires `user_id = auth.uid()`.
+- `Users can unlike own announcement likes`
+  - DELETE to authenticated.
+  - Allows rows where `user_id = auth.uid()`.
 
-Expected policies for the current frontend:
+Trigger state for keeping `announcements.likes` aligned with `announcement_likes` is not proven by this policy export.
 
-- Authenticated users can read their own likes.
-- Authenticated users can insert their own like rows.
-- Authenticated users can delete their own like rows.
+### public.budget_cycles
 
-External/unverified state: confirm hosted RLS policies before treating like/unlike as deployed.
+- `Active users can view budget cycles`
+  - SELECT to authenticated.
+  - Allows users passing `current_user_is_active()`.
+- `Budget managers can manage budget cycles`
+  - ALL to authenticated.
+  - Allows and checks users passing `is_budget_manager()`.
+
+### public.budget_accounts
+
+- `Users can view accessible budget accounts`
+  - SELECT to authenticated.
+  - Allows rows passing `can_access_budget_account(id)`.
+- `Budget managers can manage budget accounts`
+  - ALL to authenticated.
+  - Allows and checks users passing `is_budget_manager()`.
+
+### public.budget_transactions
+
+- `Users can view accessible budget transactions`
+  - SELECT to authenticated.
+  - Allows rows whose `budget_account_id` passes `can_access_budget_account(budget_account_id)`.
+- `Users can submit transactions to accessible budgets`
+  - INSERT to authenticated.
+  - Requires `submitted_by = auth.uid()`, `status = 'submitted'`, and accessible `budget_account_id`.
+- `Budget managers can update budget transactions`
+  - UPDATE to authenticated.
+  - Allows and checks users passing `is_budget_manager()`.
+- `Budget managers can delete budget transactions`
+  - DELETE to authenticated.
+  - Allows users passing `is_budget_manager()`.
 
 ### public.calendars
 
@@ -616,6 +768,30 @@ All current calendar policies allow authenticated users with `true` predicates.
 
 ### public.events
 
+- `Event managers can read all events`
+  - SELECT to authenticated.
+  - Allows users passing `can_manage_events(auth.uid())`.
+- `Event managers can insert events`
+  - INSERT to authenticated.
+  - Requires `created_by = auth.uid()` and `can_manage_events(auth.uid())`.
+- `Event managers can update all events`
+  - UPDATE to authenticated.
+  - Allows and checks users passing `can_manage_events(auth.uid())`.
+- `Event managers can delete all events`
+  - DELETE to authenticated.
+  - Allows users passing `can_manage_events(auth.uid())`.
+- `Event type managers can read manageable events`
+  - SELECT to authenticated.
+  - Allows rows passing `can_manage_event_type(auth.uid(), event_type)`.
+- `Event type managers can create manageable events`
+  - INSERT to authenticated.
+  - Requires `created_by = auth.uid()` and manageable `event_type`.
+- `Event type managers can update manageable events`
+  - UPDATE to authenticated.
+  - Allows and checks manageable `event_type`.
+- `Event type managers can delete manageable events`
+  - DELETE to authenticated.
+  - Allows manageable `event_type`.
 - `events_select_visible`
   - SELECT to authenticated.
   - Allows `brother`, owner, visible alum, or visible neophyte.
@@ -629,20 +805,38 @@ All current calendar policies allow authenticated users with `true` predicates.
   - DELETE to authenticated.
   - Allows owner or `brother`.
 
+### public.majors
+
+- `Authenticated users can read majors`
+  - SELECT to authenticated using `true`.
+
 ### public.profiles
 
 Current hosted policies include both newer member-manager policies and older profile policies:
 
+- `Active users can read active profiles`
+  - SELECT to authenticated.
+  - Allows rows where the target profile is `active` and the requesting user is active via `is_active(auth.uid())`.
 - `Member managers can read all profiles`
+  - SELECT to authenticated via `can_manage_members(auth.uid())`.
 - `Member managers can update all profiles`
+  - UPDATE to authenticated via `can_manage_members(auth.uid())`.
 - `Users can insert own profile`
+  - INSERT to authenticated where `user_id = auth.uid()`.
 - `Users can read own profile`
+  - SELECT to authenticated where `user_id = auth.uid()`.
 - `profiles_admin_all`
+  - ALL to authenticated for users with `admin` in `user_roles`.
 - `profiles_delete_own`
+  - DELETE to authenticated where `user_id = auth.uid()`.
 - `profiles_insert_authenticated`
+  - INSERT to authenticated for admins or for own pending profile rows.
 - `profiles_select_own`
+  - SELECT to authenticated where `user_id = auth.uid()`.
 - `profiles_update_own`
+  - UPDATE to authenticated where `user_id = auth.uid()`.
 - `update_own_profile_while_pending`
+  - UPDATE to authenticated where `user_id = auth.uid()` and the row status is `pending`.
 
 This overlap may be intentional or may be cleanup debt. Do not remove policy overlap without confirming desired hosted behavior.
 
@@ -655,11 +849,18 @@ This overlap may be intentional or may be cleanup debt. Do not remove policy ove
 
 ### public.user_roles
 
+- `Active users can read active user roles`
+  - SELECT to authenticated when both the requesting user and target user are active.
 - `Member managers can delete user roles`
+  - DELETE to authenticated via `can_manage_members(auth.uid())`.
 - `Member managers can insert user roles`
+  - INSERT to authenticated via `can_manage_members(auth.uid())`.
 - `Member managers can read all user roles`
+  - SELECT to authenticated via `can_manage_members(auth.uid())`.
 - `Users can read own roles`
+  - SELECT to authenticated where `user_id = auth.uid()`.
 - `read own roles`
+  - SELECT to authenticated where `user_id = auth.uid()`.
 
 `Users can read own roles` and `read own roles` are duplicate in intent. Do not remove either without confirming hosted cleanup.
 
@@ -713,18 +914,19 @@ Purpose:
 
 - Adds `events.event_type`.
 - Adds `events.details`.
+- Inserts missing role rows for `alumni-chair`, `chapter-dev`, and `professional-dev`.
 - Backfills existing events to `brotherhood_event`.
 - Backfills missing event details to `{}`.
-- Adds the current allowed event type check constraint.
+- Adds the current allowed event type check constraint, including `hsm_event`.
 - Adds a JSON object check constraint for event details.
 - Adds `public.can_manage_all_events(uuid)` and `public.can_manage_event_type(uuid, text)`.
 - Adds additive event-type manager policies for reading, creating, updating, and deleting manageable events.
 - Notifies PostgREST to reload the schema cache.
 
-Rollout note:
+Current schema note:
 
-- Apply this before deploying frontend code that selects or writes `events.event_type`.
-- Apply this before deploying frontend code that selects or writes `events.details`.
+- The 2026-06-25 hosted schema export already includes `events.event_type`, `events.details`, and their check constraints.
+- Use this file as the repo reconciliation/reference script for environments that do not yet match the canonical hosted schema.
 - Existing event manager policies may still allow broader event administration if `supabase/events_management_access_policies.sql` has not been reconciled in the hosted project; verify hosted RLS before relying only on frontend routing.
 
 ### supabase/events_calendar_policies.sql
@@ -756,14 +958,14 @@ Rollout note:
 
 ## Known Drift And Cleanup Items
 
-- `README.md` is currently incomplete and starts with a patch hunk marker.
-- README still has older placeholder notes that may not reflect current Scheduling/Event work.
 - Hosted calendar policies include duplicate SELECT policies.
 - Hosted profile and user role policies include overlapping legacy and new policies.
-- Hosted `announcement_likes` policies and aggregate trigger state are not documented in the latest export.
+- Hosted `announcement_likes` aggregate trigger state is not documented in the latest export.
+- Hosted definitions for budget policy helpers (`current_user_is_active`, `is_budget_manager`, `can_access_budget_account`) are not documented in the latest export.
 - Repo announcement policies differ from hosted announcement policies.
 - Repo `announcement_likes.sql` may differ from hosted foreign-key delete behavior.
 - Repo event/calendar policies differ from hosted event/calendar policies.
+- No repo SQL file currently documents the hosted `budget_cycles`, `budget_accounts`, and `budget_transactions` setup.
 - Trigger attachments for `handle_new_user`, `sync_profile_email`, and `rls_auto_enable` are not documented yet.
 
 ## Future Exports To Add
@@ -771,6 +973,6 @@ Rollout note:
 Ask the user for these before high-risk database work:
 
 - Fresh full schema export.
-- Fresh full RLS policy export.
+- Fresh full RLS policy export if policies change after the 2026-06-25 export.
 - Trigger definitions/attachments for `announcement_likes_apply_delta`, `handle_new_user`, `sync_profile_email`, and `rls_auto_enable`.
 - Any function definitions not listed in this document.
