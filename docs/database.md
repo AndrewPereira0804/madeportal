@@ -187,10 +187,16 @@ Columns:
 - `visible_to_alum boolean not null`
 - `visible_to_neophyte boolean not null`
 
+Pending repo rollout:
+
+- `supabase/event_types.sql` adds `event_type text not null default 'brotherhood_event'` with an allowed-value check constraint. The 2026-05-23 hosted snapshot did not include this column.
+- `supabase/event_types.sql` adds `details jsonb not null default '{}'::jsonb` for type-specific event details such as party themes, invite list links, and party checklists.
+
 Frontend usage:
 
 - `src/pages/app/Scheduling.tsx` reads events.
 - `src/pages/app/ManageEvents.tsx` creates, updates, and deletes events.
+- `src/pages/app/tools/PartyEventsTool.tsx` creates party events and updates party event `details`.
 
 Important: frontend supplies `created_by`; do not rely on the `gen_random_uuid()` default because it can produce invalid foreign keys.
 
@@ -340,8 +346,9 @@ Hosted policy snapshot:
 
 Frontend currently uses a stricter/higher-level role split for event management:
 
-- Full CRUD roles: `admin`, `ea`, `eda`.
-- Own-event CRUD roles: `membered`, `scholarship`, `treasurer`, `hm`, `hsm`, `rec`, `stew`.
+- Full CRUD roles: `admin`, `ea`, `eda`, `rec`, `recorder`.
+- Event-type CRUD roles are mapped centrally in `src/auth/roleAccess.ts`; for example `social-chair` manages social event types, `cs-chair` manages community service, `philo-chair` manages philanthropy, `rush-chair` manages rush, and `membered`/`preceptor` manage new-member event types.
+- Own-event fallback roles remain for legacy event records where applicable.
 
 This is a known area where hosted RLS and frontend role intent should be re-verified before changing event behavior.
 
@@ -700,6 +707,26 @@ Current mismatch:
 
 - The latest hosted schema export shows `announcement_likes` foreign keys without `on delete cascade`; the repo rollout script currently defines cascade behavior for announcement/profile deletion. Verify hosted constraints before relying on automatic cleanup.
 
+### supabase/event_types.sql
+
+Purpose:
+
+- Adds `events.event_type`.
+- Adds `events.details`.
+- Backfills existing events to `brotherhood_event`.
+- Backfills missing event details to `{}`.
+- Adds the current allowed event type check constraint.
+- Adds a JSON object check constraint for event details.
+- Adds `public.can_manage_all_events(uuid)` and `public.can_manage_event_type(uuid, text)`.
+- Adds additive event-type manager policies for reading, creating, updating, and deleting manageable events.
+- Notifies PostgREST to reload the schema cache.
+
+Rollout note:
+
+- Apply this before deploying frontend code that selects or writes `events.event_type`.
+- Apply this before deploying frontend code that selects or writes `events.details`.
+- Existing event manager policies may still allow broader event administration if `supabase/events_management_access_policies.sql` has not been reconciled in the hosted project; verify hosted RLS before relying only on frontend routing.
+
 ### supabase/events_calendar_policies.sql
 
 Purpose:
@@ -720,7 +747,7 @@ Do not run this file against hosted Supabase without a deliberate migration plan
 Purpose:
 
 - Adds `public.can_manage_events(uuid)` for full event managers.
-- Adds additive event RLS policies so `admin`, `ea`, `eda`, and president/vice-president slug variants can read, create, update, and delete events.
+- Adds additive event RLS policies so `admin`, `ea`, `eda`, recorder, and president/vice-president slug variants can read, create, update, and delete events.
 
 Rollout note:
 

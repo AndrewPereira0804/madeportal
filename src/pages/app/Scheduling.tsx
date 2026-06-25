@@ -4,6 +4,8 @@ import { useAuth } from "../../auth/authContext";
 import { canManageEvents as canManageRoleEvents, canViewEvent } from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
 import { Badge, Button, Card, EmptyState, PageHeader, SectionHeader, Select } from "../../components/ui";
+import { getEventTypeClassName, getEventTypeLabel, type EventTypeSlug } from "../../lib/eventTypes";
+import { normalizePartyEventDetails } from "../../lib/partyEvents";
 
 type CalendarWindow = {
   id: string;
@@ -17,6 +19,8 @@ type EventRow = {
   created_at: string;
   title: string;
   description: string | null;
+  event_type: EventTypeSlug | null;
+  details: unknown;
   start: string;
   end: string;
   created_by: string;
@@ -166,7 +170,7 @@ export default function Scheduling() {
         supabase.from("calendars").select("*").order("start", { ascending: true }),
         supabase
           .from("events")
-          .select("id, created_at, title, description, start, end, created_by, visible_to_alum, visible_to_neophyte")
+          .select("id, created_at, title, description, event_type, details, start, end, created_by, visible_to_alum, visible_to_neophyte")
           .order("start", { ascending: true }),
       ]);
 
@@ -381,7 +385,11 @@ export default function Scheduling() {
                     <span className="calendar-day-number">{day.getDate()}</span>
                     <div className="calendar-day-events">
                       {dayEvents.slice(0, 2).map((event) => (
-                        <div key={`${key}-${event.id}`} className="calendar-event-chip" title={event.title}>
+                        <div
+                          key={`${key}-${event.id}`}
+                          className={`calendar-event-chip ${getEventTypeClassName(event.event_type)}`}
+                          title={`${getEventTypeLabel(event.event_type)}: ${event.title}`}
+                        >
                           <strong>{formatEventTime(event, day)}</strong> {event.title}
                         </div>
                       ))}
@@ -404,6 +412,7 @@ export default function Scheduling() {
             )}
             {selectedDayEvents.map((event) => {
               const matchingWindows = getWindowsForEvent(event, windows);
+              const partyDetails = event.event_type === "party" ? normalizePartyEventDetails(event.details) : null;
               return (
                 <article key={event.id} className="event-detail-card">
                   <div className="d-flex justify-content-between gap-2 flex-wrap">
@@ -416,6 +425,23 @@ export default function Scheduling() {
                   <p className="mb-1">
                     <strong>Ends:</strong> {formatEastern(event.end)}
                   </p>
+                  {partyDetails && (
+                    <div className="event-public-details">
+                      <p>
+                        <strong>Theme:</strong> {partyDetails.theme || "Not set"}
+                      </p>
+                      <p>
+                        <strong>Invite list:</strong>{" "}
+                        {partyDetails.inviteListUrl ? (
+                          <a href={partyDetails.inviteListUrl} target="_blank" rel="noreferrer">
+                            Google Sheets
+                          </a>
+                        ) : (
+                          "Not set"
+                        )}
+                      </p>
+                    </div>
+                  )}
                   <p className="mb-1 text-body-secondary">
                     <strong>Schedule windows:</strong>{" "}
                     {matchingWindows.length > 0
@@ -423,6 +449,9 @@ export default function Scheduling() {
                       : "Outside configured school windows"}
                   </p>
                   <div className="d-flex gap-2 flex-wrap mt-2">
+                    <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName(event.event_type)}`}>
+                      {getEventTypeLabel(event.event_type)}
+                    </Badge>
                     <Badge variant="info">brother</Badge>
                     {event.visible_to_alum && <Badge variant="info">alum</Badge>}
                     {event.visible_to_neophyte && <Badge variant="info">neophyte</Badge>}

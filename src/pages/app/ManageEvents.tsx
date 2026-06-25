@@ -3,9 +3,25 @@ import type { FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import supabase from "../../config/supabaseClient";
 import { useAuth } from "../../auth/authContext";
-import { canManageEvent, canManageEvents as canManageRoleEvents } from "../../auth/roleAccess";
+import {
+  canManageAllEvents,
+  canManageEvent,
+  canManageEventType,
+  canManageEvents as canManageRoleEvents,
+  canManageOwnEvents,
+  getManageableEventTypes,
+} from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
-import { Badge, Button, Card, EmptyState, Input, PageHeader, SectionHeader, Textarea } from "../../components/ui";
+import { Badge, Button, Card, EmptyState, Input, PageHeader, SectionHeader, Select, Textarea } from "../../components/ui";
+import {
+  defaultEventType,
+  eventTypeOptions,
+  generalEventTypeOptions,
+  getEventTypeClassName,
+  getEventTypeLabel,
+  normalizeEventType,
+  type EventTypeSlug,
+} from "../../lib/eventTypes";
 
 type EventRow = {
   id: string;
@@ -15,6 +31,7 @@ type EventRow = {
   start: string;
   end: string;
   created_by: string;
+  event_type: EventTypeSlug | null;
   visible_to_alum: boolean;
   visible_to_neophyte: boolean;
 };
@@ -22,6 +39,7 @@ type EventRow = {
 type EventDraft = {
   title: string;
   description: string;
+  event_type: EventTypeSlug;
   start: string;
   end: string;
   visible_to_alum: boolean;
@@ -61,6 +79,7 @@ export default function ManageEvents() {
   const [draft, setDraft] = useState<EventDraft>({
     title: "",
     description: "",
+    event_type: defaultEventType,
     start: "",
     end: "",
     visible_to_alum: false,
@@ -69,9 +88,32 @@ export default function ManageEvents() {
 
   const userId = session?.user?.id ?? null;
   const canManage = useMemo(() => canManageRoleEvents(roles), [roles]);
+  const canManageAll = useMemo(() => canManageAllEvents(roles), [roles]);
+  const canUseOwnEventFallback = useMemo(() => canManageOwnEvents(roles), [roles]);
+  const manageableEventTypes = useMemo(() => getManageableEventTypes(roles), [roles]);
+  const createEventTypeOptions = useMemo(() => {
+    if (canManageAll || (canUseOwnEventFallback && manageableEventTypes.length === 0)) {
+      return generalEventTypeOptions;
+    }
+
+    return generalEventTypeOptions.filter((eventType) => manageableEventTypes.includes(eventType.slug));
+  }, [canManageAll, canUseOwnEventFallback, manageableEventTypes]);
+  const canCreateFromManager = createEventTypeOptions.length > 0;
+  const defaultDraftEventType = createEventTypeOptions.some((eventType) => eventType.slug === defaultEventType)
+    ? defaultEventType
+    : createEventTypeOptions[0]?.slug ?? defaultEventType;
+  const selectedCreateEventType = createEventTypeOptions.some((eventType) => eventType.slug === draft.event_type)
+    ? draft.event_type
+    : defaultDraftEventType;
+  const eventTypeSelectOptions = editingId ? eventTypeOptions : createEventTypeOptions;
+  const canCreateSelectedEventType =
+    canManageEventType(roles, selectedCreateEventType) ||
+    (canUseOwnEventFallback &&
+      manageableEventTypes.length === 0 &&
+      createEventTypeOptions.some((eventType) => eventType.slug === selectedCreateEventType));
 
   const canEditOrDeleteEvent = (event: EventRow) => {
-    return canManageEvent(roles, event.created_by, userId);
+    return canManageEvent(roles, event.created_by, userId, event.event_type);
   };
 
   useEffect(() => {
@@ -81,10 +123,28 @@ export default function ManageEvents() {
       setLoading(true);
       setErrorMessage(null);
 
-      const { data, error } = await supabase
+      if (!canManageAll && manageableEventTypes.length === 0 && (!canUseOwnEventFallback || !userId)) {
+        setEvents([]);
+        setLoading(false);
+        return;
+      }
+
+      let query = supabase
         .from("events")
-        .select("id, created_at, title, description, start, end, created_by, visible_to_alum, visible_to_neophyte")
-        .order("start", { ascending: true });
+        .select("id, created_at, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte");
+
+      if (!canManageAll) {
+        if (manageableEventTypes.length > 0 && canUseOwnEventFallback && userId) {
+          query = query.or(`event_type.in.(${manageableEventTypes.join(",")}),created_by.eq.${userId}`);
+        } else if (manageableEventTypes.length > 0) {
+          query = query.in("event_type", manageableEventTypes);
+        } else if (canUseOwnEventFallback && userId) {
+          query = query.eq("created_by", userId);
+        }
+      }
+
+      const { data, error } = await query.order("start", { ascending: true });
+      let nextEvents = (data ?? []) as EventRow[];
 
       if (error) {
         if (ignore) return;
@@ -92,7 +152,11 @@ export default function ManageEvents() {
         setErrorMessage(dbError("load events", error.message));
       } else {
         if (ignore) return;
-        setEvents((data ?? []) as EventRow[]);
+        if (!canManageAll) {
+          nextEvents = nextEvents.filter((event) => canManageEvent(roles, event.created_by, userId, event.event_type));
+        }
+
+        setEvents(nextEvents);
       }
 
       setLoading(false);
@@ -110,13 +174,14 @@ export default function ManageEvents() {
       ignore = true;
       window.clearTimeout(timeoutId);
     };
-  }, [canManage, rolesLoading]);
+  }, [canManage, canManageAll, canUseOwnEventFallback, manageableEventTypes, roles, rolesLoading, userId]);
 
   function resetDraft() {
     setEditingId(null);
     setDraft({
       title: "",
       description: "",
+      event_type: defaultDraftEventType,
       start: "",
       end: "",
       visible_to_alum: false,
@@ -132,8 +197,15 @@ export default function ManageEvents() {
       return;
     }
 
+    const eventTypeForSave = editingId ? draft.event_type : selectedCreateEventType;
+
     if (!draft.title.trim() || !draft.start || !draft.end) {
       setErrorMessage("Title, start, and end are required.");
+      return;
+    }
+
+    if (!editingId && (!canCreateFromManager || !canCreateSelectedEventType)) {
+      setErrorMessage("Use the role-specific tool for that event type.");
       return;
     }
 
@@ -148,6 +220,7 @@ export default function ManageEvents() {
     const payload = {
       title: draft.title.trim(),
       description: draft.description.trim() || null,
+      event_type: eventTypeForSave,
       start: toUtcIso(draft.start),
       end: toUtcIso(draft.end),
       created_by: userId,
@@ -167,7 +240,7 @@ export default function ManageEvents() {
         .from("events")
         .update(payload)
         .eq("id", editingId)
-        .select("id, created_at, title, description, start, end, created_by, visible_to_alum, visible_to_neophyte")
+        .select("id, created_at, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte")
         .single();
 
       if (error) {
@@ -180,7 +253,7 @@ export default function ManageEvents() {
       const { data, error } = await supabase
         .from("events")
         .insert(payload)
-        .select("id, created_at, title, description, start, end, created_by, visible_to_alum, visible_to_neophyte")
+        .select("id, created_at, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte")
         .single();
 
       if (error) {
@@ -199,6 +272,7 @@ export default function ManageEvents() {
     setDraft({
       title: event.title,
       description: event.description ?? "",
+      event_type: normalizeEventType(event.event_type),
       start: toLocalInputValue(event.start),
       end: toLocalInputValue(event.end),
       visible_to_alum: event.visible_to_alum,
@@ -235,80 +309,102 @@ export default function ManageEvents() {
         actions={<Button to="/app/scheduling" variant="outline-secondary">Back to Calendar</Button>}
       />
 
-      <form className="event-management-form" onSubmit={handleSubmit}>
-        <SectionHeader
-          size="sm"
-          title={editingId ? "Update event" : "Create event"}
-          description="Brother visibility is always included. Add additional audiences only when needed."
-        />
+      {(editingId || canCreateFromManager) && (
+        <form className="event-management-form" onSubmit={handleSubmit}>
+          <SectionHeader
+            size="sm"
+            title={editingId ? "Update event" : "Create event"}
+            description={
+              editingId
+                ? "Event type is locked while editing. Use role-specific tools for type-specific details."
+                : "Brother visibility is always included. Add additional audiences only when needed."
+            }
+          />
 
-        <div className="budget-form-grid">
-          <Input
-            className="budget-form-full"
-            label="Event title"
-            placeholder="Event title"
-            value={draft.title}
-            onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-          />
-          <Textarea
-            className="budget-form-full"
-            label="Description"
-            placeholder="Description"
-            value={draft.description}
-            onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
-            rows={3}
-          />
-          <Input
-            label="Start"
-            type="datetime-local"
-            value={draft.start}
-            onChange={(event) => setDraft((current) => ({ ...current, start: event.target.value }))}
-          />
-          <Input
-            label="End"
-            type="datetime-local"
-            value={draft.end}
-            onChange={(event) => setDraft((current) => ({ ...current, end: event.target.value }))}
-          />
-        </div>
+          <div className="budget-form-grid">
+            <Input
+              className="budget-form-full"
+              label="Event title"
+              placeholder="Event title"
+              value={draft.title}
+              onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
+            />
+            <Textarea
+              className="budget-form-full"
+              label="Description"
+              placeholder="Description"
+              value={draft.description}
+              onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
+              rows={3}
+            />
+            <Select
+              className="budget-form-full"
+              id="eventType"
+              label="Event type"
+              value={editingId ? draft.event_type : selectedCreateEventType}
+              disabled={Boolean(editingId)}
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, event_type: normalizeEventType(event.target.value) }))
+              }
+            >
+              {eventTypeSelectOptions.map((eventType) => (
+                <option key={eventType.slug} value={eventType.slug}>
+                  {eventType.label}
+                </option>
+              ))}
+            </Select>
+            <Input
+              label="Start"
+              type="datetime-local"
+              value={draft.start}
+              onChange={(event) => setDraft((current) => ({ ...current, start: event.target.value }))}
+            />
+            <Input
+              label="End"
+              type="datetime-local"
+              value={draft.end}
+              onChange={(event) => setDraft((current) => ({ ...current, end: event.target.value }))}
+            />
+          </div>
 
-        <div className="form-check mt-3">
-          <input
-            id="manageAlumVisibility"
-            className="form-check-input"
-            type="checkbox"
-            checked={draft.visible_to_alum}
-            onChange={(event) => setDraft((current) => ({ ...current, visible_to_alum: event.target.checked }))}
-          />
-          <label className="form-check-label" htmlFor="manageAlumVisibility">
-            Visible to alum
-          </label>
-        </div>
+          <div className="form-check mt-3">
+            <input
+              id="manageAlumVisibility"
+              className="form-check-input"
+              type="checkbox"
+              checked={draft.visible_to_alum}
+              onChange={(event) => setDraft((current) => ({ ...current, visible_to_alum: event.target.checked }))}
+            />
+            <label className="form-check-label" htmlFor="manageAlumVisibility">
+              Visible to alum
+            </label>
+          </div>
 
-        <div className="form-check">
-          <input
-            id="manageNeophyteVisibility"
-            className="form-check-input"
-            type="checkbox"
-            checked={draft.visible_to_neophyte}
-            onChange={(event) => setDraft((current) => ({ ...current, visible_to_neophyte: event.target.checked }))}
-          />
-          <label className="form-check-label" htmlFor="manageNeophyteVisibility">
-            Visible to neophyte
-          </label>
-        </div>
+          <div className="form-check">
+            <input
+              id="manageNeophyteVisibility"
+              className="form-check-input"
+              type="checkbox"
+              checked={draft.visible_to_neophyte}
+              onChange={(event) => setDraft((current) => ({ ...current, visible_to_neophyte: event.target.checked }))}
+            />
+            <label className="form-check-label" htmlFor="manageNeophyteVisibility">
+              Visible to neophyte
+            </label>
+          </div>
 
-        <div className="d-flex gap-2 mt-3 flex-wrap">
-          <Button type="submit" disabled={saving || rolesLoading} loading={saving}>
-            {editingId ? "Save changes" : "Create event"}
-          </Button>
-          {editingId && (
-            <Button type="button" variant="outline-secondary" onClick={resetDraft}>
-              Cancel
+          <div className="d-flex gap-2 mt-3 flex-wrap">
+            <Button type="submit" disabled={saving || rolesLoading} loading={saving}>
+              {editingId ? "Save changes" : "Create event"}
             </Button>
-          )}
-        </div>
-      </form>
+            {editingId && (
+              <Button type="button" variant="outline-secondary" onClick={resetDraft}>
+                Cancel
+              </Button>
+            )}
+          </div>
+        </form>
+      )}
 
       {loading && <p className="announcements-state">Loading events...</p>}
       {errorMessage && <p className="mt-4 text-danger">{errorMessage}</p>}
@@ -346,6 +442,9 @@ export default function ManageEvents() {
                 <strong>Ends:</strong> {formatEastern(event.end)}
               </p>
               <div className="d-flex gap-2 flex-wrap mt-2">
+                <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName(event.event_type)}`}>
+                  {getEventTypeLabel(event.event_type)}
+                </Badge>
                 <Badge variant="info">brother</Badge>
                 {event.visible_to_alum && <Badge variant="info">alum</Badge>}
                 {event.visible_to_neophyte && <Badge variant="info">neophyte</Badge>}

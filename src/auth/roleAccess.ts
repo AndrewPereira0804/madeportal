@@ -1,3 +1,5 @@
+import { eventTypeOptions, type EventTypeSlug } from "../lib/eventTypes";
+
 export type AccountStatus = "pending" | "active" | "suspended";
 export type ChapterStatus = "neophyte" | "brother" | "alumni";
 
@@ -50,26 +52,35 @@ const budgetAccountRoleSlugs = new Set([
   "treasurer",
 ]);
 
-const fullEventManagerRoleSlugs = memberManagerRoleSlugs;
+const recorderRoleSlugs = new Set(["rec", "recorder"]);
 
-const chairRoleSlugs = new Set([
+const fullEventManagerRoleSlugs = new Set([
+  ...memberManagerRoleSlugs,
+  ...recorderRoleSlugs,
+]);
+
+const canonicalChairToolRoleSlugs = [
   "social-chair",
   "rush-chair",
   "cs-chair",
-  "community-service-chair",
   "philo-chair",
-  "philanthropy-chair",
   "scholarship",
   "membered",
-  "member-educator",
   "preceptor",
   "hm",
-  "house-manager",
   "hsm",
-  "health-safety-manager",
   "rec",
-  "recorder",
   "stew",
+];
+
+const chairRoleSlugs = new Set([
+  ...canonicalChairToolRoleSlugs,
+  "community-service-chair",
+  "philanthropy-chair",
+  "member-educator",
+  "house-manager",
+  "health-safety-manager",
+  "recorder",
   "steward",
 ]);
 
@@ -77,6 +88,26 @@ const ownEventManagerRoleSlugs = new Set([
   ...chairRoleSlugs,
   "treasurer",
 ]);
+
+const partyEventManagerRoleSlugs = new Set(["social-chair"]);
+
+const eventTypeManagerRoleSlugs: Record<EventTypeSlug, string[]> = {
+  party: ["social-chair"],
+  formal: ["social-chair"],
+  sorority_fraternity: ["social-chair"],
+  dei: [],
+  community_service: ["cs-chair", "community-service-chair"],
+  philanthropy: ["philo-chair", "philanthropy-chair"],
+  house_meeting: ["hm", "house-manager"],
+  alumni_event: ["rec", "recorder"],
+  rush: ["rush-chair"],
+  scholarship: ["scholarship"],
+  professional_development: ["scholarship"],
+  brotherhood_event: ["stew", "steward"],
+  work_party: ["hm", "house-manager", "stew", "steward"],
+  new_member_meeting: ["membered", "member-educator", "preceptor"],
+  new_member_event: ["membered", "member-educator", "preceptor"],
+};
 
 function normalizeRoleSlug(roleSlug: string) {
   return roleSlug.trim().toLowerCase();
@@ -184,6 +215,24 @@ export function getChairRoleSlugs(roles: string[]) {
   return [...chairRoleSlugs].filter((roleSlug) => roleSet.has(roleSlug));
 }
 
+export function getKnownChairToolRoleSlugs() {
+  return [...canonicalChairToolRoleSlugs];
+}
+
+export function isChairRoleSlug(roleSlug: string) {
+  return chairRoleSlugs.has(normalizeRoleSlug(roleSlug));
+}
+
+export function canAccessChairTool(roles: string[], roleSlug: string) {
+  const normalizedRoleSlug = normalizeRoleSlug(roleSlug);
+  if (hasAlumniBaseline(roles) || !chairRoleSlugs.has(normalizedRoleSlug)) {
+    return false;
+  }
+
+  const roleSet = normalizeRoleSet(roles);
+  return roleSet.has(normalizedRoleSlug) || canManageBudgets(roles);
+}
+
 export function canAccessBudgets(roles: string[]) {
   return canManageBudgets(roles) || getBudgetAccountRoleSlugs(roles).length > 0;
 }
@@ -208,15 +257,50 @@ export function canManageOwnEvents(roles: string[]) {
 }
 
 export function canManageEvents(roles: string[]) {
-  return canManageAllEvents(roles) || canManageOwnEvents(roles);
+  return canManageAllEvents(roles) || getManageableEventTypes(roles).length > 0 || canManageOwnEvents(roles);
 }
 
-export function canManageEvent(roles: string[], eventCreatedBy: string | null, currentUserId: string | null) {
+export function getManageableEventTypes(roles: string[]) {
+  if (canManageAllEvents(roles)) {
+    return eventTypeOptions.map((eventType) => eventType.slug);
+  }
+
+  const roleSet = normalizeRoleSet(roles);
+  return eventTypeOptions
+    .filter((eventType) =>
+      eventTypeManagerRoleSlugs[eventType.slug].some((roleSlug) => roleSet.has(roleSlug))
+    )
+    .map((eventType) => eventType.slug);
+}
+
+export function canManageEventType(roles: string[], eventType: string | null | undefined) {
   if (canManageAllEvents(roles)) {
     return true;
   }
 
+  if (!eventType) {
+    return false;
+  }
+
+  return getManageableEventTypes(roles).includes(eventType as EventTypeSlug);
+}
+
+export function canManageEvent(
+  roles: string[],
+  eventCreatedBy: string | null,
+  currentUserId: string | null,
+  eventType?: string | null,
+) {
+  if (canManageEventType(roles, eventType)) {
+    return true;
+  }
+
   return Boolean(canManageOwnEvents(roles) && eventCreatedBy && currentUserId && eventCreatedBy === currentUserId);
+}
+
+export function canManagePartyEvents(roles: string[]) {
+  const roleSet = normalizeRoleSet(roles);
+  return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, partyEventManagerRoleSlugs);
 }
 
 export function canViewEvent(roles: string[], event: EventVisibility, currentUserId?: string | null) {

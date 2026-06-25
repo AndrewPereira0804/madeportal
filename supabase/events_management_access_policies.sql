@@ -16,7 +16,9 @@ as $$
         'president',
         'vice-president',
         'vice_president',
-        'vp'
+        'vp',
+        'rec',
+        'recorder'
       )
   );
 $$;

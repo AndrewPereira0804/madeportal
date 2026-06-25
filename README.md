@@ -2,6 +2,9 @@ Protected app routes:
 - `/app`: dashboard
 - `/app/scheduling`: chapter calendar
 - `/app/events/manage`: event management for permitted chapter operators
+- `/app/tools`: chair tool index for assigned chair roles
+- `/app/tools/:roleSlug/*`: role-specific chair tool surface
+- `/app/tools/social-chair/party-events`: party event creator and checklist tool for `social-chair`
 - `/app/manage`: chapter management hub for `admin`, `ea`, and `eda`
 - `/app/manage/members`: member approval, role assignment, and status management
 - `/app/budget`: budget dashboard
@@ -28,6 +31,7 @@ Tables used by the frontend:
 - `roles`: `slug`, `name`
 - `user_roles`: `user_id`, `role_slug`
 - `announcements`: `id`, `created_at`, `title`, `body`, `author_id`, `visibility`, `likes`
+- `events`: `id`, `created_at`, `title`, `description`, `event_type`, `details`, `start`, `end`, `created_by`, `visible_to_alum`, `visible_to_neophyte`
 
 Status values expected by UI:
 - `pending`
@@ -37,6 +41,7 @@ Status values expected by UI:
 Role slugs:
 - `admin` is used for admin access checks
 - `ea` and `eda` are used with `admin` for chapter/member-management access
+- `admin`, `ea`, `eda`, and `rec`/`recorder` can manage all event types
 - `treasurer` is additive for budget administration
 - Budget navigation is shown to budget managers or users whose roles are listed as budget-account-capable in `src/auth/roleAccess.ts`.
 - Budget-account-capable roles are currently a frontend helper list; replace this with an admin-managed source if role budget eligibility needs to change without code edits.
@@ -102,7 +107,8 @@ Important expectations:
 - Purpose: scheduled events.
 - Primary key: `id` (`uuid`, default `gen_random_uuid()`).
 - Foreign key: `created_by` → `public.profiles.user_id`.
-- Key columns: `title`, `description`, `start`, `end`, `created_at`.
+- Key columns: `title`, `description`, `event_type`, `details`, `start`, `end`, `created_at`.
+- Rollout note: frontend event type display and party event checklists require `supabase/event_types.sql` to be applied before deploying the related frontend queries.
 
 #### `public.budgets`
 - Purpose: budget master records.
@@ -185,6 +191,7 @@ using (<sql_boolean_condition>);
 Repository policy files:
 - `supabase/admin_accounts_policies.sql`
 - `supabase/announcements_policies.sql`
+- `supabase/event_types.sql`
 - `supabase/events_calendar_policies.sql`
 - `supabase/events_management_access_policies.sql`
 

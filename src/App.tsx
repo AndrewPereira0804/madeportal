@@ -26,6 +26,7 @@ import BudgetPage from "./pages/budget/BudgetPage";
 import BudgetAccountPage from "./pages/budget/BudgetAccountPage";
 import BudgetAdminPage from "./pages/BudgetAdminPage";
 import SplashScreen from "./components/ui/SplashScreen";
+import { ChairToolPage, ChairToolsIndex } from "./pages/app/tools/ChairTools";
 
 function LegacyBudgetAccountRedirect() {
   const { accountId } = useParams<{ accountId: string }>();
@@ -89,6 +90,8 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="scheduling" element={<Scheduling />} />
           <Route path="events/manage" element={<ManageEvents />} />
+          <Route path="tools" element={<ChairToolsIndex />} />
+          <Route path="tools/:roleSlug/*" element={<ChairToolPage />} />
           <Route path="directory" element={<MemberDirectory />} />
           <Route path="manage" element={<Management />}>
             <Route index element={null} />

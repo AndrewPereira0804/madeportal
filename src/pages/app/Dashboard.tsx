@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  canAccessBudgetAccount,
-  canAccessBudgets,
   canAccessManagement,
   canCreateAnnouncements,
   canManageBudgets,
@@ -14,6 +12,7 @@ import {
   type ChapterStatus,
 } from "../../auth/roleAccess";
 import { useAuth } from "../../auth/authContext";
+import { buildRoleLabelLookup, getRoleLabel, normalizeRoleSlugForDisplay } from "../../auth/roleDisplay";
 import useRoles from "../../auth/useRoles";
 import {
   ActionCard,
@@ -27,18 +26,15 @@ import {
 } from "../../components/ui";
 import supabase from "../../config/supabaseClient";
 import {
-  calculateBudgetSummary,
   formatMoney,
-  type BudgetAccount,
   type BudgetCycle,
   type BudgetTransaction,
 } from "../../lib/budget";
 import {
   getActiveBudgetCycle,
-  getBudgetAccountsForCycle,
   getBudgetTransactionsByStatus,
-  getTransactionsForAccounts,
 } from "../../lib/budgetQueries";
+import { getEventTypeClassName, getEventTypeLabel, type EventTypeSlug } from "../../lib/eventTypes";
 
 type DashboardProfile = {
   name: string | null;
@@ -63,53 +59,13 @@ type EventPreview = {
   id: string;
   title: string;
   description: string | null;
+  event_type: EventTypeSlug | null;
   start: string;
   end: string;
   created_by: string | null;
   visible_to_alum: boolean;
   visible_to_neophyte: boolean;
 };
-
-const roleLabelFallbacks: Record<string, string> = {
-  admin: "Admin",
-  alum: "Alumni",
-  alumni: "Alumni",
-  brother: "Brother",
-  "cs-chair": "Community Service Chairman",
-  ea: "President",
-  eda: "Vice President",
-  hm: "House Manager",
-  hsm: "Health & Safety Manager",
-  "membered": "Member Educator",
-  neophyte: "Neophyte",
-  "philo-chair": "Philanthropy Chairman",
-  rec: "Recorder",
-  scholarship: "Scholarship Chairman",
-  "social-chair": "Social Chairman",
-  stew: "Steward",
-  treasurer: "Treasurer",
-};
-
-function normalizeSlug(value: string) {
-  return value.trim().toLowerCase();
-}
-
-function roleLabel(slug: string, roleLookup: Record<string, string>) {
-  const normalized = normalizeSlug(slug);
-  if (roleLookup[normalized]) {
-    return roleLookup[normalized];
-  }
-
-  if (roleLabelFallbacks[normalized]) {
-    return roleLabelFallbacks[normalized];
-  }
-
-  return normalized
-    .split(/[-_]/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
 
 function formatDateTime(value: string | null) {
   if (!value) {
@@ -170,7 +126,7 @@ function canShowAnnouncementForChapter(announcement: AnnouncementPreview, chapte
     return true;
   }
 
-  const visibility = normalizeSlug(announcement.visibility ?? "");
+  const visibility = normalizeRoleSlugForDisplay(announcement.visibility ?? "");
   return visibility === "" || visibility === "active" || visibility === "general" || visibility === "all" || visibility === "alum" || visibility === "alumni";
 }
 
@@ -200,8 +156,6 @@ export default function Dashboard() {
   const [pendingMemberCount, setPendingMemberCount] = useState<number | null>(null);
   const [pendingBudgetRequests, setPendingBudgetRequests] = useState<BudgetTransaction[]>([]);
   const [activeBudgetCycle, setActiveBudgetCycle] = useState<BudgetCycle | null>(null);
-  const [budgetAccounts, setBudgetAccounts] = useState<BudgetAccount[]>([]);
-  const [budgetTransactions, setBudgetTransactions] = useState<BudgetTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessages, setErrorMessages] = useState<string[]>([]);
 
@@ -209,7 +163,6 @@ export default function Dashboard() {
   const isAlumni = chapterStatus === "alumni";
   const hasManagementAccess = canAccessManagement(roles);
   const hasMemberManagementAccess = canManageMembers(roles);
-  const hasBudgetAccess = canAccessBudgets(roles);
   const hasBudgetAdminAccess = canManageBudgets(roles);
   const hasEventManagementAccess = canManageEvents(roles);
   const hasAnnouncementShortcutAccess = canCreateAnnouncements(roles);
@@ -244,7 +197,7 @@ export default function Dashboard() {
           .limit(10),
         supabase
           .from("events")
-          .select("id, title, description, start, end, created_by, visible_to_alum, visible_to_neophyte")
+          .select("id, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte")
           .gte("end", now)
           .order("start", { ascending: true })
           .limit(12),
@@ -281,39 +234,17 @@ export default function Dashboard() {
       }
 
       let nextPendingBudgetRequests: BudgetTransaction[] = [];
+      let nextActiveBudgetCycle: BudgetCycle | null = null;
       if (hasBudgetAdminAccess) {
         try {
-          nextPendingBudgetRequests = await getBudgetTransactionsByStatus(["submitted"]);
+          const [budgetRequests, activeCycle] = await Promise.all([
+            getBudgetTransactionsByStatus(["submitted"]),
+            getActiveBudgetCycle(),
+          ]);
+          nextPendingBudgetRequests = budgetRequests;
+          nextActiveBudgetCycle = activeCycle;
         } catch (error) {
-          nextErrors.push(`Could not load pending budget requests: ${getErrorMessage(error)}`);
-        }
-      }
-
-      let nextActiveBudgetCycle: BudgetCycle | null = null;
-      let nextBudgetAccounts: BudgetAccount[] = [];
-      let nextBudgetTransactions: BudgetTransaction[] = [];
-      const shouldLoadBudgetSnapshot = hasBudgetAccess || hasBudgetAdminAccess || chairRoleSlugs.length > 0;
-
-      if (shouldLoadBudgetSnapshot) {
-        try {
-          nextActiveBudgetCycle = await getActiveBudgetCycle();
-
-          if (nextActiveBudgetCycle) {
-            const allAccounts = await getBudgetAccountsForCycle(nextActiveBudgetCycle.id);
-            const chairRoleSet = new Set(chairRoleSlugs.map(normalizeSlug));
-            nextBudgetAccounts = hasBudgetAdminAccess
-              ? allAccounts
-              : allAccounts.filter(
-                  (account) =>
-                    canAccessBudgetAccount(roles, account.role_slug) ||
-                    chairRoleSet.has(normalizeSlug(account.role_slug))
-                );
-            nextBudgetTransactions = await getTransactionsForAccounts(
-              nextBudgetAccounts.map((account) => account.id)
-            );
-          }
-        } catch (error) {
-          nextErrors.push(`Could not load budget allocations: ${getErrorMessage(error)}`);
+          nextErrors.push(`Could not load budget management tasks: ${getErrorMessage(error)}`);
         }
       }
 
@@ -321,13 +252,7 @@ export default function Dashboard() {
         return;
       }
 
-      const nextRoleLookup = ((roleResult.data ?? []) as RoleRow[]).reduce<Record<string, string>>(
-        (lookup, role) => {
-          lookup[normalizeSlug(role.slug)] = role.name;
-          return lookup;
-        },
-        {}
-      );
+      const nextRoleLookup = buildRoleLabelLookup((roleResult.data ?? []) as RoleRow[]);
 
       setProfile((profileResult.data ?? null) as DashboardProfile | null);
       setRoleLookup(nextRoleLookup);
@@ -336,8 +261,6 @@ export default function Dashboard() {
       setPendingMemberCount(nextPendingMemberCount);
       setPendingBudgetRequests(nextPendingBudgetRequests);
       setActiveBudgetCycle(nextActiveBudgetCycle);
-      setBudgetAccounts(nextBudgetAccounts);
-      setBudgetTransactions(nextBudgetTransactions);
       setErrorMessages(nextErrors);
       setLoading(false);
     }
@@ -354,11 +277,8 @@ export default function Dashboard() {
       ignore = true;
     };
   }, [
-    chairRoleSlugs,
-    hasBudgetAccess,
     hasBudgetAdminAccess,
     hasMemberManagementAccess,
-    roles,
     rolesLoading,
     userId,
   ]);
@@ -381,26 +301,11 @@ export default function Dashboard() {
   );
 
   const roleSummary = positionRoleSlugs.length > 0
-    ? positionRoleSlugs.slice(0, 2).map((roleSlug) => roleLabel(roleSlug, roleLookup)).join(", ")
+    ? positionRoleSlugs.slice(0, 2).map((roleSlug) => getRoleLabel(roleSlug, roleLookup)).join(", ")
     : formatChapterStatus(chapterStatus);
   const displayName = getDisplayName(profile, session?.user?.email);
   const pendingBudgetTotal = pendingBudgetRequests.reduce((total, request) => total + request.amount, 0);
-  const budgetAccountByRoleSlug = useMemo(
-    () => new Map(budgetAccounts.map((account) => [normalizeSlug(account.role_slug), account])),
-    [budgetAccounts]
-  );
-  const budgetTransactionsByAccountId = useMemo(() => {
-    const grouped = new Map<string, BudgetTransaction[]>();
-    for (const transaction of budgetTransactions) {
-      const transactionsForAccount = grouped.get(transaction.budget_account_id) ?? [];
-      transactionsForAccount.push(transaction);
-      grouped.set(transaction.budget_account_id, transactionsForAccount);
-    }
-    return grouped;
-  }, [budgetTransactions]);
-  const chairAccounts = chairRoleSlugs
-    .map((roleSlug) => budgetAccountByRoleSlug.get(normalizeSlug(roleSlug)) ?? null)
-    .filter((account): account is BudgetAccount => account !== null);
+  const hasChairTools = chairRoleSlugs.length > 0;
 
   return (
     <div className="dashboard-page">
@@ -429,7 +334,7 @@ export default function Dashboard() {
               {positionRoleSlugs.length > 0 ? (
                 positionRoleSlugs.map((roleSlug) => (
                   <Badge key={roleSlug} variant="neutral">
-                    {roleLabel(roleSlug, roleLookup)}
+                    {getRoleLabel(roleSlug, roleLookup)}
                   </Badge>
                 ))
               ) : (
@@ -494,7 +399,12 @@ export default function Dashboard() {
                     <strong>{new Date(event.start).toLocaleDateString("en-US", { weekday: "short" })}</strong>
                   </div>
                   <div className="event-preview-body">
-                    <h3>{event.title}</h3>
+                    <div className="event-preview-heading">
+                      <h3>{event.title}</h3>
+                      <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName(event.event_type)}`}>
+                        {getEventTypeLabel(event.event_type)}
+                      </Badge>
+                    </div>
                     <p>{event.description || "No description provided."}</p>
                     <span>{formatDateTime(event.start)} to {formatDateTime(event.end)}</span>
                   </div>
@@ -569,40 +479,13 @@ export default function Dashboard() {
               meta="Directory"
             />
           )}
-          {!isAlumni && hasBudgetAccess && (
+          {!isAlumni && hasChairTools && (
             <ActionCard
-              to="/app/budget"
-              eyebrow="Finance"
-              title="Review budget position"
-              description="View balances and expenses."
-              meta="Budget"
-            />
-          )}
-          {!isAlumni && hasManagementAccess && (
-            <ActionCard
-              to="/app/manage"
-              eyebrow="Operations"
-              title="Open management"
-              description="Review member and chapter operation tools."
-              meta="Manage"
-            />
-          )}
-          {!isAlumni && hasAnnouncementShortcutAccess && (
-            <ActionCard
-              to="/app/announcements/create"
-              eyebrow="Announcements"
-              title="Create announcement"
-              description="Post a chapter update."
-              meta="Post"
-            />
-          )}
-          {!isAlumni && hasEventManagementAccess && (
-            <ActionCard
-              to="/app/events/manage"
-              eyebrow="Events"
-              title="Create or manage event"
-              description="Prepare scheduling updates."
-              meta="Events"
+              to="/app/tools"
+              eyebrow="Tools"
+              title="Open chair tools"
+              description={`${chairRoleSlugs.length} chair workspace${chairRoleSlugs.length === 1 ? "" : "s"} available.`}
+              meta="Tools"
             />
           )}
         </div>
@@ -633,6 +516,17 @@ export default function Dashboard() {
                   <Button to="/app/manage/members" variant="outline-secondary" size="sm">Review members</Button>
                 </div>
               )}
+
+              {(hasAnnouncementShortcutAccess || hasEventManagementAccess) && (
+                <div className="dashboard-compact-actions">
+                  {hasAnnouncementShortcutAccess && (
+                    <Button to="/app/announcements/create" variant="outline-secondary" size="sm">Create announcement</Button>
+                  )}
+                  {hasEventManagementAccess && (
+                    <Button to="/app/events/manage" variant="outline-secondary" size="sm">Manage events</Button>
+                  )}
+                </div>
+              )}
             </Card>
           )}
 
@@ -661,71 +555,6 @@ export default function Dashboard() {
               )}
             </Card>
           )}
-
-          <Card className="dashboard-role-card dashboard-role-card--chair" padding="lg">
-            <SectionHeader
-              title="My chair tools"
-              description={`Budget cycle: ${getCycleLabel(activeBudgetCycle)}`}
-              actions={hasBudgetAccess ? <Button to="/app/budget" variant="outline-secondary" size="sm">Budget</Button> : undefined}
-            />
-
-            {loading || rolesLoading ? (
-              <SkeletonStack />
-            ) : chairRoleSlugs.length === 0 ? (
-              <EmptyState compact title="No chair roles assigned" description="Chair-specific tools will appear here when a chair role is assigned." />
-            ) : (
-              <>
-                {chairAccounts.length === 0 && (
-                  <EmptyState
-                    compact
-                    title="No budget allocation"
-                    description="Your chair role does not have an account in the active budget cycle."
-                    className="dashboard-chair-empty"
-                  />
-                )}
-                <div className="chair-tool-list">
-                  {chairRoleSlugs.map((roleSlug) => {
-                    const account = budgetAccountByRoleSlug.get(normalizeSlug(roleSlug)) ?? null;
-                    const accountTransactions = account ? budgetTransactionsByAccountId.get(account.id) ?? [] : [];
-                    const summary = calculateBudgetSummary(account ? [account] : [], accountTransactions);
-                    const canSubmitRequest = Boolean(account && canAccessBudgetAccount(roles, account.role_slug));
-
-                    return (
-                      <article key={roleSlug} className="chair-tool-row">
-                        <div className="chair-tool-main">
-                          <h3>{roleLabel(roleSlug, roleLookup)}</h3>
-                          <p>{account?.notes ?? "Chair budget access and spending requests."}</p>
-                        </div>
-                        <div className="chair-tool-metrics">
-                          <span>
-                            Allocated
-                            <strong>{account ? formatMoney(account.allocated_amount) : "Not assigned"}</strong>
-                          </span>
-                          <span>
-                            Remaining
-                            <strong>{account ? formatMoney(summary.remaining) : "No allocation"}</strong>
-                          </span>
-                          <span>
-                            Pending
-                            <strong>{account ? formatMoney(summary.pending) : "No requests"}</strong>
-                          </span>
-                        </div>
-                        {account ? (
-                          canSubmitRequest ? (
-                            <Button to={`/app/budget/${account.id}`} variant="outline-secondary" size="sm">Submit request</Button>
-                          ) : (
-                            <Badge variant="neutral">Allocation only</Badge>
-                          )
-                        ) : (
-                          <Badge variant="warning">No allocation</Badge>
-                        )}
-                      </article>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </Card>
         </div>
       )}
     </div>

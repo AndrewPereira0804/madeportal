@@ -1524,10 +1524,6 @@ button:disabled {
   margin-top: 0;
 }
 
-.dashboard-role-card--chair {
-  grid-column: 1 / -1;
-}
-
 .dashboard-task-row {
   margin-top: 1rem;
   display: flex;
@@ -1554,8 +1550,29 @@ button:disabled {
   font-weight: 700;
 }
 
-.dashboard-chair-empty {
+.dashboard-compact-actions {
   margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+/* Tools */
+
+.tools-page {
+  margin: 0;
+}
+
+.tools-grid {
+  margin-top: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.chair-tool-detail-grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
 }
 
 .chair-tool-list {
@@ -1573,6 +1590,10 @@ button:disabled {
   border: 1px solid rgba(43, 32, 20, 0.1);
   border-radius: var(--radius-md);
   background: rgba(255, 252, 246, 0.58);
+}
+
+.chair-tool-row--detail {
+  margin-top: 1rem;
 }
 
 .chair-tool-main h3 {
@@ -1594,6 +1615,23 @@ button:disabled {
   gap: 0.6rem;
 }
 
+@media (max-width: 980px) {
+  .chair-tool-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .chair-tool-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .party-checklist-grid,
+  .party-checklist-add {
+    grid-template-columns: 1fr;
+  }
+}
+
 .chair-tool-metrics span {
   display: grid;
   gap: 0.2rem;
@@ -1608,6 +1646,135 @@ button:disabled {
   font-size: 0.95rem;
   line-height: 1.2;
   text-transform: none;
+}
+
+.party-tool-form {
+  margin-top: 1rem;
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(43, 32, 20, 0.1);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 252, 246, 0.56);
+}
+
+.party-event-list {
+  margin-top: 1.1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.party-event-card {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(43, 32, 20, 0.1);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 252, 246, 0.58);
+}
+
+.party-event-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.party-event-summary h3 {
+  margin: 0.5rem 0 0.2rem;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+.party-event-summary p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-weight: 650;
+}
+
+.party-checklist-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.party-checklist-panel {
+  min-width: 0;
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(43, 32, 20, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.party-checklist-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.party-checklist-heading h4 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 850;
+}
+
+.party-checklist-items {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.party-checklist-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 252, 246, 0.64);
+}
+
+.party-checklist-row label {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.party-checklist-row input {
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+}
+
+.party-checklist-row span {
+  overflow-wrap: anywhere;
+}
+
+.party-checklist-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-weight: 650;
+}
+
+.party-checklist-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: start;
+}
+
+@media (max-width: 760px) {
+  .party-checklist-grid,
+  .party-checklist-add {
+    grid-template-columns: 1fr;
+  }
 }
 
 .event-preview-list,
@@ -1648,6 +1815,13 @@ button:disabled {
 .event-preview-date strong {
   color: var(--accent);
   font-size: 1.15rem;
+}
+
+.event-preview-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
 }
 
 .event-preview-body h3,
@@ -2521,6 +2695,107 @@ button:disabled {
 
 /* Calendar and events */
 
+.event-type-badge {
+  --event-type-color: var(--accent);
+  --event-type-bg: rgba(75, 0, 110, 0.08);
+  --event-type-border: rgba(75, 0, 110, 0.18);
+
+  border-color: var(--event-type-border);
+  background: var(--event-type-bg);
+  color: var(--event-type-color);
+  text-transform: none;
+}
+
+.event-type--party {
+  --event-type-color: #8f3d56;
+  --event-type-bg: rgba(143, 61, 86, 0.11);
+  --event-type-border: rgba(143, 61, 86, 0.26);
+}
+
+.event-type--formal {
+  --event-type-color: #4b006e;
+  --event-type-bg: rgba(75, 0, 110, 0.1);
+  --event-type-border: rgba(75, 0, 110, 0.24);
+}
+
+.event-type--sorority_fraternity {
+  --event-type-color: #8a5a10;
+  --event-type-bg: rgba(138, 90, 16, 0.11);
+  --event-type-border: rgba(138, 90, 16, 0.25);
+}
+
+.event-type--dei {
+  --event-type-color: #3f6f73;
+  --event-type-bg: rgba(63, 111, 115, 0.11);
+  --event-type-border: rgba(63, 111, 115, 0.26);
+}
+
+.event-type--community_service {
+  --event-type-color: #2f765d;
+  --event-type-bg: rgba(47, 118, 93, 0.11);
+  --event-type-border: rgba(47, 118, 93, 0.25);
+}
+
+.event-type--philanthropy {
+  --event-type-color: #b7831d;
+  --event-type-bg: rgba(183, 131, 29, 0.12);
+  --event-type-border: rgba(183, 131, 29, 0.28);
+}
+
+.event-type--house_meeting {
+  --event-type-color: #5f5348;
+  --event-type-bg: rgba(95, 83, 72, 0.11);
+  --event-type-border: rgba(95, 83, 72, 0.24);
+}
+
+.event-type--alumni_event {
+  --event-type-color: #5b5f97;
+  --event-type-bg: rgba(91, 95, 151, 0.11);
+  --event-type-border: rgba(91, 95, 151, 0.26);
+}
+
+.event-type--rush {
+  --event-type-color: #a14e2c;
+  --event-type-bg: rgba(161, 78, 44, 0.11);
+  --event-type-border: rgba(161, 78, 44, 0.26);
+}
+
+.event-type--scholarship {
+  --event-type-color: #2f5f8f;
+  --event-type-bg: rgba(47, 95, 143, 0.11);
+  --event-type-border: rgba(47, 95, 143, 0.26);
+}
+
+.event-type--professional_development {
+  --event-type-color: #536340;
+  --event-type-bg: rgba(83, 99, 64, 0.12);
+  --event-type-border: rgba(83, 99, 64, 0.26);
+}
+
+.event-type--brotherhood_event {
+  --event-type-color: #4b006e;
+  --event-type-bg: rgba(75, 0, 110, 0.1);
+  --event-type-border: rgba(75, 0, 110, 0.24);
+}
+
+.event-type--work_party {
+  --event-type-color: #6b4a13;
+  --event-type-bg: rgba(107, 74, 19, 0.12);
+  --event-type-border: rgba(107, 74, 19, 0.26);
+}
+
+.event-type--new_member_meeting {
+  --event-type-color: #6c518f;
+  --event-type-bg: rgba(108, 81, 143, 0.11);
+  --event-type-border: rgba(108, 81, 143, 0.26);
+}
+
+.event-type--new_member_event {
+  --event-type-color: #9c4f70;
+  --event-type-bg: rgba(156, 79, 112, 0.11);
+  --event-type-border: rgba(156, 79, 112, 0.26);
+}
+
 .calendar-grid-labels {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -2587,9 +2862,10 @@ button:disabled {
 
 .calendar-event-chip {
   overflow: hidden;
-  border: 1px solid rgba(75, 0, 110, 0.1);
+  border: 1px solid var(--event-type-border, rgba(75, 0, 110, 0.1));
   border-radius: 0.48rem;
-  background: rgba(75, 0, 110, 0.08);
+  background: var(--event-type-bg, rgba(75, 0, 110, 0.08));
+  box-shadow: inset 3px 0 0 var(--event-type-color, var(--accent));
   color: var(--text-primary);
   padding: 0.24rem 0.36rem;
   font-size: 0.74rem;
@@ -2609,6 +2885,25 @@ button:disabled {
   border-radius: var(--radius-md);
   background: rgba(255, 252, 246, 0.58);
   padding: 1rem;
+}
+
+.event-public-details {
+  margin: 0.8rem 0;
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.72rem 0.82rem;
+  border: 1px solid rgba(75, 0, 110, 0.1);
+  border-radius: var(--radius-sm);
+  background: rgba(75, 0, 110, 0.05);
+}
+
+.event-public-details p {
+  margin: 0;
+}
+
+.event-public-details a {
+  color: var(--accent);
+  font-weight: 850;
 }
 
 .event-detail-card h2 {
