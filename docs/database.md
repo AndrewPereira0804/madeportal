@@ -1,10 +1,10 @@
 # Database Contract
 
-Last updated: 2026-06-25
+Last updated: 2026-06-29
 
 ## Source Of Truth
 
-Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. Function bodies and trigger attachments still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
+Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
 
 Schema exports in this document are for context only. Do not run them directly as migrations because export order, enum placeholders, constraints, policies, and triggers may be incomplete.
 
@@ -94,6 +94,8 @@ Referenced by:
 - `budget_accounts.created_by`
 - `budget_transactions.submitted_by`
 - `budget_transactions.approved_by`
+- `wait_on_schedules.created_by`
+- `wait_on_assignments.brother_id`
 
 Frontend usage:
 
@@ -324,6 +326,52 @@ Frontend usage:
 - `src/components/budget/SubmitExpenseForm.tsx` inserts submitted transactions.
 - Treasurer tools, account detail, admin review, and chair tool views display these records.
 
+### public.wait_on_schedules
+
+Purpose: weekly wait-on schedule container for Steward assignments.
+
+Columns:
+
+- `id uuid primary key default gen_random_uuid()`
+- `week_start date not null unique`
+- `published boolean not null default false`
+- `created_by uuid references public.profiles(user_id) on delete set null`
+- `created_at timestamptz not null default now()`
+- `updated_at timestamptz not null default now()`
+
+Referenced by:
+
+- `wait_on_assignments.schedule_id`
+
+Frontend usage:
+
+- `src/pages/app/tools/StewardWaitOnTool.tsx` creates/updates weekly schedules and publish state.
+- `src/pages/app/WaitOnSchedule.tsx` reads published schedules for active members.
+- `src/pages/app/Dashboard.tsx` reads the current week's published schedule for assigned-brother notifications.
+
+### public.wait_on_assignments
+
+Purpose: brother assignments for each weekly wait-on slot.
+
+Columns:
+
+- `id uuid primary key default gen_random_uuid()`
+- `schedule_id uuid not null references public.wait_on_schedules(id) on delete cascade`
+- `slot_key text not null`
+- `brother_id uuid not null references public.profiles(user_id) on delete cascade`
+- `created_at timestamptz not null default now()`
+
+Constraints:
+
+- `(schedule_id, slot_key, brother_id)` is unique.
+- `slot_key` must be one of: `monday_lunch`, `monday_dinner`, `tuesday_lunch`, `tuesday_dinner`, `wednesday_lunch`, `wednesday_dinner`, `thursday_lunch`, `thursday_dinner`, `friday_lunch`, `saturday_mop`, `sunday_wait_on`.
+
+Frontend usage:
+
+- `src/lib/waitOnQueries.ts` reads and mutates assignments.
+- Steward tools show all assignments for manageable schedules.
+- Active users can read assignments only when the parent schedule is published.
+
 ### public.audit_log
 
 Purpose: audit trail for sensitive/admin actions.
@@ -459,6 +507,29 @@ Expected capabilities:
 - Route guards and sidebar visibility should use the same chair-tool helpers.
 - All-chair-tools access is separate from budget administration access; do not use Treasurer budget access as a proxy for every dedicated chair tool.
 
+### Wait-ons
+
+Frontend visibility:
+
+- Steward scheduling is available at `/app/tools/stew/wait-ons`.
+- `stew`/`steward`, `admin`, `ea`, and `eda` can manage weekly wait-on schedules.
+- Active members can view published wait-on forms at `/app/wait-ons`.
+- Dashboard notifications appear when the current user has a published assignment in the current Monday-starting week.
+
+Frontend helper:
+
+- `src/auth/roleAccess.ts`
+
+Database helper:
+
+- `public.can_manage_wait_ons(uuid)`
+
+Expected capabilities:
+
+- Managers can create one schedule per `week_start`, add/remove brothers from the allowed slots, and publish/unpublish the form.
+- Published schedules and their assignments are readable by active users.
+- Draft/unpublished schedules are readable only by wait-on managers.
+
 ### Calendars
 
 Hosted policy snapshot currently allows authenticated users to select, insert, update, and delete calendars.
@@ -550,6 +621,26 @@ AS $function$
   );
 $function$;
 ```
+
+### public.can_manage_wait_ons(uuid)
+
+Expected behavior: returns true when the user has one of:
+
+- `admin`
+- `ea`
+- `eda`
+- `president`
+- `vice-president`
+- `vice_president`
+- `vp`
+- `stew`
+- `steward`
+
+Used by hosted wait-on schedule and assignment policies.
+
+Repo definition:
+
+- `supabase/wait_on_schedules.sql`
 
 ### public.is_role_member(text, uuid)
 
@@ -786,6 +877,46 @@ Trigger state for keeping `announcements.likes` aligned with `announcement_likes
   - DELETE to authenticated.
   - Allows users passing `is_budget_manager()`.
 
+### public.wait_on_schedules
+
+Verified from the 2026-06-29 Supabase plugin migration:
+
+- `Wait-on managers can read all schedules`
+  - SELECT to authenticated.
+  - Allows users passing `can_manage_wait_ons(auth.uid())`.
+- `Active users can read published wait-on schedules`
+  - SELECT to authenticated.
+  - Allows active users to read rows where `published = true`.
+- `Wait-on managers can insert schedules`
+  - INSERT to authenticated.
+  - Requires `created_by = auth.uid()` and wait-on manager access.
+- `Wait-on managers can update schedules`
+  - UPDATE to authenticated.
+  - Allows and checks wait-on manager access.
+- `Wait-on managers can delete schedules`
+  - DELETE to authenticated.
+  - Allows wait-on manager access.
+
+### public.wait_on_assignments
+
+Verified from the 2026-06-29 Supabase plugin migration:
+
+- `Wait-on managers can read all assignments`
+  - SELECT to authenticated.
+  - Allows users passing `can_manage_wait_ons(auth.uid())`.
+- `Active users can read published wait-on assignments`
+  - SELECT to authenticated.
+  - Allows active users to read assignment rows whose parent schedule is published.
+- `Wait-on managers can insert assignments`
+  - INSERT to authenticated.
+  - Requires wait-on manager access.
+- `Wait-on managers can update assignments`
+  - UPDATE to authenticated.
+  - Allows and checks wait-on manager access.
+- `Wait-on managers can delete assignments`
+  - DELETE to authenticated.
+  - Allows wait-on manager access.
+
 ### public.calendars
 
 - `calendars_select_all_authenticated`
@@ -986,6 +1117,17 @@ Rollout note:
 
 - This file is intended to fix hosted policy gaps where event managers without the `brother` role cannot view or manage calendar events.
 - It does not remove existing event visibility or owner policies.
+
+### supabase/wait_on_schedules.sql
+
+Purpose:
+
+- Creates `wait_on_schedules` and `wait_on_assignments`.
+- Adds the allowed slot constraint for Monday through Thursday lunch/dinner, Friday lunch, Saturday mop, and Sunday wait-on.
+- Adds `public.can_manage_wait_ons(uuid)`.
+- Enables RLS, grants authenticated Data API access, and creates manager/published-reader policies.
+- Adds an `updated_at` trigger for schedule updates.
+- Notifies PostgREST to reload the schema cache.
 
 ## Known Drift And Cleanup Items
 

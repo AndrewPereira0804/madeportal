@@ -14,6 +14,8 @@ Protected app routes:
 - `/app/tools/treasurer/cycles`: budget cycle management
 - `/app/tools/treasurer/allocations`: active-cycle budget account allocation management
 - `/app/tools/treasurer/accounts/:accountId`: budget account detail, expense submission, and transaction history
+- `/app/tools/stew/wait-ons`: Steward weekly wait-on scheduler and publishing tool
+- `/app/wait-ons`: published weekly wait-on form for active members
 - `/app/manage`: chapter management hub for `admin`, `ea`, and `eda`
 - `/app/manage/members`: member approval, role assignment, and status management
 - `/app/announcements`: announcement feed
@@ -50,6 +52,8 @@ Tables used by the frontend:
 - `budget_cycles`: `id`, `name`, `start_date`, `end_date`, `is_active`, `created_at`, `created_by`
 - `budget_accounts`: `id`, `cycle_id`, `role_slug`, `allocated_amount`, `notes`, `created_at`, `created_by`
 - `budget_transactions`: `id`, `budget_account_id`, `submitted_by`, `amount`, `vendor`, `category`, `description`, `transaction_date`, `status`, `receipt_url`, `approved_by`, `approved_at`, `denial_reason`, `created_at`
+- `wait_on_schedules`: `id`, `week_start`, `published`, `created_by`, `created_at`, `updated_at`
+- `wait_on_assignments`: `id`, `schedule_id`, `slot_key`, `brother_id`, `created_at`
 
 Status values expected by UI:
 - `pending`
@@ -62,6 +66,7 @@ Role slugs:
 - `admin`, `ea`, `eda`, and `rec`/`recorder` can manage all event types
 - Event-type chair access is mapped in `src/auth/roleAccess.ts`; the current rollout adds role rows for `alumni-chair`, `chapter-dev`, and `professional-dev` if missing.
 - `treasurer` has a chair tool workspace for separated budget workflows under `/app/tools/treasurer`
+- `stew` has a chair tool workspace for weekly wait-on schedules under `/app/tools/stew/wait-ons`
 - Budget workflows are no longer a top-level sidebar item; they live under Tools and Treasurer tools.
 - Budget-account-capable roles are currently a frontend helper list; replace this with an admin-managed source if role budget eligibility needs to change without code edits.
 

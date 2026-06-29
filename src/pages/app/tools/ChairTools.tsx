@@ -9,6 +9,7 @@ import {
   canManageFormalEvents,
   canManagePartyEvents,
   canManageBudgets,
+  canManageWaitOns,
   getChairRoleSlugs,
   getKnownChairToolRoleSlugs,
   isChairRoleSlug,
@@ -21,11 +22,13 @@ import { getActiveBudgetCycle, getBudgetAccountsForCycle, getTransactionsForAcco
 import CommunityServiceEventsTool from "./CommunityServiceEventsTool";
 import FormalEventsTool from "./FormalEventsTool";
 import PartyEventsTool from "./PartyEventsTool";
+import StewardWaitOnTool from "./StewardWaitOnTool";
 import TreasurerBudgetTools from "./TreasurerBudgetTools";
 
 const socialChairRoleSlug = "social-chair";
 const partyFormalToolRoleSlugs = new Set([socialChairRoleSlug, "hsm", "health-safety-manager"]);
 const communityServiceChairRoleSlugs = new Set(["cs-chair", "community-service-chair"]);
+const stewardRoleSlugs = new Set(["stew", "steward"]);
 const treasurerRoleSlug = "treasurer";
 
 function uniqueRoleSlugs(roleSlugs: string[]) {
@@ -68,6 +71,10 @@ function getErrorMessage(error: unknown) {
 function getChairToolDescription(roleSlug: string) {
   if (roleSlug === treasurerRoleSlug) {
     return "Budget requests, reimbursements, cycles, and allocations.";
+  }
+
+  if (stewardRoleSlugs.has(roleSlug)) {
+    return "Weekly wait-on schedules and published forms.";
   }
 
   return "Budget allocation and spending request access.";
@@ -145,6 +152,7 @@ export function ChairToolPage() {
   const canUseFormalTool = partyFormalToolRoleSlugs.has(normalizedRoleSlug) && canManageFormalEvents(roles);
   const canUseCommunityServiceTool =
     communityServiceChairRoleSlugs.has(normalizedRoleSlug) && canManageCommunityServiceEvents(roles);
+  const canUseWaitOnTool = stewardRoleSlugs.has(normalizedRoleSlug) && canManageWaitOns(roles);
   const currentChairToolPath = `/app/tools/${normalizedRoleSlug}`;
 
   const [cycle, setCycle] = useState<BudgetCycle | null>(null);
@@ -271,6 +279,15 @@ export function ChairToolPage() {
     return <CommunityServiceEventsTool />;
   }
 
+  if (nestedToolPath === "wait-ons" && stewardRoleSlugs.has(normalizedRoleSlug)) {
+    return (
+      <StewardWaitOnTool
+        ownerLabel={getRoleLabel(normalizedRoleSlug)}
+        returnPath={currentChairToolPath}
+      />
+    );
+  }
+
   if (nestedToolPath) {
     return (
       <Card className="tools-page">
@@ -291,7 +308,7 @@ export function ChairToolPage() {
       <PageHeader
         eyebrow="Chair tools"
         title={getRoleLabel(normalizedRoleSlug)}
-        subtitle="Budget allocation and requests for this chair role."
+        subtitle={stewardRoleSlugs.has(normalizedRoleSlug) ? "Wait-on scheduling and budget access for this chair role." : "Budget allocation and requests for this chair role."}
         bordered
         actions={<Button to="/app/tools" variant="outline-secondary">All Tools</Button>}
       />
@@ -349,6 +366,24 @@ export function ChairToolPage() {
                   title="Community service events"
                   description="Create service events and track brother hours logged with Nationals."
                   meta="Community Service"
+                />
+              </div>
+            </>
+          )}
+
+          {canUseWaitOnTool && (
+            <>
+              <SectionHeader
+                title="Steward tools"
+                description="Weekly wait-on assignment scheduling and publishing."
+              />
+              <div className="action-card-grid tools-grid">
+                <ActionCard
+                  to={`${currentChairToolPath}/wait-ons`}
+                  eyebrow="Wait-ons"
+                  title="Wait-on scheduler"
+                  description="Assign brothers to weekly meal, mop, and Sunday wait-on slots."
+                  meta="Weekly"
                 />
               </div>
             </>

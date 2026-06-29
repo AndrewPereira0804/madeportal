@@ -13,6 +13,7 @@ import Scheduling from "./pages/app/Scheduling";
 import Announcements from "./pages/app/Announcements";
 import Account from "./pages/app/Account";
 import MemberDirectory from "./pages/app/MemberDirectory";
+import WaitOnSchedule from "./pages/app/WaitOnSchedule";
 import { useAuth } from "./auth/authContext";
 import RequireAuth from "./auth/requireAuth";
 import { getStatusRedirectPath } from "./auth/roleAccess";
@@ -86,6 +87,7 @@ export default function App() {
         <Route path="/app" element={<AppLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="scheduling" element={<Scheduling />} />
+          <Route path="wait-ons" element={<WaitOnSchedule />} />
           <Route path="events/manage" element={<ManageEvents />} />
           <Route path="tools" element={<ChairToolsIndex />} />
           <Route path="tools/:roleSlug/*" element={<ChairToolPage />} />

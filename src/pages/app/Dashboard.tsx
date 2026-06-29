@@ -37,6 +37,8 @@ import {
 } from "../../lib/budgetQueries";
 import { formatEventDateTime, toCurrentEventTimestamp } from "../../lib/eventDateTime";
 import { getEventTypeClassName, getEventTypeLabel, type EventTypeSlug } from "../../lib/eventTypes";
+import { getPublishedWaitOnsForUserWeek } from "../../lib/waitOnQueries";
+import { formatWaitOnSlotLabel, getCurrentWeekStartValue, type WaitOnAssignment } from "../../lib/waitOns";
 
 type DashboardProfile = {
   name: string | null;
@@ -144,6 +146,7 @@ export default function Dashboard() {
   const [pendingMemberCount, setPendingMemberCount] = useState<number | null>(null);
   const [pendingBudgetRequests, setPendingBudgetRequests] = useState<BudgetTransaction[]>([]);
   const [activeBudgetCycle, setActiveBudgetCycle] = useState<BudgetCycle | null>(null);
+  const [waitOnAssignments, setWaitOnAssignments] = useState<WaitOnAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessages, setErrorMessages] = useState<string[]>([]);
 
@@ -237,6 +240,13 @@ export default function Dashboard() {
         }
       }
 
+      let nextWaitOnAssignments: WaitOnAssignment[] = [];
+      try {
+        nextWaitOnAssignments = await getPublishedWaitOnsForUserWeek(userId, getCurrentWeekStartValue());
+      } catch (error) {
+        nextErrors.push(`Could not load wait-on notifications: ${getErrorMessage(error)}`);
+      }
+
       if (ignore) {
         return;
       }
@@ -250,6 +260,7 @@ export default function Dashboard() {
       setPendingMemberCount(nextPendingMemberCount);
       setPendingBudgetRequests(nextPendingBudgetRequests);
       setActiveBudgetCycle(nextActiveBudgetCycle);
+      setWaitOnAssignments(nextWaitOnAssignments);
       setErrorMessages(nextErrors);
       setLoading(false);
     }
@@ -295,6 +306,7 @@ export default function Dashboard() {
   const displayName = getDisplayName(profile, session?.user?.email);
   const pendingBudgetTotal = pendingBudgetRequests.reduce((total, request) => total + request.amount, 0);
   const hasChairTools = canOpenAllChairTools || chairRoleSlugs.length > 0;
+  const currentWaitOnWeek = getCurrentWeekStartValue();
 
   return (
     <div className="dashboard-page">
@@ -361,6 +373,28 @@ export default function Dashboard() {
             <div key={message}>{message}</div>
           ))}
         </div>
+      )}
+
+      {waitOnAssignments.length > 0 && (
+        <Card className="dashboard-wait-on-alert" padding="md">
+          <div className="dashboard-wait-on-alert-body">
+            <div>
+              <Badge variant="warning">Wait-on</Badge>
+              <h2>You have a wait-on scheduled this week.</h2>
+              <p>Check the published wait-on form.</p>
+              <div className="wait-on-alert-slots">
+                {waitOnAssignments.map((assignment) => (
+                  <Badge key={assignment.id} variant="neutral">
+                    {formatWaitOnSlotLabel(assignment.slot_key)}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            <Button to={`/app/wait-ons?week=${currentWaitOnWeek}`} variant="outline-secondary">
+              Open form
+            </Button>
+          </div>
+        </Card>
       )}
 
       <div className="dashboard-grid">

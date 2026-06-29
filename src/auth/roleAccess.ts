@@ -112,6 +112,7 @@ const ownEventManagerRoleSlugs = new Set([
 
 const partyFormalEventToolRoleSlugs = new Set(["social-chair", "hsm", "health-safety-manager"]);
 const communityServiceEventToolRoleSlugs = new Set(["cs-chair", "community-service-chair"]);
+const waitOnToolRoleSlugs = new Set(["stew", "steward"]);
 
 const eventTypeManagerRoleSlugs: Record<EventTypeSlug, string[]> = {
   party: ["social-chair", "hsm", "health-safety-manager"],
@@ -351,6 +352,11 @@ export function canManageFormalEvents(roles: string[]) {
 export function canManageCommunityServiceEvents(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
   return canAccessAllChairTools(roles) || (!hasAlumniBaseline(roles) && hasAnyRole(roleSet, communityServiceEventToolRoleSlugs));
+}
+
+export function canManageWaitOns(roles: string[]) {
+  const roleSet = normalizeRoleSet(roles);
+  return canAccessAllChairTools(roles) || (!hasAlumniBaseline(roles) && hasAnyRole(roleSet, waitOnToolRoleSlugs));
 }
 
 export function canViewEvent(roles: string[], event: EventVisibility, currentUserId?: string | null) {
