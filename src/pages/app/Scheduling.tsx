@@ -5,6 +5,7 @@ import { canManageEvents as canManageRoleEvents, canViewEvent } from "../../auth
 import useRoles from "../../auth/useRoles";
 import { Badge, Button, Card, EmptyState, PageHeader, SectionHeader, Select } from "../../components/ui";
 import { normalizeCommunityServiceEventDetails } from "../../lib/communityServiceEvents";
+import { compareEventDateTimes, formatEventDateTime, getEventDateTimeMs } from "../../lib/eventDateTime";
 import { getEventTypeClassName, getEventTypeLabel, type EventTypeSlug } from "../../lib/eventTypes";
 import { normalizeFormalEventDetails } from "../../lib/formalEvents";
 import { normalizePartyEventDetails } from "../../lib/partyEvents";
@@ -30,14 +31,6 @@ type EventRow = {
   visible_to_neophyte: boolean;
 };
 
-function formatEastern(dateIso: string) {
-  return new Date(dateIso).toLocaleString("en-US", {
-    timeZone: "America/New_York",
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
 function normalizeCalendarRow(row: Record<string, unknown>): CalendarWindow | null {
   const id = typeof row.id === "string" || typeof row.id === "number" ? String(row.id) : null;
   const start = typeof row.start === "string" ? row.start : null;
@@ -57,17 +50,26 @@ function normalizeCalendarRow(row: Record<string, unknown>): CalendarWindow | nu
 }
 
 function toWindowTimestamp(value: string, endOfDay: boolean) {
-  const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/;
-  if (dateOnlyPattern.test(value)) {
-    return Date.parse(`${value}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`);
+  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateOnlyMatch) {
+    const [, year, month, day] = dateOnlyMatch;
+    return new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      endOfDay ? 23 : 0,
+      endOfDay ? 59 : 0,
+      endOfDay ? 59 : 0,
+      endOfDay ? 999 : 0,
+    ).getTime();
   }
 
-  return new Date(value).getTime();
+  return getEventDateTimeMs(value);
 }
 
 function getWindowsForEvent(event: EventRow, windows: CalendarWindow[]) {
-  const eventStart = new Date(event.start).getTime();
-  const eventEnd = new Date(event.end).getTime();
+  const eventStart = getEventDateTimeMs(event.start);
+  const eventEnd = getEventDateTimeMs(event.end);
 
   return windows.filter((window) => {
     const start = toWindowTimestamp(window.start, false);
@@ -105,8 +107,8 @@ function buildMonthGrid(monthDate: Date) {
 function eventIntersectsDay(event: EventRow, day: Date) {
   const dayStart = toDayStart(day).getTime();
   const dayEnd = dayStart + 24 * 60 * 60 * 1000 - 1;
-  const eventStart = new Date(event.start).getTime();
-  const eventEnd = new Date(event.end).getTime();
+  const eventStart = getEventDateTimeMs(event.start);
+  const eventEnd = getEventDateTimeMs(event.end);
 
   return eventStart <= dayEnd && eventEnd >= dayStart;
 }
@@ -117,14 +119,13 @@ function formatMonthHeading(date: Date) {
 
 function formatEventTime(event: EventRow, day: Date) {
   const dayStart = toDayStart(day).getTime();
-  const eventStart = new Date(event.start).getTime();
+  const eventStart = getEventDateTimeMs(event.start);
 
   if (eventStart < dayStart) {
     return "Continues";
   }
 
-  return new Date(event.start).toLocaleString("en-US", {
-    timeZone: "America/New_York",
+  return formatEventDateTime(event.start, {
     hour: "numeric",
     minute: "2-digit",
   });
@@ -236,7 +237,7 @@ export default function Scheduling() {
         const parsedWindows = (windowResult.data ?? [])
           .map((row) => normalizeCalendarRow(row as Record<string, unknown>))
           .filter((row): row is CalendarWindow => row !== null)
-          .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+          .sort((a, b) => toWindowTimestamp(a.start, false) - toWindowTimestamp(b.start, false));
 
         setWindows(parsedWindows);
       }
@@ -298,7 +299,7 @@ export default function Scheduling() {
       const key = toDateKey(day);
       const dayEvents = filteredEvents
         .filter((event) => eventIntersectsDay(event, day))
-        .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+        .sort((a, b) => compareEventDateTimes(a.start, b.start));
       map.set(key, dayEvents);
     }
 
@@ -504,7 +505,7 @@ export default function Scheduling() {
                         </Badge>
                       </span>
                       <span className="event-detail-time">
-                        {formatEastern(event.start)} to {formatEastern(event.end)}
+                        {formatEventDateTime(event.start)} to {formatEventDateTime(event.end)}
                       </span>
                       <span className="event-detail-preview">{event.description || "No description provided."}</span>
                     </span>
@@ -515,10 +516,10 @@ export default function Scheduling() {
                     <div id={expandedContentId} className="event-detail-expanded">
                       <p className="mb-1">{event.description || "No description provided."}</p>
                       <p className="mb-1">
-                        <strong>Starts:</strong> {formatEastern(event.start)}
+                        <strong>Starts:</strong> {formatEventDateTime(event.start)}
                       </p>
                       <p className="mb-1">
-                        <strong>Ends:</strong> {formatEastern(event.end)}
+                        <strong>Ends:</strong> {formatEventDateTime(event.end)}
                       </p>
                       <EventTypePublicDetails event={event} />
                       <p className="mb-1 text-body-secondary">

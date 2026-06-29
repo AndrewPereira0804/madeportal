@@ -22,6 +22,13 @@ import {
   normalizeEventType,
   type EventTypeSlug,
 } from "../../lib/eventTypes";
+import {
+  compareEventDateTimes,
+  formatEventDateTime,
+  isEventEndAfterStart,
+  toEventDateTimeInputValue,
+  toEventTimestamp,
+} from "../../lib/eventDateTime";
 
 type EventRow = {
   id: string;
@@ -45,24 +52,6 @@ type EventDraft = {
   visible_to_alum: boolean;
   visible_to_neophyte: boolean;
 };
-
-function toLocalInputValue(dateIso: string) {
-  const date = new Date(dateIso);
-  const timezoneOffset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - timezoneOffset).toISOString().slice(0, 16);
-}
-
-function toUtcIso(localDateTimeValue: string) {
-  return new Date(localDateTimeValue).toISOString();
-}
-
-function formatEastern(dateIso: string) {
-  return new Date(dateIso).toLocaleString("en-US", {
-    timeZone: "America/New_York",
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
 
 function dbError(action: string, message: string) {
   return `Database error while trying to ${action}: ${message}`;
@@ -209,7 +198,7 @@ export default function ManageEvents() {
       return;
     }
 
-    if (new Date(draft.end) <= new Date(draft.start)) {
+    if (!isEventEndAfterStart(draft.start, draft.end)) {
       setErrorMessage("End date/time must be after start date/time.");
       return;
     }
@@ -221,8 +210,8 @@ export default function ManageEvents() {
       title: draft.title.trim(),
       description: draft.description.trim() || null,
       event_type: eventTypeForSave,
-      start: toUtcIso(draft.start),
-      end: toUtcIso(draft.end),
+      start: toEventTimestamp(draft.start),
+      end: toEventTimestamp(draft.end),
       created_by: userId,
       visible_to_alum: draft.visible_to_alum,
       visible_to_neophyte: draft.visible_to_neophyte,
@@ -259,7 +248,7 @@ export default function ManageEvents() {
       if (error) {
         setErrorMessage(dbError("create an event", error.message));
       } else if (data) {
-        setEvents((current) => [...current, data as EventRow].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()));
+        setEvents((current) => [...current, data as EventRow].sort((a, b) => compareEventDateTimes(a.start, b.start)));
         resetDraft();
       }
     }
@@ -273,8 +262,8 @@ export default function ManageEvents() {
       title: event.title,
       description: event.description ?? "",
       event_type: normalizeEventType(event.event_type),
-      start: toLocalInputValue(event.start),
-      end: toLocalInputValue(event.end),
+      start: toEventDateTimeInputValue(event.start),
+      end: toEventDateTimeInputValue(event.end),
       visible_to_alum: event.visible_to_alum,
       visible_to_neophyte: event.visible_to_neophyte,
     });
@@ -436,10 +425,10 @@ export default function ManageEvents() {
 
               <p className="mb-1 mt-2">{event.description || "No description provided."}</p>
               <p className="mb-1">
-                <strong>Starts:</strong> {formatEastern(event.start)}
+                <strong>Starts:</strong> {formatEventDateTime(event.start)}
               </p>
               <p className="mb-1">
-                <strong>Ends:</strong> {formatEastern(event.end)}
+                <strong>Ends:</strong> {formatEventDateTime(event.end)}
               </p>
               <div className="d-flex gap-2 flex-wrap mt-2">
                 <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName(event.event_type)}`}>

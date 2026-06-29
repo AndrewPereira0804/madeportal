@@ -6,6 +6,12 @@ import { canManagePartyEvents } from "../../../auth/roleAccess";
 import useRoles from "../../../auth/useRoles";
 import { Badge, Button, Card, EmptyState, Input, PageHeader, SectionHeader } from "../../../components/ui";
 import supabase from "../../../config/supabaseClient";
+import {
+  compareEventDateTimes,
+  formatEventDateTime,
+  isEventEndAfterStart,
+  toEventTimestamp,
+} from "../../../lib/eventDateTime";
 import { getEventTypeClassName, getEventTypeLabel } from "../../../lib/eventTypes";
 import {
   createPartyChecklistItem,
@@ -51,18 +57,6 @@ const emptyDraft: PartyDraft = {
   start: "",
   end: "",
 };
-
-function toUtcIso(localDateTimeValue: string) {
-  return new Date(localDateTimeValue).toISOString();
-}
-
-function formatEastern(dateIso: string) {
-  return new Date(dateIso).toLocaleString("en-US", {
-    timeZone: "America/New_York",
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
 
 function normalizeOptionalUrl(value: string) {
   const trimmed = value.trim();
@@ -250,7 +244,7 @@ export default function PartyEventsTool({
       return;
     }
 
-    if (new Date(draft.end) <= new Date(draft.start)) {
+    if (!isEventEndAfterStart(draft.start, draft.end)) {
       setErrorMessage("End date/time must be after start date/time.");
       return;
     }
@@ -265,8 +259,8 @@ export default function PartyEventsTool({
         title: `Party: ${theme}`,
         description: `Theme: ${theme}`,
         event_type: "party",
-        start: toUtcIso(draft.start),
-        end: toUtcIso(draft.end),
+        start: toEventTimestamp(draft.start),
+        end: toEventTimestamp(draft.end),
         created_by: userId,
         visible_to_alum: false,
         visible_to_neophyte: false,
@@ -279,7 +273,7 @@ export default function PartyEventsTool({
       setErrorMessage(dbError("create this party", error.message));
     } else if (data) {
       setEvents((current) =>
-        [...current, data as PartyEventRow].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+        [...current, data as PartyEventRow].sort((a, b) => compareEventDateTimes(a.start, b.start))
       );
       setDraft(emptyDraft);
     }
@@ -451,7 +445,7 @@ export default function PartyEventsTool({
                       {getEventTypeLabel("party")}
                     </Badge>
                     <h3>{details.theme || partyEvent.title}</h3>
-                    <p>{formatEastern(partyEvent.start)} to {formatEastern(partyEvent.end)}</p>
+                    <p>{formatEventDateTime(partyEvent.start)} to {formatEventDateTime(partyEvent.end)}</p>
                   </div>
                   {details.inviteListUrl ? (
                     <Button

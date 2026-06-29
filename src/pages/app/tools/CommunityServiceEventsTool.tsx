@@ -30,6 +30,12 @@ import {
   type CommunityServiceAttendee,
   type CommunityServiceEventDetails,
 } from "../../../lib/communityServiceEvents";
+import {
+  compareEventDateTimes,
+  formatEventDateTime,
+  isEventEndAfterStart,
+  toEventTimestamp,
+} from "../../../lib/eventDateTime";
 import { getEventTypeClassName, getEventTypeLabel } from "../../../lib/eventTypes";
 
 type CommunityServiceEventRow = {
@@ -76,18 +82,6 @@ const emptyAttendeeDraft: AttendeeDraft = {
   brotherName: "",
   hours: "",
 };
-
-function toUtcIso(localDateTimeValue: string) {
-  return new Date(localDateTimeValue).toISOString();
-}
-
-function formatEastern(dateIso: string) {
-  return new Date(dateIso).toLocaleString("en-US", {
-    timeZone: "America/New_York",
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
 
 function formatHours(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -241,7 +235,7 @@ export default function CommunityServiceEventsTool() {
       return;
     }
 
-    if (new Date(draft.end) <= new Date(draft.start)) {
+    if (!isEventEndAfterStart(draft.start, draft.end)) {
       setErrorMessage("End date/time must be after start date/time.");
       return;
     }
@@ -256,8 +250,8 @@ export default function CommunityServiceEventsTool() {
         title: name,
         description,
         event_type: "community_service",
-        start: toUtcIso(draft.start),
-        end: toUtcIso(draft.end),
+        start: toEventTimestamp(draft.start),
+        end: toEventTimestamp(draft.end),
         created_by: userId,
         visible_to_alum: false,
         visible_to_neophyte: false,
@@ -271,7 +265,7 @@ export default function CommunityServiceEventsTool() {
     } else if (data) {
       setEvents((current) =>
         [...current, data as CommunityServiceEventRow].sort(
-          (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime(),
+          (a, b) => compareEventDateTimes(a.start, b.start),
         )
       );
       setDraft(emptyDraft);
@@ -486,7 +480,7 @@ export default function CommunityServiceEventsTool() {
                       {getEventTypeLabel("community_service")}
                     </Badge>
                     <h3>{serviceEvent.title}</h3>
-                    <p>{formatEastern(serviceEvent.start)} to {formatEastern(serviceEvent.end)}</p>
+                    <p>{formatEventDateTime(serviceEvent.start)} to {formatEventDateTime(serviceEvent.end)}</p>
                   </div>
                   <Button
                     type="button"

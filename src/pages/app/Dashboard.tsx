@@ -35,6 +35,7 @@ import {
   getActiveBudgetCycle,
   getBudgetTransactionsByStatus,
 } from "../../lib/budgetQueries";
+import { formatEventDateTime, toCurrentEventTimestamp } from "../../lib/eventDateTime";
 import { getEventTypeClassName, getEventTypeLabel, type EventTypeSlug } from "../../lib/eventTypes";
 
 type DashboardProfile = {
@@ -67,20 +68,6 @@ type EventPreview = {
   visible_to_alum: boolean;
   visible_to_neophyte: boolean;
 };
-
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return "Time not set";
-  }
-
-  return new Date(value).toLocaleString("en-US", {
-    timeZone: "America/New_York",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
 
 function formatShortDate(value: string) {
   return new Date(value).toLocaleDateString("en-US", {
@@ -183,7 +170,7 @@ export default function Dashboard() {
       setErrorMessages([]);
 
       const nextErrors: string[] = [];
-      const now = new Date().toISOString();
+      const now = toCurrentEventTimestamp();
 
       const [profileResult, roleResult, announcementResult, eventResult] = await Promise.all([
         supabase
@@ -397,8 +384,8 @@ export default function Dashboard() {
               {visibleEvents.map((event) => (
                 <article key={event.id} className="event-preview-card">
                   <div className="event-preview-date">
-                    <span>{formatShortDate(event.start)}</span>
-                    <strong>{new Date(event.start).toLocaleDateString("en-US", { weekday: "short" })}</strong>
+                    <span>{formatEventDateTime(event.start, { month: "short", day: "numeric" })}</span>
+                    <strong>{formatEventDateTime(event.start, { weekday: "short" })}</strong>
                   </div>
                   <div className="event-preview-body">
                     <div className="event-preview-heading">
@@ -408,7 +395,21 @@ export default function Dashboard() {
                       </Badge>
                     </div>
                     <p>{event.description || "No description provided."}</p>
-                    <span>{formatDateTime(event.start)} to {formatDateTime(event.end)}</span>
+                    <span>
+                      {formatEventDateTime(event.start, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}{" "}
+                      to{" "}
+                      {formatEventDateTime(event.end, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </span>
                   </div>
                 </article>
               ))}

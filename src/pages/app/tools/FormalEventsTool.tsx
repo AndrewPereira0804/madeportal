@@ -21,6 +21,12 @@ import {
   TableRow,
 } from "../../../components/ui";
 import supabase from "../../../config/supabaseClient";
+import {
+  compareEventDateTimes,
+  formatEventDateTime,
+  isEventEndAfterStart,
+  toEventTimestamp,
+} from "../../../lib/eventDateTime";
 import { getEventTypeClassName, getEventTypeLabel } from "../../../lib/eventTypes";
 import {
   calculateFormalAttendeeOwed,
@@ -84,18 +90,6 @@ const moneyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
 });
-
-function toUtcIso(localDateTimeValue: string) {
-  return new Date(localDateTimeValue).toISOString();
-}
-
-function formatEastern(dateIso: string) {
-  return new Date(dateIso).toLocaleString("en-US", {
-    timeZone: "America/New_York",
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
 
 function formatMoney(value: number) {
   return moneyFormatter.format(value);
@@ -346,7 +340,7 @@ export default function FormalEventsTool({
       return;
     }
 
-    if (new Date(draft.end) <= new Date(draft.start)) {
+    if (!isEventEndAfterStart(draft.start, draft.end)) {
       setErrorMessage("End date/time must be after start date/time.");
       return;
     }
@@ -361,8 +355,8 @@ export default function FormalEventsTool({
         title: `Formal: ${theme}`,
         description: `Theme: ${theme}`,
         event_type: "formal",
-        start: toUtcIso(draft.start),
-        end: toUtcIso(draft.end),
+        start: toEventTimestamp(draft.start),
+        end: toEventTimestamp(draft.end),
         created_by: userId,
         visible_to_alum: false,
         visible_to_neophyte: false,
@@ -375,7 +369,7 @@ export default function FormalEventsTool({
       setErrorMessage(dbError("create this formal", error.message));
     } else if (data) {
       setEvents((current) =>
-        [...current, data as FormalEventRow].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+        [...current, data as FormalEventRow].sort((a, b) => compareEventDateTimes(a.start, b.start))
       );
       setDraft(emptyDraft);
     }
@@ -635,7 +629,7 @@ export default function FormalEventsTool({
                       {getEventTypeLabel("formal")}
                     </Badge>
                     <h3>{details.theme || formalEvent.title}</h3>
-                    <p>{formatEastern(formalEvent.start)} to {formatEastern(formalEvent.end)}</p>
+                    <p>{formatEventDateTime(formalEvent.start)} to {formatEventDateTime(formalEvent.end)}</p>
                   </div>
                   <Badge variant={totals.unpaidAmount > 0 ? "warning" : "success"}>
                     {totals.paidBrotherCount}/{totals.brotherCount} paid
