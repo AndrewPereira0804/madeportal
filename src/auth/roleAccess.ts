@@ -80,6 +80,8 @@ const canonicalChairToolRoleSlugs = [
   "hm",
   "hsm",
   "rec",
+  "stew",
+  "treasurer",
 ];
 
 const chairRoleSlugs = new Set([
@@ -98,7 +100,9 @@ const chairRoleSlugs = new Set([
   "professional-development-chair",
   "preceptor",
   "recorder",
+  "stew",
   "steward",
+  "treasurer",
 ]);
 
 const ownEventManagerRoleSlugs = new Set([
@@ -106,7 +110,7 @@ const ownEventManagerRoleSlugs = new Set([
   "treasurer",
 ]);
 
-const socialChairEventToolRoleSlugs = new Set(["social-chair"]);
+const partyFormalEventToolRoleSlugs = new Set(["social-chair", "hsm", "health-safety-manager"]);
 const communityServiceEventToolRoleSlugs = new Set(["cs-chair", "community-service-chair"]);
 
 const eventTypeManagerRoleSlugs: Record<EventTypeSlug, string[]> = {
@@ -254,6 +258,11 @@ export function isChairRoleSlug(roleSlug: string) {
   return chairRoleSlugs.has(normalizeRoleSlug(roleSlug));
 }
 
+export function canAccessAllChairTools(roles: string[]) {
+  const roleSet = normalizeRoleSet(roles);
+  return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, memberManagerRoleSlugs);
+}
+
 export function canAccessChairTool(roles: string[], roleSlug: string) {
   const normalizedRoleSlug = normalizeRoleSlug(roleSlug);
   if (hasAlumniBaseline(roles) || !chairRoleSlugs.has(normalizedRoleSlug)) {
@@ -261,7 +270,7 @@ export function canAccessChairTool(roles: string[], roleSlug: string) {
   }
 
   const roleSet = normalizeRoleSet(roles);
-  return roleSet.has(normalizedRoleSlug) || canManageBudgets(roles);
+  return roleSet.has(normalizedRoleSlug) || canAccessAllChairTools(roles);
 }
 
 export function canAccessBudgets(roles: string[]) {
@@ -331,17 +340,17 @@ export function canManageEvent(
 
 export function canManagePartyEvents(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
-  return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, socialChairEventToolRoleSlugs);
+  return canAccessAllChairTools(roles) || (!hasAlumniBaseline(roles) && hasAnyRole(roleSet, partyFormalEventToolRoleSlugs));
 }
 
 export function canManageFormalEvents(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
-  return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, socialChairEventToolRoleSlugs);
+  return canAccessAllChairTools(roles) || (!hasAlumniBaseline(roles) && hasAnyRole(roleSet, partyFormalEventToolRoleSlugs));
 }
 
 export function canManageCommunityServiceEvents(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
-  return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, communityServiceEventToolRoleSlugs);
+  return canAccessAllChairTools(roles) || (!hasAlumniBaseline(roles) && hasAnyRole(roleSet, communityServiceEventToolRoleSlugs));
 }
 
 export function canViewEvent(roles: string[], event: EventVisibility, currentUserId?: string | null) {

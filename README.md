@@ -4,14 +4,18 @@ Protected app routes:
 - `/app/events/manage`: event management for permitted chapter operators
 - `/app/tools`: chair tool index for assigned chair roles
 - `/app/tools/:roleSlug/*`: role-specific chair tool surface
-- `/app/tools/social-chair/party-events`: party event creator and checklist tool for `social-chair`
-- `/app/tools/social-chair/formal-events`: formal event creator, payment calculator, attendee table, and setup checklist tool for `social-chair`
+- `/app/tools/social-chair/party-events` and `/app/tools/hsm/party-events`: party event creator and checklist tool for `social-chair` and `hsm`
+- `/app/tools/social-chair/formal-events` and `/app/tools/hsm/formal-events`: formal event creator, payment calculator, attendee table, and setup checklist tool for `social-chair` and `hsm`
 - `/app/tools/cs-chair/community-service-events`: community service event creator, attendance hours table, and Nationals logging tracker for `cs-chair`
+- `/app/tools/treasurer`: Treasurer budget tool index
+- `/app/tools/treasurer/overview`: active-cycle budget overview
+- `/app/tools/treasurer/requests`: submitted expense request review
+- `/app/tools/treasurer/reimbursements`: approved expense reimbursement tracker
+- `/app/tools/treasurer/cycles`: budget cycle management
+- `/app/tools/treasurer/allocations`: active-cycle budget account allocation management
+- `/app/tools/treasurer/accounts/:accountId`: budget account detail, expense submission, and transaction history
 - `/app/manage`: chapter management hub for `admin`, `ea`, and `eda`
 - `/app/manage/members`: member approval, role assignment, and status management
-- `/app/budget`: budget dashboard
-- `/app/budget/admin`: budget administration for `admin`, `ea`, `eda`, and `treasurer`
-- `/app/budget/:accountId`: budget account detail
 - `/app/announcements`: announcement feed
 - `/app/announcements/create`
 - `/app/announcements/:announcementId/edit`
@@ -22,9 +26,13 @@ Legacy compatibility redirects:
 - `/admin` -> `/app/manage`
 - `/admin/accounts` -> `/app/manage/members`
 - `/admin/events` -> `/app/events/manage`
-- `/budget` -> `/app/budget`
-- `/budget/admin` -> `/app/budget/admin`
-- `/budget/:accountId` -> `/app/budget/:accountId`
+- `/budget` -> `/app/tools/treasurer/overview`
+- `/budget/admin` -> `/app/tools/treasurer`
+- `/budget/:accountId` -> `/app/tools/treasurer/accounts/:accountId`
+- `/app/budget` -> `/app/tools/treasurer/overview`
+- `/app/budget/admin` -> `/app/tools/treasurer`
+- `/app/budget/:accountId` -> `/app/tools/treasurer/accounts/:accountId`
+- `/app/budgets` -> `/app/tools/treasurer/overview`
 
 ## Supabase Data Model (minimum used by current code)
 
@@ -50,11 +58,11 @@ Status values expected by UI:
 
 Role slugs:
 - `admin` is used for admin access checks
-- `ea` and `eda` are used with `admin` for chapter/member-management access
+- `ea` and `eda` are used with `admin` for chapter/member-management access and all chair tool access through `/app/tools`
 - `admin`, `ea`, `eda`, and `rec`/`recorder` can manage all event types
 - Event-type chair access is mapped in `src/auth/roleAccess.ts`; the current rollout adds role rows for `alumni-chair`, `chapter-dev`, and `professional-dev` if missing.
-- `treasurer` is additive for budget administration
-- Budget navigation is shown to budget managers or users whose roles are listed as budget-account-capable in `src/auth/roleAccess.ts`.
+- `treasurer` has a chair tool workspace for separated budget workflows under `/app/tools/treasurer`
+- Budget workflows are no longer a top-level sidebar item; they live under Tools and Treasurer tools.
 - Budget-account-capable roles are currently a frontend helper list; replace this with an admin-managed source if role budget eligibility needs to change without code edits.
 
 ## Supabase Relationship & RLS Working Notes

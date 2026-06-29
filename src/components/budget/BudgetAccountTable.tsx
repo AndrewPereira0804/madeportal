@@ -12,9 +12,14 @@ import {
 type BudgetAccountTableProps = {
   accounts: BudgetAccount[];
   transactions: BudgetTransaction[];
+  getAccountPath?: (account: BudgetAccount) => string;
 };
 
-export default function BudgetAccountTable({ accounts, transactions }: BudgetAccountTableProps) {
+export default function BudgetAccountTable({
+  accounts,
+  transactions,
+  getAccountPath = (account) => `/app/tools/treasurer/accounts/${account.id}`,
+}: BudgetAccountTableProps) {
   return (
     <Table minWidth={780} className="budget-table-wrap">
       <TableHead>
@@ -47,7 +52,7 @@ export default function BudgetAccountTable({ accounts, transactions }: BudgetAcc
                 {formatMoney(summary.remaining)}
               </TableCell>
               <TableCell>
-                <Button to={`/app/budget/${account.id}`} variant="outline-secondary" size="sm">
+                <Button to={getAccountPath(account)} variant="outline-secondary" size="sm">
                   View transactions
                 </Button>
               </TableCell>

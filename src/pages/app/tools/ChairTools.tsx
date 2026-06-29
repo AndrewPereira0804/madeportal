@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import {
+  canAccessAllChairTools,
   canAccessBudgetAccount,
+  canAccessBudgets,
   canAccessChairTool,
   canManageCommunityServiceEvents,
   canManageFormalEvents,
@@ -19,9 +21,12 @@ import { getActiveBudgetCycle, getBudgetAccountsForCycle, getTransactionsForAcco
 import CommunityServiceEventsTool from "./CommunityServiceEventsTool";
 import FormalEventsTool from "./FormalEventsTool";
 import PartyEventsTool from "./PartyEventsTool";
+import TreasurerBudgetTools from "./TreasurerBudgetTools";
 
 const socialChairRoleSlug = "social-chair";
+const partyFormalToolRoleSlugs = new Set([socialChairRoleSlug, "hsm", "health-safety-manager"]);
 const communityServiceChairRoleSlugs = new Set(["cs-chair", "community-service-chair"]);
+const treasurerRoleSlug = "treasurer";
 
 function uniqueRoleSlugs(roleSlugs: string[]) {
   const seen = new Set<string>();
@@ -60,9 +65,17 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "An unexpected error occurred.";
 }
 
+function getChairToolDescription(roleSlug: string) {
+  if (roleSlug === treasurerRoleSlug) {
+    return "Budget requests, reimbursements, cycles, and allocations.";
+  }
+
+  return "Budget allocation and spending request access.";
+}
+
 export function ChairToolsIndex() {
   const { roles, loading: rolesLoading } = useRoles();
-  const canViewAllChairTools = canManageBudgets(roles);
+  const canViewAllChairTools = canAccessAllChairTools(roles);
   const availableRoleSlugs = useMemo(
     () =>
       uniqueRoleSlugs(
@@ -105,7 +118,7 @@ export function ChairToolsIndex() {
                 to={`/app/tools/${roleSlug}`}
                 eyebrow="Chair"
                 title={getRoleLabel(roleSlug)}
-                description="Budget allocation and spending request access."
+                description={getChairToolDescription(roleSlug)}
                 meta={roleSlug}
               />
             ))}
@@ -121,12 +134,18 @@ export function ChairToolPage() {
   const { roles, loading: rolesLoading } = useRoles();
   const normalizedRoleSlug = normalizeRoleSlugForDisplay(roleSlug ?? "");
   const nestedToolPath = (toolPathParam ?? "").replace(/^\/+|\/+$/g, "");
-  const canViewTool = Boolean(normalizedRoleSlug && canAccessChairTool(roles, normalizedRoleSlug));
+  const isTreasurerWorkspace = normalizedRoleSlug === treasurerRoleSlug;
+  const canViewBudgetAccountTool =
+    isTreasurerWorkspace && /^accounts\/[^/]+$/.test(nestedToolPath) && canAccessBudgets(roles);
+  const canViewTool = Boolean(
+    normalizedRoleSlug && (canAccessChairTool(roles, normalizedRoleSlug) || canViewBudgetAccountTool)
+  );
   const canUseBudgetAdminAccess = canManageBudgets(roles);
-  const canUsePartyTool = normalizedRoleSlug === socialChairRoleSlug && canManagePartyEvents(roles);
-  const canUseFormalTool = normalizedRoleSlug === socialChairRoleSlug && canManageFormalEvents(roles);
+  const canUsePartyTool = partyFormalToolRoleSlugs.has(normalizedRoleSlug) && canManagePartyEvents(roles);
+  const canUseFormalTool = partyFormalToolRoleSlugs.has(normalizedRoleSlug) && canManageFormalEvents(roles);
   const canUseCommunityServiceTool =
     communityServiceChairRoleSlugs.has(normalizedRoleSlug) && canManageCommunityServiceEvents(roles);
+  const currentChairToolPath = `/app/tools/${normalizedRoleSlug}`;
 
   const [cycle, setCycle] = useState<BudgetCycle | null>(null);
   const [account, setAccount] = useState<BudgetAccount | null>(null);
@@ -178,7 +197,7 @@ export function ChairToolPage() {
       }
     }
 
-    if (rolesLoading || nestedToolPath) {
+    if (rolesLoading || nestedToolPath || isTreasurerWorkspace) {
       return () => {
         ignore = true;
       };
@@ -196,7 +215,7 @@ export function ChairToolPage() {
     return () => {
       ignore = true;
     };
-  }, [canViewTool, nestedToolPath, normalizedRoleSlug, rolesLoading]);
+  }, [canViewTool, isTreasurerWorkspace, nestedToolPath, normalizedRoleSlug, rolesLoading]);
 
   const summary = useMemo(
     () => calculateBudgetSummary(account ? [account] : [], transactions),
@@ -205,7 +224,7 @@ export function ChairToolPage() {
   const canOpenBudgetAccount = Boolean(
     account && (canUseBudgetAdminAccess || canAccessBudgetAccount(roles, account.role_slug))
   );
-  const budgetAccountPath = account ? `/app/budget/${account.id}` : "/app/budget";
+  const budgetAccountPath = account ? `/app/tools/treasurer/accounts/${account.id}` : "/app/tools";
 
   if (!rolesLoading && (!normalizedRoleSlug || !isChairRoleSlug(normalizedRoleSlug))) {
     return (
@@ -226,12 +245,26 @@ export function ChairToolPage() {
     return <Navigate to="/app/tools" replace />;
   }
 
-  if (nestedToolPath === "party-events" && normalizedRoleSlug === socialChairRoleSlug) {
-    return <PartyEventsTool />;
+  if (isTreasurerWorkspace) {
+    return <TreasurerBudgetTools toolPath={nestedToolPath} />;
   }
 
-  if (nestedToolPath === "formal-events" && normalizedRoleSlug === socialChairRoleSlug) {
-    return <FormalEventsTool />;
+  if (nestedToolPath === "party-events" && partyFormalToolRoleSlugs.has(normalizedRoleSlug)) {
+    return (
+      <PartyEventsTool
+        ownerLabel={getRoleLabel(normalizedRoleSlug)}
+        returnPath={currentChairToolPath}
+      />
+    );
+  }
+
+  if (nestedToolPath === "formal-events" && partyFormalToolRoleSlugs.has(normalizedRoleSlug)) {
+    return (
+      <FormalEventsTool
+        ownerLabel={getRoleLabel(normalizedRoleSlug)}
+        returnPath={currentChairToolPath}
+      />
+    );
   }
 
   if (nestedToolPath === "community-service-events" && communityServiceChairRoleSlugs.has(normalizedRoleSlug)) {
@@ -277,13 +310,13 @@ export function ChairToolPage() {
           {(canUsePartyTool || canUseFormalTool) && (
             <>
               <SectionHeader
-                title="Social chair tools"
-                description="Social event creation, guest lists, payment tracking, and checklist work."
+                title={normalizedRoleSlug === socialChairRoleSlug ? "Social chair tools" : "Party and formal tools"}
+                description="Party and formal event creation, guest lists, payment tracking, and checklist work."
               />
               <div className="action-card-grid tools-grid">
                 {canUsePartyTool && (
                   <ActionCard
-                    to="/app/tools/social-chair/party-events"
+                    to={`${currentChairToolPath}/party-events`}
                     eyebrow="Events"
                     title="Party events"
                     description="Create party events and manage pre/post party checklists."
@@ -292,7 +325,7 @@ export function ChairToolPage() {
                 )}
                 {canUseFormalTool && (
                   <ActionCard
-                    to="/app/tools/social-chair/formal-events"
+                    to={`${currentChairToolPath}/formal-events`}
                     eyebrow="Events"
                     title="Formal events"
                     description="Create formal events, calculate brother payments, and manage setup work."

@@ -13,8 +13,19 @@ import { Button, Card, EmptyState, PageHeader, SectionHeader } from "../../compo
 import { calculateBudgetSummary, type BudgetAccount, type BudgetTransaction } from "../../lib/budget";
 import { getBudgetAccount, getTransactionsForAccount } from "../../lib/budgetQueries";
 
-export default function BudgetAccountPage() {
-  const { accountId } = useParams<{ accountId: string }>();
+type BudgetAccountPageProps = {
+  accountIdOverride?: string;
+  returnPath?: string;
+  eyebrow?: string;
+};
+
+export default function BudgetAccountPage({
+  accountIdOverride,
+  returnPath = "/app/tools",
+  eyebrow = "Budget account",
+}: BudgetAccountPageProps = {}) {
+  const { accountId: routeAccountId } = useParams<{ accountId: string }>();
+  const accountId = accountIdOverride ?? routeAccountId;
   const { roles, loading: rolesLoading } = useRoles();
   const [account, setAccount] = useState<BudgetAccount | null>(null);
   const [transactions, setTransactions] = useState<BudgetTransaction[]>([]);
@@ -98,17 +109,17 @@ export default function BudgetAccountPage() {
     !hasBudgetAdminAccess &&
     !canAccessBudgetAccount(roles, account.role_slug)
   ) {
-    return <Navigate to="/app/budget" replace />;
+    return <Navigate to={returnPath} replace />;
   }
 
   return (
     <Card className="budget-page">
       <PageHeader
-        eyebrow="Budget account"
+        eyebrow={eyebrow}
         title={account ? account.role_slug : "Budget account"}
         subtitle={account?.notes ?? "Read-only account details and transaction activity."}
         bordered
-        actions={<Button to="/app/budget" variant="outline-secondary">Back to Budget</Button>}
+        actions={<Button to={returnPath} variant="outline-secondary">Back</Button>}
       />
 
       {(loading || rolesLoading) && (

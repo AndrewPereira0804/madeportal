@@ -60,6 +60,11 @@ type AttendeeDraft = {
   drinkingGuestCount: string;
 };
 
+type FormalEventsToolProps = {
+  ownerLabel?: string;
+  returnPath?: string;
+};
+
 const formalEventSelect =
   "id, created_at, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte, details";
 
@@ -255,7 +260,10 @@ function FormalAttendeeTable({
   );
 }
 
-export default function FormalEventsTool() {
+export default function FormalEventsTool({
+  ownerLabel = "Social Chairman",
+  returnPath = "/app/tools/social-chair",
+}: FormalEventsToolProps = {}) {
   const { session } = useAuth();
   const { roles, loading: rolesLoading } = useRoles();
   const canManage = useMemo(() => canManageFormalEvents(roles), [roles]);
@@ -540,17 +548,17 @@ export default function FormalEventsTool() {
   }
 
   if (!rolesLoading && !canManage) {
-    return <Navigate to="/app/tools/social-chair" replace />;
+    return <Navigate to={returnPath} replace />;
   }
 
   return (
     <Card className="tools-page">
       <PageHeader
-        eyebrow="Social chair"
+        eyebrow={ownerLabel}
         title="Formal Events"
         subtitle="Create formal calendar events, calculate brother payments, and track set up work."
         bordered
-        actions={<Button to="/app/tools/social-chair" variant="outline-secondary">Social Chair Tools</Button>}
+        actions={<Button to={returnPath} variant="outline-secondary">{ownerLabel} Tools</Button>}
       />
 
       <form className="party-tool-form" onSubmit={handleCreateFormal}>
@@ -638,7 +646,7 @@ export default function FormalEventsTool() {
                   <MetricCard
                     label="Total cost"
                     value={formatMoney(details.totalCost)}
-                    detail="entered by Social Chair"
+                    detail="entered by chair"
                     tone="gold"
                   />
                   <MetricCard

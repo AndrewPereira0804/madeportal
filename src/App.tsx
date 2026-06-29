@@ -22,15 +22,12 @@ import ManageMembers from "./pages/app/ManageMembers";
 import CreateAnnouncement from "./pages/app/CreateAnnouncement";
 import EditAnnouncement from "./pages/app/EditAnnouncement";
 import ManageEvents from "./pages/app/ManageEvents";
-import BudgetPage from "./pages/budget/BudgetPage";
-import BudgetAccountPage from "./pages/budget/BudgetAccountPage";
-import BudgetAdminPage from "./pages/BudgetAdminPage";
 import SplashScreen from "./components/ui/SplashScreen";
 import { ChairToolPage, ChairToolsIndex } from "./pages/app/tools/ChairTools";
 
 function LegacyBudgetAccountRedirect() {
   const { accountId } = useParams<{ accountId: string }>();
-  return <Navigate to={accountId ? `/app/budget/${accountId}` : "/app/budget"} replace />;
+  return <Navigate to={accountId ? `/app/tools/treasurer/accounts/${accountId}` : "/app/tools/treasurer/overview"} replace />;
 }
 
 export default function App() {
@@ -81,8 +78,8 @@ export default function App() {
       <Route path="/admin" element={<Navigate to="/app/manage" replace />} />
       <Route path="/admin/accounts" element={<Navigate to="/app/manage/members" replace />} />
       <Route path="/admin/events" element={<Navigate to="/app/events/manage" replace />} />
-      <Route path="/budget" element={<Navigate to="/app/budget" replace />} />
-      <Route path="/budget/admin" element={<Navigate to="/app/budget/admin" replace />} />
+      <Route path="/budget" element={<Navigate to="/app/tools/treasurer/overview" replace />} />
+      <Route path="/budget/admin" element={<Navigate to="/app/tools/treasurer" replace />} />
       <Route path="/budget/:accountId" element={<LegacyBudgetAccountRedirect />} />
 
       <Route element={<RequireAuth />}>
@@ -99,10 +96,10 @@ export default function App() {
             <Route path="events" element={<Navigate to="/app/events/manage" replace />} />
           </Route>
           <Route path="members" element={<Navigate to="/app/manage/members" replace />} />
-          <Route path="budget" element={<BudgetPage />} />
-          <Route path="budget/admin" element={<BudgetAdminPage />} />
-          <Route path="budget/:accountId" element={<BudgetAccountPage />} />
-          <Route path="budgets" element={<Navigate to="/app/budget" replace />} />
+          <Route path="budget" element={<Navigate to="/app/tools/treasurer/overview" replace />} />
+          <Route path="budget/admin" element={<Navigate to="/app/tools/treasurer" replace />} />
+          <Route path="budget/:accountId" element={<LegacyBudgetAccountRedirect />} />
+          <Route path="budgets" element={<Navigate to="/app/tools/treasurer/overview" replace />} />
           <Route path="admin" element={<Navigate to="/app/system-admin" replace />} />
           <Route path="system-admin" element={<SystemAdmin />} />
           <Route path="announcements" element={<Announcements />} />

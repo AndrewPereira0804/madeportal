@@ -74,6 +74,13 @@ type AccountEditDraft = {
   notes: string;
 };
 
+export type BudgetAdminMode = "all" | "requests" | "reimbursements" | "cycles" | "allocations";
+
+type BudgetAdminPageProps = {
+  mode?: BudgetAdminMode;
+  returnPath?: string;
+};
+
 const emptyCycleDraft: CycleDraft = {
   name: "",
   startDate: "",
@@ -178,7 +185,40 @@ function validateAccountDraft(draft: AccountDraft | AccountEditDraft, roleSlug?:
   return null;
 }
 
-export default function BudgetAdminPage() {
+function getModeHeader(mode: BudgetAdminMode) {
+  switch (mode) {
+    case "requests":
+      return {
+        title: "Expense Requests",
+        subtitle: "Review submitted budget requests and approve or deny them.",
+      };
+    case "reimbursements":
+      return {
+        title: "Reimbursements",
+        subtitle: "Mark approved expenses as reimbursed after payout.",
+      };
+    case "cycles":
+      return {
+        title: "Budget Cycles",
+        subtitle: "Create budget cycles and choose the active cycle.",
+      };
+    case "allocations":
+      return {
+        title: "Budget Allocations",
+        subtitle: "Create, edit, and review active-cycle chair budget accounts.",
+      };
+    default:
+      return {
+        title: "Treasurer Budget Tools",
+        subtitle: "Review requests, reimburse approved expenses, and manage budget setup.",
+      };
+  }
+}
+
+export default function BudgetAdminPage({
+  mode = "all",
+  returnPath = "/app/tools/treasurer",
+}: BudgetAdminPageProps = {}) {
   const { session } = useAuth();
   const { roles: userRoles, loading: rolesLoading } = useRoles();
   const [pendingRows, setPendingRows] = useState<BudgetAdminRow[]>([]);
@@ -198,6 +238,12 @@ export default function BudgetAdminPage() {
 
   const hasBudgetAccess = canManageBudgets(userRoles);
   const activeCycle = cycles.find((cycle) => cycle.is_active) ?? null;
+  const modeHeader = getModeHeader(mode);
+  const showRequestReview = mode === "all" || mode === "requests";
+  const showReimbursements = mode === "all" || mode === "reimbursements";
+  const showCycles = mode === "all" || mode === "cycles";
+  const showAllocations = mode === "all" || mode === "allocations";
+  const showMetrics = showRequestReview || showReimbursements;
 
   const loadAdminData = useCallback(async () => {
     setLoading(true);
@@ -482,7 +528,7 @@ export default function BudgetAdminPage() {
   }
 
   if (!hasBudgetAccess) {
-    return <Navigate to="/app/budget" replace />;
+    return <Navigate to="/app/tools" replace />;
   }
 
   if (loading) {
@@ -499,101 +545,113 @@ export default function BudgetAdminPage() {
   return (
     <Card className="budget-page">
       <PageHeader
-        eyebrow="Budget administration"
-        title="Budget Admin"
-        subtitle="Review expense requests and manage budget allocations."
+        eyebrow="Treasurer tools"
+        title={modeHeader.title}
+        subtitle={modeHeader.subtitle}
         bordered
-        actions={<Button to="/app/budget" variant="outline-secondary">Back to Budget</Button>}
+        actions={<Button to={returnPath} variant="outline-secondary">Treasurer Tools</Button>}
       />
 
       {errorMessage && <div className="alert alert-danger budget-alert">{errorMessage}</div>}
       {successMessage && <div className="alert alert-success budget-alert">{successMessage}</div>}
 
-      <BudgetAdminMetrics pendingCount={pendingRows.length} pendingTotal={totals.pending} approvedCount={approvedRows.length} approvedTotal={totals.approved} />
+      {showMetrics && (
+        <BudgetAdminMetrics pendingCount={pendingRows.length} pendingTotal={totals.pending} approvedCount={approvedRows.length} approvedTotal={totals.approved} />
+      )}
 
-      <BudgetRequestSection
-        title="Pending Requests"
-        emptyText="No pending requests."
-        rows={pendingRows}
-        roles={roles}
-        savingKey={savingKey}
-        actions={(transaction) => (
-          <>
+      {showRequestReview && (
+        <BudgetRequestSection
+          title="Pending Requests"
+          emptyText="No pending requests."
+          rows={pendingRows}
+          roles={roles}
+          savingKey={savingKey}
+          actions={(transaction) => (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                loading={savingKey === `approve-${transaction.id}`}
+                disabled={savingKey === `approve-${transaction.id}`}
+                onClick={() => approveRequest(transaction.id)}
+              >
+                Approve
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="danger"
+                loading={savingKey === `deny-${transaction.id}`}
+                disabled={savingKey === `deny-${transaction.id}`}
+                onClick={() => denyRequest(transaction.id)}
+              >
+                Deny
+              </Button>
+            </>
+          )}
+        />
+      )}
+
+      {showReimbursements && (
+        <BudgetRequestSection
+          title="Approved, Not Yet Reimbursed"
+          emptyText="No approved unreimbursed expenses."
+          rows={approvedRows}
+          roles={roles}
+          savingKey={savingKey}
+          actions={(transaction) => (
             <Button
               type="button"
               size="sm"
-              loading={savingKey === `approve-${transaction.id}`}
-              disabled={savingKey === `approve-${transaction.id}`}
-              onClick={() => approveRequest(transaction.id)}
+              loading={savingKey === `reimburse-${transaction.id}`}
+              disabled={savingKey === `reimburse-${transaction.id}`}
+              onClick={() => markReimbursed(transaction.id)}
             >
-              Approve
+              Mark Reimbursed
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="danger"
-              loading={savingKey === `deny-${transaction.id}`}
-              disabled={savingKey === `deny-${transaction.id}`}
-              onClick={() => denyRequest(transaction.id)}
-            >
-              Deny
-            </Button>
-          </>
-        )}
-      />
+          )}
+        />
+      )}
 
-      <BudgetRequestSection
-        title="Approved, Not Yet Reimbursed"
-        emptyText="No approved unreimbursed expenses."
-        rows={approvedRows}
-        roles={roles}
-        savingKey={savingKey}
-        actions={(transaction) => (
-          <Button
-            type="button"
-            size="sm"
-            loading={savingKey === `reimburse-${transaction.id}`}
-            disabled={savingKey === `reimburse-${transaction.id}`}
-            onClick={() => markReimbursed(transaction.id)}
-          >
-            Mark Reimbursed
-          </Button>
-        )}
-      />
+      {showCycles && (
+        <BudgetCyclesSection
+          cycles={cycles}
+          draft={cycleDraft}
+          savingKey={savingKey}
+          onDraftChange={setCycleDraft}
+          onCreate={handleCreateCycle}
+          onSetActive={handleSetActiveCycle}
+        />
+      )}
 
-      <BudgetCyclesSection
-        cycles={cycles}
-        draft={cycleDraft}
-        savingKey={savingKey}
-        onDraftChange={setCycleDraft}
-        onCreate={handleCreateCycle}
-        onSetActive={handleSetActiveCycle}
-      />
+      {showAllocations && (
+        <>
+          <ActiveCycleAccountsSection
+            activeCycle={activeCycle}
+            accounts={activeAccounts}
+            transactions={activeAccountTransactions}
+            roles={roles}
+            savingKey={savingKey}
+            editingAccountId={editingAccountId}
+            editDraft={accountEditDraft}
+            onStartEdit={startEditingAccount}
+            onCancelEdit={cancelEditingAccount}
+            onEditDraftChange={setAccountEditDraft}
+            onSave={handleSaveAccount}
+            onDelete={handleDeleteAccount}
+          />
 
-      <ActiveCycleAccountsSection
-        activeCycle={activeCycle}
-        accounts={activeAccounts}
-        transactions={activeAccountTransactions}
-        roles={roles}
-        savingKey={savingKey}
-        editingAccountId={editingAccountId}
-        editDraft={accountEditDraft}
-        onStartEdit={startEditingAccount}
-        onCancelEdit={cancelEditingAccount}
-        onEditDraftChange={setAccountEditDraft}
-        onSave={handleSaveAccount}
-        onDelete={handleDeleteAccount}
-      />
-
-      <CreateBudgetAccountSection
-        activeCycle={activeCycle}
-        roles={roles}
-        availableRoles={availableRoles}
-        draft={accountDraft}
-        savingKey={savingKey}
-        onDraftChange={setAccountDraft}
-        onCreate={handleCreateAccount}
-      />
+          <CreateBudgetAccountSection
+            activeCycle={activeCycle}
+            roles={roles}
+            availableRoles={availableRoles}
+            draft={accountDraft}
+            savingKey={savingKey}
+            onDraftChange={setAccountDraft}
+            onCreate={handleCreateAccount}
+          />
+        </>
+      )}
     </Card>
   );
 }

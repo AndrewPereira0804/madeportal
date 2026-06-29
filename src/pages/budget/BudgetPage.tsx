@@ -24,7 +24,17 @@ function getCycleLabel(cycle: BudgetCycle) {
   return `Cycle ${cycle.id}`;
 }
 
-export default function BudgetPage() {
+type BudgetPageProps = {
+  eyebrow?: string;
+  title?: string;
+  adminPath?: string;
+};
+
+export default function BudgetPage({
+  eyebrow = "Massachusetts Delta finance",
+  title = "Budget overview",
+  adminPath = "/app/tools/treasurer",
+}: BudgetPageProps = {}) {
   const { roles, loading: rolesLoading } = useRoles();
   const [cycle, setCycle] = useState<BudgetCycle | null>(null);
   const [accounts, setAccounts] = useState<BudgetAccount[]>([]);
@@ -120,14 +130,14 @@ export default function BudgetPage() {
   return (
     <Card className="budget-page">
       <PageHeader
-        eyebrow="Massachusetts Delta finance"
-        title="Budget"
-        subtitle={cycle ? `Active cycle: ${getCycleLabel(cycle)}` : "Read-only budget dashboard."}
+        eyebrow={eyebrow}
+        title={title}
+        subtitle={cycle ? `Active cycle: ${getCycleLabel(cycle)}` : "Budget overview."}
         bordered
         actions={
           hasBudgetAdminAccess ? (
-            <Button to="/app/budget/admin" variant="outline-secondary">
-              Budget Admin
+            <Button to={adminPath} variant="outline-secondary">
+              Treasurer Tools
             </Button>
           ) : undefined
         }

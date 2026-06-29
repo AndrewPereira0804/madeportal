@@ -37,6 +37,11 @@ type PartyDraft = {
   end: string;
 };
 
+type PartyEventsToolProps = {
+  ownerLabel?: string;
+  returnPath?: string;
+};
+
 const partyEventSelect =
   "id, created_at, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte, details";
 
@@ -161,7 +166,10 @@ function PartyChecklist({
   );
 }
 
-export default function PartyEventsTool() {
+export default function PartyEventsTool({
+  ownerLabel = "Social Chairman",
+  returnPath = "/app/tools/social-chair",
+}: PartyEventsToolProps = {}) {
   const { session } = useAuth();
   const { roles, loading: rolesLoading } = useRoles();
   const canManage = useMemo(() => canManagePartyEvents(roles), [roles]);
@@ -363,17 +371,17 @@ export default function PartyEventsTool() {
   }
 
   if (!rolesLoading && !canManage) {
-    return <Navigate to="/app/tools/social-chair" replace />;
+    return <Navigate to={returnPath} replace />;
   }
 
   return (
     <Card className="tools-page">
       <PageHeader
-        eyebrow="Social chair"
+        eyebrow={ownerLabel}
         title="Party Events"
         subtitle="Create party calendar events and track party-specific checklists."
         bordered
-        actions={<Button to="/app/tools/social-chair" variant="outline-secondary">Social Chair Tools</Button>}
+        actions={<Button to={returnPath} variant="outline-secondary">{ownerLabel} Tools</Button>}
       />
 
       <form className="party-tool-form" onSubmit={handleCreateParty}>

@@ -1,6 +1,11 @@
 import { Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/authContext";
-import { canAccessBudgets, canAccessManagement } from "../auth/roleAccess";
+import {
+  canAccessAllChairTools,
+  canAccessChairTool,
+  canAccessManagement,
+  getChairRoleSlugs,
+} from "../auth/roleAccess";
 import useRoles from "../auth/useRoles";
 import { AppShell, type AppShellNavItem } from "../components/ui";
 
@@ -12,7 +17,9 @@ const baseNavItems: AppShellNavItem[] = [
   { to: "/app/account", label: "Account", description: "Profile" },
 ];
 
-const budgetNavItem: AppShellNavItem = { to: "/app/budget", label: "Budgets", description: "Finance" };
+function getChairToolsPath(chairRoleSlugs: string[]) {
+  return chairRoleSlugs.length === 1 ? `/app/tools/${chairRoleSlugs[0]}` : "/app/tools";
+}
 
 export default function AppLayout() {
   const { roles } = useRoles();
@@ -25,9 +32,21 @@ export default function AppLayout() {
   }
 
   const roleLabel = roles.length > 0 ? roles.join(", ") : "member";
+  const canOpenAllChairTools = canAccessAllChairTools(roles);
+  const accessibleChairRoleSlugs = getChairRoleSlugs(roles).filter((roleSlug) =>
+    canAccessChairTool(roles, roleSlug)
+  );
+  const chairToolsNavItem: AppShellNavItem | null =
+    canOpenAllChairTools || accessibleChairRoleSlugs.length > 0
+      ? {
+          to: canOpenAllChairTools ? "/app/tools" : getChairToolsPath(accessibleChairRoleSlugs),
+          label: "Tools",
+          description: canOpenAllChairTools ? "All chairs" : "Chair",
+        }
+      : null;
   const navItems = [
     ...baseNavItems.slice(0, 2),
-    ...(canAccessBudgets(roles) ? [budgetNavItem] : []),
+    ...(chairToolsNavItem ? [chairToolsNavItem] : []),
     ...baseNavItems.slice(2),
     ...(canAccessManagement(roles) ? [{ to: "/app/manage", label: "Management", description: "Chapter" }] : []),
   ];

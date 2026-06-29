@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  canAccessAllChairTools,
   canAccessManagement,
   canCreateAnnouncements,
   canManageBudgets,
@@ -166,6 +167,7 @@ export default function Dashboard() {
   const hasBudgetAdminAccess = canManageBudgets(roles);
   const hasEventManagementAccess = canManageEvents(roles);
   const hasAnnouncementShortcutAccess = canCreateAnnouncements(roles);
+  const canOpenAllChairTools = canAccessAllChairTools(roles);
   const chairRoleSlugs = useMemo(() => getChairRoleSlugs(roles), [roles]);
 
   useEffect(() => {
@@ -305,7 +307,7 @@ export default function Dashboard() {
     : formatChapterStatus(chapterStatus);
   const displayName = getDisplayName(profile, session?.user?.email);
   const pendingBudgetTotal = pendingBudgetRequests.reduce((total, request) => total + request.amount, 0);
-  const hasChairTools = chairRoleSlugs.length > 0;
+  const hasChairTools = canOpenAllChairTools || chairRoleSlugs.length > 0;
 
   return (
     <div className="dashboard-page">
@@ -484,7 +486,11 @@ export default function Dashboard() {
               to="/app/tools"
               eyebrow="Tools"
               title="Open chair tools"
-              description={`${chairRoleSlugs.length} chair workspace${chairRoleSlugs.length === 1 ? "" : "s"} available.`}
+              description={
+                canOpenAllChairTools
+                  ? "All chair workspaces available."
+                  : `${chairRoleSlugs.length} chair workspace${chairRoleSlugs.length === 1 ? "" : "s"} available.`
+              }
               meta="Tools"
             />
           )}
@@ -535,7 +541,7 @@ export default function Dashboard() {
               <SectionHeader
                 title="Budget management"
                 description={`Active cycle: ${getCycleLabel(activeBudgetCycle)}`}
-                actions={<Button to="/app/budget/admin" variant="outline-secondary" size="sm">Open</Button>}
+                actions={<Button to="/app/tools/treasurer" variant="outline-secondary" size="sm">Open</Button>}
               />
 
               {loading || rolesLoading ? (
@@ -550,7 +556,7 @@ export default function Dashboard() {
                       pending request{pendingBudgetRequests.length === 1 ? "" : "s"} totaling {formatMoney(pendingBudgetTotal)}
                     </span>
                   </div>
-                  <Button to="/app/budget/admin" variant="outline-secondary" size="sm">Review requests</Button>
+                  <Button to="/app/tools/treasurer/requests" variant="outline-secondary" size="sm">Review requests</Button>
                 </div>
               )}
             </Card>

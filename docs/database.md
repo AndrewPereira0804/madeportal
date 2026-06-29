@@ -203,8 +203,8 @@ Frontend usage:
 
 - `src/pages/app/Scheduling.tsx` reads events.
 - `src/pages/app/ManageEvents.tsx` creates, updates, and deletes events.
-- `src/pages/app/tools/PartyEventsTool.tsx` creates party events and updates party event `details`.
-- `src/pages/app/tools/FormalEventsTool.tsx` creates formal events and updates formal event `details` for cost, attendee, payment, and setup checklist state.
+- `src/pages/app/tools/PartyEventsTool.tsx` creates party events and updates party event `details` from the Social Chair and HSM tool pages.
+- `src/pages/app/tools/FormalEventsTool.tsx` creates formal events and updates formal event `details` for cost, attendee, payment, and setup checklist state from the Social Chair and HSM tool pages.
 - `src/pages/app/tools/CommunityServiceEventsTool.tsx` creates community service events and updates event `details` for organization, location, attendance hours, and Nationals logging state.
 
 Important: frontend supplies `created_by`; do not rely on the `gen_random_uuid()` default because it can produce invalid foreign keys.
@@ -268,7 +268,7 @@ Referenced by:
 Frontend usage:
 
 - `src/lib/budgetQueries.ts` reads, creates, and marks active budget cycles.
-- `src/pages/budget/BudgetPage.tsx` and `src/pages/BudgetAdminPage.tsx` read active cycle state.
+- `src/pages/app/tools/TreasurerBudgetTools.tsx`, `src/pages/budget/BudgetPage.tsx`, and `src/pages/BudgetAdminPage.tsx` read active cycle state for Treasurer budget tools.
 
 ### public.budget_accounts
 
@@ -291,7 +291,7 @@ Referenced by:
 Frontend usage:
 
 - `src/lib/budgetQueries.ts` reads, creates, updates, and deletes budget accounts.
-- `src/pages/budget/BudgetPage.tsx`, `src/pages/budget/BudgetAccountPage.tsx`, `src/pages/BudgetAdminPage.tsx`, and `src/pages/app/tools/ChairTools.tsx` read account allocations.
+- `src/pages/app/tools/TreasurerBudgetTools.tsx`, `src/pages/budget/BudgetPage.tsx`, `src/pages/budget/BudgetAccountPage.tsx`, `src/pages/BudgetAdminPage.tsx`, and `src/pages/app/tools/ChairTools.tsx` read account allocations.
 
 ### public.budget_transactions
 
@@ -322,7 +322,7 @@ Frontend usage:
 
 - `src/lib/budgetQueries.ts` reads, inserts, approves, denies, and reimburses budget transactions.
 - `src/components/budget/SubmitExpenseForm.tsx` inserts submitted transactions.
-- Budget dashboard, account detail, admin review, and chair tool views display these records.
+- Treasurer tools, account detail, admin review, and chair tool views display these records.
 
 ### public.audit_log
 
@@ -438,7 +438,26 @@ Frontend currently uses a stricter/higher-level role split for event management:
 - `scholarship`: `scholarship`.
 - Own-event fallback roles remain for legacy event records where applicable.
 
+The dedicated Party and Formal tool routes are exposed under both `/app/tools/social-chair/*` and `/app/tools/hsm/*`. Both roles read and update the same `events` rows by event type, so Social Chair can edit Party/Formal events created by HSM and HSM can edit Party/Formal events created by Social Chair when hosted RLS includes the matching `can_manage_event_type` behavior.
+
 This is a known area where hosted RLS and frontend role intent should be re-verified before changing event behavior.
+
+### Chair Tools
+
+Frontend visibility:
+
+- Assigned chair roles can access their own `/app/tools/:roleSlug` workspace.
+- `treasurer` can access budget workflows through `/app/tools/treasurer`.
+- `admin`, `ea`, and `eda` can access every chair workspace through `/app/tools`.
+
+Frontend helper:
+
+- `src/auth/roleAccess.ts`
+
+Expected capabilities:
+
+- Route guards and sidebar visibility should use the same chair-tool helpers.
+- All-chair-tools access is separate from budget administration access; do not use Treasurer budget access as a proxy for every dedicated chair tool.
 
 ### Calendars
 
@@ -457,7 +476,18 @@ Current schema snapshot:
 Frontend visibility:
 
 - Budget administration is available to `admin`, `ea`, `eda`, and `treasurer`.
-- Budget dashboard/account access is shown to budget managers or users whose roles are budget-account-capable in `src/auth/roleAccess.ts`.
+- Budget workflows are exposed as separate Treasurer tools under `/app/tools/treasurer`.
+- Top-level `/app/budget*` routes are compatibility redirects into `/app/tools/treasurer/*`.
+- Budget account detail access is still allowed for users whose roles are budget-account-capable in `src/auth/roleAccess.ts`, but the canonical account path is `/app/tools/treasurer/accounts/:accountId`.
+
+Treasurer tool paths:
+
+- `/app/tools/treasurer/overview`: active-cycle budget overview.
+- `/app/tools/treasurer/requests`: submitted expense request approval/denial.
+- `/app/tools/treasurer/reimbursements`: approved expense reimbursement marking.
+- `/app/tools/treasurer/cycles`: budget cycle creation and active-cycle selection.
+- `/app/tools/treasurer/allocations`: active-cycle budget account creation, editing, and deletion.
+- `/app/tools/treasurer/accounts/:accountId`: individual budget account transactions and expense submission.
 
 Hosted policy notes:
 
