@@ -7,6 +7,8 @@ Protected app routes:
 - `/app/tools/social-chair/party-events` and `/app/tools/hsm/party-events`: party event creator and checklist tool for `social-chair` and `hsm`
 - `/app/tools/social-chair/formal-events` and `/app/tools/hsm/formal-events`: formal event creator, payment calculator, attendee table, and setup checklist tool for `social-chair` and `hsm`
 - `/app/tools/cs-chair/community-service-events`: community service event creator, attendance hours table, and Nationals logging tracker for `cs-chair`
+- `/app/tools/alumni-chair/alumni-events`: alumni event creator with required public location details for `alumni-chair`
+- `/app/tools/professional-dev/professional-development-events`: professional development event creator with optional public speaker details for `professional-dev`
 - `/app/tools/treasurer`: Treasurer budget tool index
 - `/app/tools/treasurer/overview`: active-cycle budget overview
 - `/app/tools/treasurer/requests`: submitted expense request review
@@ -67,6 +69,8 @@ Role slugs:
 - Event-type chair access is mapped in `src/auth/roleAccess.ts`; the current rollout adds role rows for `alumni-chair`, `chapter-dev`, and `professional-dev` if missing.
 - `treasurer` has a chair tool workspace for separated budget workflows under `/app/tools/treasurer`
 - `stew` has a chair tool workspace for weekly wait-on schedules under `/app/tools/stew/wait-ons`
+- `alumni-chair` has a chair tool workspace for alumni events under `/app/tools/alumni-chair/alumni-events`
+- `professional-dev` has a chair tool workspace for professional development events under `/app/tools/professional-dev/professional-development-events`
 - Budget workflows are no longer a top-level sidebar item; they live under Tools and Treasurer tools.
 - Budget-account-capable roles are currently a frontend helper list; replace this with an admin-managed source if role budget eligibility needs to change without code edits.
 

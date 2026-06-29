@@ -208,6 +208,8 @@ Frontend usage:
 - `src/pages/app/tools/PartyEventsTool.tsx` creates party events and updates party event `details` from the Social Chair and HSM tool pages.
 - `src/pages/app/tools/FormalEventsTool.tsx` creates formal events and updates formal event `details` for cost, attendee, payment, and setup checklist state from the Social Chair and HSM tool pages.
 - `src/pages/app/tools/CommunityServiceEventsTool.tsx` creates community service events and updates event `details` for organization, location, attendance hours, and Nationals logging state.
+- `src/pages/app/tools/AlumniEventsTool.tsx` creates alumni events and stores the required public `location` value in `details`.
+- `src/pages/app/tools/ProfessionalDevelopmentEventsTool.tsx` creates professional development events and stores an optional public `speaker` value in `details`.
 
 Important: frontend supplies `created_by`; do not rely on the `gen_random_uuid()` default because it can produce invalid foreign keys.
 
@@ -487,6 +489,10 @@ Frontend currently uses a stricter/higher-level role split for event management:
 - Own-event fallback roles remain for legacy event records where applicable.
 
 The dedicated Party and Formal tool routes are exposed under both `/app/tools/social-chair/*` and `/app/tools/hsm/*`. Both roles read and update the same `events` rows by event type, so Social Chair can edit Party/Formal events created by HSM and HSM can edit Party/Formal events created by Social Chair when hosted RLS includes the matching `can_manage_event_type` behavior.
+
+The dedicated Alumni Event tool route is `/app/tools/alumni-chair/alumni-events`. It creates `alumni_event` rows, forces alumni visibility, and stores the public-facing `location` field in `events.details`. Frontend helpers also treat `alumni_event` rows as alumni-visible by event type.
+
+The dedicated Professional Development tool route is `/app/tools/professional-dev/professional-development-events`. It creates `professional_development` events and stores the optional public-facing `speaker` field in `events.details`.
 
 This is a known area where hosted RLS and frontend role intent should be re-verified before changing event behavior.
 

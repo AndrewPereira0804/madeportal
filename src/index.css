@@ -1883,12 +1883,26 @@ button:disabled {
   accent-color: var(--accent);
 }
 
+.professional-speaker-form,
+.alumni-location-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: 0.55rem;
+  align-items: end;
+}
+
 .dashboard-wait-on-alert {
   border-color: rgba(207, 181, 59, 0.34);
   background: linear-gradient(180deg, rgba(255, 250, 239, 0.84), rgba(246, 238, 224, 0.62));
 }
 
-.dashboard-wait-on-alert-body {
+.dashboard-alumni-alert {
+  border-color: rgba(63, 111, 115, 0.28);
+  background: linear-gradient(180deg, rgba(240, 249, 249, 0.86), rgba(246, 238, 224, 0.56));
+}
+
+.dashboard-wait-on-alert-body,
+.dashboard-alumni-alert-body {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1896,7 +1910,8 @@ button:disabled {
   flex-wrap: wrap;
 }
 
-.dashboard-wait-on-alert h2 {
+.dashboard-wait-on-alert h2,
+.dashboard-alumni-alert h2 {
   margin: 0.45rem 0 0.2rem;
   color: var(--text-primary);
   font-size: 1.05rem;
@@ -1914,6 +1929,14 @@ button:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 0.42rem;
+}
+
+.dashboard-alumni-event-list {
+  margin-top: 0.65rem;
+  display: grid;
+  gap: 0.3rem;
+  color: var(--text-secondary);
+  font-weight: 700;
 }
 
 .wait-on-toolbar {
@@ -2043,6 +2066,8 @@ button:disabled {
   .formal-cost-form,
   .formal-attendee-add,
   .service-attendee-add,
+  .professional-speaker-form,
+  .alumni-location-form,
   .wait-on-toolbar,
   .wait-on-add-form {
     grid-template-columns: 1fr;

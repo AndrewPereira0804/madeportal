@@ -4,11 +4,13 @@ import { useAuth } from "../../auth/authContext";
 import { canManageEvents as canManageRoleEvents, canViewEvent } from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
 import { Badge, Button, Card, EmptyState, PageHeader, SectionHeader, Select } from "../../components/ui";
+import { normalizeAlumniEventDetails } from "../../lib/alumniEvents";
 import { normalizeCommunityServiceEventDetails } from "../../lib/communityServiceEvents";
 import { compareEventDateTimes, formatEventDateTime, getEventDateTimeMs } from "../../lib/eventDateTime";
 import { getEventTypeClassName, getEventTypeLabel, type EventTypeSlug } from "../../lib/eventTypes";
 import { normalizeFormalEventDetails } from "../../lib/formalEvents";
 import { normalizePartyEventDetails } from "../../lib/partyEvents";
+import { normalizeProfessionalDevelopmentEventDetails } from "../../lib/professionalDevelopmentEvents";
 
 type CalendarWindow = {
   id: string;
@@ -190,6 +192,34 @@ function EventTypePublicDetails({ event }: { event: EventRow }) {
         <p>
           <strong>Organization:</strong> {details.organization || "Not set"}
         </p>
+        <p>
+          <strong>Location:</strong> {details.location || "Not set"}
+        </p>
+      </div>
+    );
+  }
+
+  if (event.event_type === "professional_development") {
+    const details = normalizeProfessionalDevelopmentEventDetails(event.details);
+
+    if (!details.speaker) {
+      return null;
+    }
+
+    return (
+      <div className="event-public-details">
+        <p>
+          <strong>Speaker:</strong> {details.speaker}
+        </p>
+      </div>
+    );
+  }
+
+  if (event.event_type === "alumni_event") {
+    const details = normalizeAlumniEventDetails(event.details);
+
+    return (
+      <div className="event-public-details">
         <p>
           <strong>Location:</strong> {details.location || "Not set"}
         </p>
@@ -533,7 +563,7 @@ export default function Scheduling() {
                           {getEventTypeLabel(event.event_type)}
                         </Badge>
                         <Badge variant="info">brother</Badge>
-                        {event.visible_to_alum && <Badge variant="info">alum</Badge>}
+                        {(event.event_type === "alumni_event" || event.visible_to_alum) && <Badge variant="info">alum</Badge>}
                         {event.visible_to_neophyte && <Badge variant="info">neophyte</Badge>}
                       </div>
                     </div>

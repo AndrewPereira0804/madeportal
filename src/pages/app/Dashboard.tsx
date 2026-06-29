@@ -9,6 +9,7 @@ import {
   canViewEvent,
   getChapterStatus,
   getChairRoleSlugs,
+  hasAlumniRole,
   isChapterStatusRoleSlug,
   type ChapterStatus,
 } from "../../auth/roleAccess";
@@ -147,11 +148,13 @@ export default function Dashboard() {
   const [pendingBudgetRequests, setPendingBudgetRequests] = useState<BudgetTransaction[]>([]);
   const [activeBudgetCycle, setActiveBudgetCycle] = useState<BudgetCycle | null>(null);
   const [waitOnAssignments, setWaitOnAssignments] = useState<WaitOnAssignment[]>([]);
+  const [alumniEventInvitations, setAlumniEventInvitations] = useState<EventPreview[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessages, setErrorMessages] = useState<string[]>([]);
 
   const chapterStatus = useMemo(() => getChapterStatus(roles), [roles]);
   const isAlumni = chapterStatus === "alumni";
+  const hasAlumniEventAccess = hasAlumniRole(roles);
   const hasManagementAccess = canAccessManagement(roles);
   const hasMemberManagementAccess = canManageMembers(roles);
   const hasBudgetAdminAccess = canManageBudgets(roles);
@@ -247,6 +250,23 @@ export default function Dashboard() {
         nextErrors.push(`Could not load wait-on notifications: ${getErrorMessage(error)}`);
       }
 
+      let nextAlumniEventInvitations: EventPreview[] = [];
+      if (hasAlumniEventAccess) {
+        const { data, error } = await supabase
+          .from("events")
+          .select("id, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte")
+          .eq("event_type", "alumni_event")
+          .gte("end", now)
+          .order("start", { ascending: true })
+          .limit(5);
+
+        if (error) {
+          nextErrors.push(`Could not load alumni event invitations: ${error.message}`);
+        } else {
+          nextAlumniEventInvitations = (data ?? []) as EventPreview[];
+        }
+      }
+
       if (ignore) {
         return;
       }
@@ -261,6 +281,7 @@ export default function Dashboard() {
       setPendingBudgetRequests(nextPendingBudgetRequests);
       setActiveBudgetCycle(nextActiveBudgetCycle);
       setWaitOnAssignments(nextWaitOnAssignments);
+      setAlumniEventInvitations(nextAlumniEventInvitations);
       setErrorMessages(nextErrors);
       setLoading(false);
     }
@@ -278,6 +299,7 @@ export default function Dashboard() {
     };
   }, [
     hasBudgetAdminAccess,
+    hasAlumniEventAccess,
     hasMemberManagementAccess,
     rolesLoading,
     userId,
@@ -392,6 +414,27 @@ export default function Dashboard() {
             </div>
             <Button to={`/app/wait-ons?week=${currentWaitOnWeek}`} variant="outline-secondary">
               Open form
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {alumniEventInvitations.length > 0 && (
+        <Card className="dashboard-alumni-alert" padding="md">
+          <div className="dashboard-alumni-alert-body">
+            <div>
+              <Badge variant="info">Alumni event</Badge>
+              <h2>You have been invited to an alumni event.</h2>
+              <div className="dashboard-alumni-event-list">
+                {alumniEventInvitations.map((event) => (
+                  <span key={event.id}>
+                    {event.title} - {formatEventDateTime(event.start, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <Button to="/app/scheduling" variant="outline-secondary">
+              Open calendar
             </Button>
           </div>
         </Card>

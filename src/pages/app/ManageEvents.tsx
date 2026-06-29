@@ -95,6 +95,8 @@ export default function ManageEvents() {
     ? draft.event_type
     : defaultDraftEventType;
   const eventTypeSelectOptions = editingId ? eventTypeOptions : createEventTypeOptions;
+  const selectedFormEventType = editingId ? draft.event_type : selectedCreateEventType;
+  const isAlumniEventSelected = selectedFormEventType === "alumni_event";
   const canCreateSelectedEventType =
     canManageEventType(roles, selectedCreateEventType) ||
     (canUseOwnEventFallback &&
@@ -173,7 +175,7 @@ export default function ManageEvents() {
       event_type: defaultDraftEventType,
       start: "",
       end: "",
-      visible_to_alum: false,
+      visible_to_alum: defaultDraftEventType === "alumni_event",
       visible_to_neophyte: false,
     });
   }
@@ -213,7 +215,7 @@ export default function ManageEvents() {
       start: toEventTimestamp(draft.start),
       end: toEventTimestamp(draft.end),
       created_by: userId,
-      visible_to_alum: draft.visible_to_alum,
+      visible_to_alum: eventTypeForSave === "alumni_event" || draft.visible_to_alum,
       visible_to_neophyte: draft.visible_to_neophyte,
     };
 
@@ -264,7 +266,7 @@ export default function ManageEvents() {
       event_type: normalizeEventType(event.event_type),
       start: toEventDateTimeInputValue(event.start),
       end: toEventDateTimeInputValue(event.end),
-      visible_to_alum: event.visible_to_alum,
+      visible_to_alum: event.event_type === "alumni_event" || event.visible_to_alum,
       visible_to_neophyte: event.visible_to_neophyte,
     });
   }
@@ -330,10 +332,17 @@ export default function ManageEvents() {
               className="budget-form-full"
               id="eventType"
               label="Event type"
-              value={editingId ? draft.event_type : selectedCreateEventType}
+              value={selectedFormEventType}
               disabled={Boolean(editingId)}
               onChange={(event) =>
-                setDraft((current) => ({ ...current, event_type: normalizeEventType(event.target.value) }))
+                setDraft((current) => {
+                  const nextEventType = normalizeEventType(event.target.value);
+                  return {
+                    ...current,
+                    event_type: nextEventType,
+                    visible_to_alum: nextEventType === "alumni_event" || current.visible_to_alum,
+                  };
+                })
               }
             >
               {eventTypeSelectOptions.map((eventType) => (
@@ -356,18 +365,24 @@ export default function ManageEvents() {
             />
           </div>
 
-          <div className="form-check mt-3">
-            <input
-              id="manageAlumVisibility"
-              className="form-check-input"
-              type="checkbox"
-              checked={draft.visible_to_alum}
-              onChange={(event) => setDraft((current) => ({ ...current, visible_to_alum: event.target.checked }))}
-            />
-            <label className="form-check-label" htmlFor="manageAlumVisibility">
-              Visible to alum
-            </label>
-          </div>
+          {isAlumniEventSelected ? (
+            <div className="d-flex gap-2 mt-3 flex-wrap">
+              <Badge variant="info">alum visible</Badge>
+            </div>
+          ) : (
+            <div className="form-check mt-3">
+              <input
+                id="manageAlumVisibility"
+                className="form-check-input"
+                type="checkbox"
+                checked={draft.visible_to_alum}
+                onChange={(event) => setDraft((current) => ({ ...current, visible_to_alum: event.target.checked }))}
+              />
+              <label className="form-check-label" htmlFor="manageAlumVisibility">
+                Visible to alum
+              </label>
+            </div>
+          )}
 
           <div className="form-check">
             <input
@@ -435,7 +450,7 @@ export default function ManageEvents() {
                   {getEventTypeLabel(event.event_type)}
                 </Badge>
                 <Badge variant="info">brother</Badge>
-                {event.visible_to_alum && <Badge variant="info">alum</Badge>}
+                {(event.event_type === "alumni_event" || event.visible_to_alum) && <Badge variant="info">alum</Badge>}
                 {event.visible_to_neophyte && <Badge variant="info">neophyte</Badge>}
               </div>
             </article>

@@ -5,6 +5,7 @@ export type ChapterStatus = "neophyte" | "brother" | "alumni";
 
 export type EventVisibility = {
   created_by?: string | null;
+  event_type?: string | null;
   visible_to_alum?: boolean | null;
   visible_to_neophyte?: boolean | null;
 };
@@ -110,8 +111,15 @@ const ownEventManagerRoleSlugs = new Set([
   "treasurer",
 ]);
 
+const alumniEventToolRoleSlugs = new Set(["alumni-chair", "alumni-chairman"]);
 const partyFormalEventToolRoleSlugs = new Set(["social-chair", "hsm", "health-safety-manager"]);
 const communityServiceEventToolRoleSlugs = new Set(["cs-chair", "community-service-chair"]);
+const professionalDevelopmentEventToolRoleSlugs = new Set([
+  "professional-dev",
+  "professional-dev-chair",
+  "professional-development",
+  "professional-development-chair",
+]);
 const waitOnToolRoleSlugs = new Set(["stew", "steward"]);
 
 const eventTypeManagerRoleSlugs: Record<EventTypeSlug, string[]> = {
@@ -191,6 +199,11 @@ export function getChapterStatus(roles: string[]): ChapterStatus | null {
 
 export function hasAdminRole(roles: string[]) {
   return normalizeRoleSet(roles).has("admin");
+}
+
+export function hasAlumniRole(roles: string[]) {
+  const roleSet = normalizeRoleSet(roles);
+  return roleSet.has("alum") || roleSet.has("alumni");
 }
 
 export function hasPresidentOrVicePresidentRole(roles: string[]) {
@@ -354,6 +367,16 @@ export function canManageCommunityServiceEvents(roles: string[]) {
   return canAccessAllChairTools(roles) || (!hasAlumniBaseline(roles) && hasAnyRole(roleSet, communityServiceEventToolRoleSlugs));
 }
 
+export function canManageAlumniEvents(roles: string[]) {
+  const roleSet = normalizeRoleSet(roles);
+  return canAccessAllChairTools(roles) || (!hasAlumniBaseline(roles) && hasAnyRole(roleSet, alumniEventToolRoleSlugs));
+}
+
+export function canManageProfessionalDevelopmentEvents(roles: string[]) {
+  const roleSet = normalizeRoleSet(roles);
+  return canAccessAllChairTools(roles) || (!hasAlumniBaseline(roles) && hasAnyRole(roleSet, professionalDevelopmentEventToolRoleSlugs));
+}
+
 export function canManageWaitOns(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
   return canAccessAllChairTools(roles) || (!hasAlumniBaseline(roles) && hasAnyRole(roleSet, waitOnToolRoleSlugs));
@@ -378,7 +401,7 @@ export function canViewEvent(roles: string[], event: EventVisibility, currentUse
   }
 
   if (chapterStatus === "alumni") {
-    return Boolean(event.visible_to_alum);
+    return event.event_type === "alumni_event" || Boolean(event.visible_to_alum);
   }
 
   return false;

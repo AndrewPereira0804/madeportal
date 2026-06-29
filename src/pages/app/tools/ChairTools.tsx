@@ -5,9 +5,11 @@ import {
   canAccessBudgetAccount,
   canAccessBudgets,
   canAccessChairTool,
+  canManageAlumniEvents,
   canManageCommunityServiceEvents,
   canManageFormalEvents,
   canManagePartyEvents,
+  canManageProfessionalDevelopmentEvents,
   canManageBudgets,
   canManageWaitOns,
   getChairRoleSlugs,
@@ -19,15 +21,24 @@ import { getRoleLabel, normalizeRoleSlugForDisplay } from "../../../auth/roleDis
 import { ActionCard, Badge, Button, Card, EmptyState, MetricCard, PageHeader, SectionHeader } from "../../../components/ui";
 import { calculateBudgetSummary, formatMoney, type BudgetAccount, type BudgetCycle, type BudgetTransaction } from "../../../lib/budget";
 import { getActiveBudgetCycle, getBudgetAccountsForCycle, getTransactionsForAccount } from "../../../lib/budgetQueries";
+import AlumniEventsTool from "./AlumniEventsTool";
 import CommunityServiceEventsTool from "./CommunityServiceEventsTool";
 import FormalEventsTool from "./FormalEventsTool";
 import PartyEventsTool from "./PartyEventsTool";
+import ProfessionalDevelopmentEventsTool from "./ProfessionalDevelopmentEventsTool";
 import StewardWaitOnTool from "./StewardWaitOnTool";
 import TreasurerBudgetTools from "./TreasurerBudgetTools";
 
 const socialChairRoleSlug = "social-chair";
+const alumniChairRoleSlugs = new Set(["alumni-chair", "alumni-chairman"]);
 const partyFormalToolRoleSlugs = new Set([socialChairRoleSlug, "hsm", "health-safety-manager"]);
 const communityServiceChairRoleSlugs = new Set(["cs-chair", "community-service-chair"]);
+const professionalDevelopmentRoleSlugs = new Set([
+  "professional-dev",
+  "professional-dev-chair",
+  "professional-development",
+  "professional-development-chair",
+]);
 const stewardRoleSlugs = new Set(["stew", "steward"]);
 const treasurerRoleSlug = "treasurer";
 
@@ -73,8 +84,16 @@ function getChairToolDescription(roleSlug: string) {
     return "Budget requests, reimbursements, cycles, and allocations.";
   }
 
+  if (alumniChairRoleSlugs.has(roleSlug)) {
+    return "Alumni event creation and location details.";
+  }
+
   if (stewardRoleSlugs.has(roleSlug)) {
     return "Weekly wait-on schedules and published forms.";
+  }
+
+  if (professionalDevelopmentRoleSlugs.has(roleSlug)) {
+    return "Professional development event creation and speaker details.";
   }
 
   return "Budget allocation and spending request access.";
@@ -148,10 +167,13 @@ export function ChairToolPage() {
     normalizedRoleSlug && (canAccessChairTool(roles, normalizedRoleSlug) || canViewBudgetAccountTool)
   );
   const canUseBudgetAdminAccess = canManageBudgets(roles);
+  const canUseAlumniTool = alumniChairRoleSlugs.has(normalizedRoleSlug) && canManageAlumniEvents(roles);
   const canUsePartyTool = partyFormalToolRoleSlugs.has(normalizedRoleSlug) && canManagePartyEvents(roles);
   const canUseFormalTool = partyFormalToolRoleSlugs.has(normalizedRoleSlug) && canManageFormalEvents(roles);
   const canUseCommunityServiceTool =
     communityServiceChairRoleSlugs.has(normalizedRoleSlug) && canManageCommunityServiceEvents(roles);
+  const canUseProfessionalDevelopmentTool =
+    professionalDevelopmentRoleSlugs.has(normalizedRoleSlug) && canManageProfessionalDevelopmentEvents(roles);
   const canUseWaitOnTool = stewardRoleSlugs.has(normalizedRoleSlug) && canManageWaitOns(roles);
   const currentChairToolPath = `/app/tools/${normalizedRoleSlug}`;
 
@@ -279,6 +301,24 @@ export function ChairToolPage() {
     return <CommunityServiceEventsTool />;
   }
 
+  if (nestedToolPath === "alumni-events" && alumniChairRoleSlugs.has(normalizedRoleSlug)) {
+    return (
+      <AlumniEventsTool
+        ownerLabel={getRoleLabel(normalizedRoleSlug)}
+        returnPath={currentChairToolPath}
+      />
+    );
+  }
+
+  if (nestedToolPath === "professional-development-events" && professionalDevelopmentRoleSlugs.has(normalizedRoleSlug)) {
+    return (
+      <ProfessionalDevelopmentEventsTool
+        ownerLabel={getRoleLabel(normalizedRoleSlug)}
+        returnPath={currentChairToolPath}
+      />
+    );
+  }
+
   if (nestedToolPath === "wait-ons" && stewardRoleSlugs.has(normalizedRoleSlug)) {
     return (
       <StewardWaitOnTool
@@ -324,6 +364,24 @@ export function ChairToolPage() {
 
       {!loading && !errorMessage && (
         <>
+          {canUseAlumniTool && (
+            <>
+              <SectionHeader
+                title="Alumni Chairman tools"
+                description="Alumni event creation with public location details."
+              />
+              <div className="action-card-grid tools-grid">
+                <ActionCard
+                  to={`${currentChairToolPath}/alumni-events`}
+                  eyebrow="Events"
+                  title="Alumni events"
+                  description="Create alumni events and publish location details for alumni accounts."
+                  meta="Alumni"
+                />
+              </div>
+            </>
+          )}
+
           {(canUsePartyTool || canUseFormalTool) && (
             <>
               <SectionHeader
@@ -366,6 +424,24 @@ export function ChairToolPage() {
                   title="Community service events"
                   description="Create service events and track brother hours logged with Nationals."
                   meta="Community Service"
+                />
+              </div>
+            </>
+          )}
+
+          {canUseProfessionalDevelopmentTool && (
+            <>
+              <SectionHeader
+                title="Professional Development tools"
+                description="Professional development event creation with optional speaker details."
+              />
+              <div className="action-card-grid tools-grid">
+                <ActionCard
+                  to={`${currentChairToolPath}/professional-development-events`}
+                  eyebrow="Events"
+                  title="Professional development events"
+                  description="Create professional development events and publish speaker details."
+                  meta="Professional Development"
                 />
               </div>
             </>
