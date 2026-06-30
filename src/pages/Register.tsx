@@ -13,15 +13,19 @@ type FormValues = {
   repeatPassword: string;
 };
 
-async function createPendingProfile(userId: string, name: string, email: string) {
-  const { error } = await supabase.from("profiles").insert({
+function getEmailRedirectTo() {
+  return `${window.location.origin}/login`;
+}
+
+async function savePendingProfile(userId: string, name: string, email: string) {
+  await supabase.from("profiles").upsert({
     user_id: userId,
     name,
     email,
     status: "pending",
+  }, {
+    onConflict: "user_id",
   });
-
-  return error;
 }
 
 export default function Register() {
@@ -59,6 +63,7 @@ export default function Register() {
       email,
       password: values.password,
       options: {
+        emailRedirectTo: getEmailRedirectTo(),
         data: {
           name,
         },
@@ -70,15 +75,18 @@ export default function Register() {
       return;
     }
 
-    if (data.user) {
-      const profileError = await createPendingProfile(data.user.id, name, email);
-      if (profileError) {
-        setErrorMessage(profileError.message);
-        return;
-      }
+    if (data.user && data.session) {
+      await savePendingProfile(data.user.id, name, email);
+      navigate("/pending");
+      return;
     }
 
-    navigate("/pending");
+    navigate("/login", {
+      replace: true,
+      state: {
+        notice: "Registration successful. Check your email to confirm your account, then log in.",
+      },
+    });
   };
 
   if (session) {

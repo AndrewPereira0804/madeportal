@@ -259,9 +259,10 @@ using (<sql_boolean_condition>);
 
 ## RLS / Policies
 
-Repository policy files:
+Repository policy/function SQL files:
 - `supabase/admin_accounts_policies.sql`
 - `supabase/announcements_policies.sql`
+- `supabase/auth_profile_triggers.sql`
 - `supabase/event_types.sql`
 - `supabase/events_calendar_policies.sql`
 - `supabase/events_management_access_policies.sql`

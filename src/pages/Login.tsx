@@ -7,13 +7,16 @@ import { Button, Input } from "../components/ui";
 
 type LoginLocationState = {
     from?: string;
+    notice?: string;
 };
 
 export default function Login() {
     const { session } = useAuth();
     const nav = useNavigate();
     const location = useLocation();
-    const from = (location.state as LoginLocationState | null)?.from || "/";
+    const loginState = location.state as LoginLocationState | null;
+    const from = loginState?.from || "/";
+    const notice = loginState?.notice;
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const { register, handleSubmit, formState: { errors } } = useForm<{ email: string; password: string }>();
 
@@ -38,6 +41,7 @@ export default function Login() {
       <section className="theme-card auth-wrap p-4 p-md-5 w-100">
         <h1 className="page-title">Login</h1>
         <p className="page-subtitle mt-2">Enter your account credentials.</p>
+        {notice && <div className="alert alert-success mt-3 mb-0">{notice}</div>}
         {errorMessage && <div className="alert alert-danger mt-3 mb-0">{errorMessage}</div>}
 
         <form className="mt-4 d-grid gap-3" onSubmit={handleSubmit(onSubmit)}>

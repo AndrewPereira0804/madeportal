@@ -738,52 +738,83 @@ Hosted status:
 
 ### public.handle_new_user()
 
-Expected behavior: trigger helper that creates a pending profile row for a new auth user.
+Expected behavior: trigger helper that creates or completes a pending profile row for a new auth user.
 
-Hosted definition:
+Verified from the 2026-06-30 Supabase plugin migration:
 
 ```sql
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path TO 'public'
 AS $function$
+declare
+  profile_name text;
 begin
-  insert into public.profiles (user_id, status)
-  values (new.id, 'pending')
-  on conflict (user_id) do nothing;
+  profile_name := nullif(btrim(coalesce(new.raw_user_meta_data ->> 'name', '')), '');
+
+  insert into public.profiles (user_id, name, email, status)
+  values (new.id, profile_name, new.email, 'pending')
+  on conflict (user_id) do update
+    set
+      name = coalesce(nullif(btrim(public.profiles.name), ''), excluded.name),
+      email = excluded.email
+    where public.profiles.email is distinct from excluded.email
+       or (
+         excluded.name is not null
+         and nullif(btrim(public.profiles.name), '') is null
+       );
+
   return new;
 end;
 $function$;
 ```
 
-Trigger attachment was not included in the provided export. Verify hosted triggers before editing registration behavior.
+Verified trigger attachment:
+
+- `auth.users` AFTER INSERT trigger `on_auth_user_created` executes `handle_new_user()`.
+- Direct `anon` and `authenticated` execute privileges are revoked.
 
 ### public.sync_profile_email()
 
-Expected behavior: trigger helper that upserts `profiles.email` from auth user email changes.
+Expected behavior: trigger helper that upserts `profiles.email` from auth user email changes and fills missing `profiles.name` from signup metadata when available.
 
-Hosted definition:
+Verified from the 2026-06-30 Supabase plugin migration:
 
 ```sql
 CREATE OR REPLACE FUNCTION public.sync_profile_email()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path TO 'public'
 AS $function$
-BEGIN
-  INSERT INTO public.profiles (user_id, email)
-  VALUES (NEW.id, NEW.email)
-  ON CONFLICT (user_id) DO UPDATE
-    SET email = EXCLUDED.email
-    WHERE public.profiles.email IS DISTINCT FROM EXCLUDED.email;
+declare
+  profile_name text;
+begin
+  profile_name := nullif(btrim(coalesce(new.raw_user_meta_data ->> 'name', '')), '');
 
-  RETURN NEW;
-END;
+  insert into public.profiles (user_id, name, email, status)
+  values (new.id, profile_name, new.email, 'pending')
+  on conflict (user_id) do update
+    set
+      name = coalesce(nullif(btrim(public.profiles.name), ''), excluded.name),
+      email = excluded.email
+    where public.profiles.email is distinct from excluded.email
+       or (
+         excluded.name is not null
+         and nullif(btrim(public.profiles.name), '') is null
+       );
+
+  return new;
+end;
 $function$;
 ```
 
-Trigger attachment was not included in the provided export. Verify hosted triggers before editing profile email sync behavior.
+Verified trigger attachment:
+
+- `auth.users` AFTER INSERT OR UPDATE OF `email` trigger `auth_users_sync_profile_email` executes `sync_profile_email()`.
+- Direct `anon` and `authenticated` execute privileges are revoked.
 
 ### public.rls_auto_enable()
 
@@ -1063,6 +1094,20 @@ Current mismatch:
 
 Treat hosted state as canonical until this is reconciled.
 
+### supabase/auth_profile_triggers.sql
+
+Purpose:
+
+- Updates the hosted auth trigger functions used by registration.
+- Creates pending profile rows from `auth.users` signups with `user_id`, `name`, `email`, and `status`.
+- Backfills missing profile names from `auth.users.raw_user_meta_data->>'name'` when available.
+- Sets fixed function `search_path` values and revokes direct `anon`/`authenticated` execute on trigger-only functions.
+
+Rollout note:
+
+- Applied to hosted Supabase on 2026-06-30 through migration `fix_signup_profile_metadata`.
+- Existing `auth.users` trigger attachments were verified after rollout.
+
 ### supabase/announcement_likes.sql
 
 Purpose:
@@ -1145,7 +1190,7 @@ Purpose:
 - Repo `announcement_likes.sql` may differ from hosted foreign-key delete behavior.
 - Repo event/calendar policies differ from hosted event/calendar policies.
 - No repo SQL file currently documents the hosted `budget_cycles`, `budget_accounts`, and `budget_transactions` setup.
-- Trigger attachments for `handle_new_user`, `sync_profile_email`, and `rls_auto_enable` are not documented yet.
+- Trigger attachment for `rls_auto_enable` is not documented yet.
 
 ## Future Exports To Add
 
@@ -1153,5 +1198,5 @@ Ask the user for these before high-risk database work:
 
 - Fresh full schema export.
 - Fresh full RLS policy export if policies change after the 2026-06-25 export.
-- Trigger definitions/attachments for `announcement_likes_apply_delta`, `handle_new_user`, `sync_profile_email`, and `rls_auto_enable`.
+- Trigger definitions/attachments for `announcement_likes_apply_delta` and `rls_auto_enable`.
 - Any function definitions not listed in this document.
