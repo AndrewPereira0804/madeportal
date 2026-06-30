@@ -1,6 +1,6 @@
 Protected app routes:
 - `/app`: dashboard
-- `/app/scheduling`: chapter calendar
+- `/app/scheduling`: agenda-first chapter calendar with a full calendar display
 - `/app/events/manage`: event management for permitted chapter operators
 - `/app/tools`: chair tool index for assigned chair roles
 - `/app/tools/:roleSlug/*`: role-specific chair tool surface
