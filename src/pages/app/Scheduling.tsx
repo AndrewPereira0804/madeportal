@@ -7,7 +7,13 @@ import { Badge, Button, Card, EmptyState, PageHeader, SectionHeader, Select } fr
 import { normalizeAlumniEventDetails } from "../../lib/alumniEvents";
 import { normalizeCommunityServiceEventDetails } from "../../lib/communityServiceEvents";
 import { compareEventDateTimes, formatEventDateTime, getEventDateTimeMs } from "../../lib/eventDateTime";
-import { getEventTypeClassName, getEventTypeLabel, type EventTypeSlug } from "../../lib/eventTypes";
+import {
+  eventTypeOptions,
+  getEventTypeClassName,
+  getEventTypeLabel,
+  normalizeEventType,
+  type EventTypeSlug,
+} from "../../lib/eventTypes";
 import { normalizeFormalEventDetails } from "../../lib/formalEvents";
 import { normalizePartyEventDetails } from "../../lib/partyEvents";
 import { normalizeProfessionalDevelopmentEventDetails } from "../../lib/professionalDevelopmentEvents";
@@ -31,6 +37,16 @@ type EventRow = {
   created_by: string;
   visible_to_alum: boolean;
   visible_to_neophyte: boolean;
+};
+
+type CalendarDisplayMode = "agenda" | "calendar";
+type EventTypeFilter = "all" | EventTypeSlug;
+
+type AgendaGroup = {
+  key: string;
+  title: string;
+  emptyMessage: string;
+  events: EventRow[];
 };
 
 function normalizeCalendarRow(row: Record<string, unknown>): CalendarWindow | null {
@@ -87,6 +103,18 @@ function toDayStart(date: Date) {
   return next;
 }
 
+function toDayEnd(date: Date) {
+  const next = new Date(date);
+  next.setHours(23, 59, 59, 999);
+  return next;
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
 function toDateKey(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -109,14 +137,26 @@ function buildMonthGrid(monthDate: Date) {
 function eventIntersectsDay(event: EventRow, day: Date) {
   const dayStart = toDayStart(day).getTime();
   const dayEnd = dayStart + 24 * 60 * 60 * 1000 - 1;
+  return eventIntersectsRange(event, dayStart, dayEnd);
+}
+
+function eventIntersectsRange(event: EventRow, rangeStart: number, rangeEnd: number) {
   const eventStart = getEventDateTimeMs(event.start);
   const eventEnd = getEventDateTimeMs(event.end);
 
-  return eventStart <= dayEnd && eventEnd >= dayStart;
+  return eventStart <= rangeEnd && eventEnd >= rangeStart;
 }
 
 function formatMonthHeading(date: Date) {
   return date.toLocaleString("en-US", { month: "long", year: "numeric" });
+}
+
+function formatDayHeading(dateKey: string) {
+  return toCalendarDate(dateKey).toLocaleString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
 }
 
 function formatEventTime(event: EventRow, day: Date) {
@@ -133,6 +173,93 @@ function formatEventTime(event: EventRow, day: Date) {
   });
 }
 
+function getEventDescription(event: EventRow) {
+  const description = event.description?.trim();
+  return description ? description : null;
+}
+
+function isSameEventDay(event: EventRow) {
+  const startMs = getEventDateTimeMs(event.start);
+  const endMs = getEventDateTimeMs(event.end);
+
+  return startMs > 0 && endMs > 0 && toDateKey(new Date(startMs)) === toDateKey(new Date(endMs));
+}
+
+function formatAgendaDate(event: EventRow, options: Intl.DateTimeFormatOptions = {
+  weekday: "long",
+  month: "long",
+  day: "numeric",
+}) {
+  return formatEventDateTime(event.start, options);
+}
+
+function formatAgendaTimeRange(event: EventRow) {
+  if (isSameEventDay(event)) {
+    return `${formatEventDateTime(event.start, {
+      hour: "numeric",
+      minute: "2-digit",
+    })} to ${formatEventDateTime(event.end, {
+      hour: "numeric",
+      minute: "2-digit",
+    })}`;
+  }
+
+  return `${formatEventDateTime(event.start)} to ${formatEventDateTime(event.end)}`;
+}
+
+function getUpcomingEvents(events: EventRow[], now: Date) {
+  const nowMs = now.getTime();
+
+  return events
+    .filter((event) => getEventDateTimeMs(event.end) >= nowMs)
+    .sort((a, b) => compareEventDateTimes(a.start, b.start));
+}
+
+function getAgendaGroups(events: EventRow[], now: Date): AgendaGroup[] {
+  const nowMs = now.getTime();
+  const todayStart = toDayStart(now);
+  const todayEnd = toDayEnd(now);
+  const tomorrowStart = addDays(todayStart, 1);
+  const weekEnd = toDayEnd(addDays(todayStart, 6 - todayStart.getDay()));
+  const todayEvents: EventRow[] = [];
+  const weekEvents: EventRow[] = [];
+  const upcomingEvents: EventRow[] = [];
+
+  for (const event of events) {
+    if (eventIntersectsRange(event, nowMs, todayEnd.getTime())) {
+      todayEvents.push(event);
+    } else if (
+      tomorrowStart.getTime() <= weekEnd.getTime() &&
+      eventIntersectsRange(event, tomorrowStart.getTime(), weekEnd.getTime())
+    ) {
+      weekEvents.push(event);
+    } else {
+      upcomingEvents.push(event);
+    }
+  }
+
+  return [
+    {
+      key: "today",
+      title: "Today",
+      emptyMessage: "No more visible events today.",
+      events: todayEvents,
+    },
+    {
+      key: "this-week",
+      title: "This week",
+      emptyMessage: "No visible events later this week.",
+      events: weekEvents,
+    },
+    {
+      key: "upcoming",
+      title: "Upcoming",
+      emptyMessage: "No later visible events.",
+      events: upcomingEvents,
+    },
+  ];
+}
+
 function toCalendarDate(value: string) {
   const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/;
   if (dateOnlyPattern.test(value)) {
@@ -147,6 +274,36 @@ function isDayWithinWindow(day: Date, window: CalendarWindow) {
   const start = toDayStart(toCalendarDate(window.start)).getTime();
   const end = toDayStart(toCalendarDate(window.end)).getTime();
   return dayStart >= start && dayStart <= end;
+}
+
+function getAudienceLabels(event: EventRow) {
+  const labels = ["Brothers"];
+
+  if (event.event_type === "alumni_event" || event.visible_to_alum) {
+    labels.push("Alumni");
+  }
+
+  if (event.visible_to_neophyte) {
+    labels.push("Neophytes");
+  }
+
+  return labels;
+}
+
+function EventAudienceMeta({ event }: { event: EventRow }) {
+  return <span className="event-audience-meta">Audience: {getAudienceLabels(event).join(", ")}</span>;
+}
+
+function EventWindowMeta({ windows }: { windows: CalendarWindow[] }) {
+  if (windows.length === 0) {
+    return (
+      <span className="event-window-meta" title="Outside configured school windows">
+        Off-window
+      </span>
+    );
+  }
+
+  return <span className="event-window-meta">{windows.map((window) => window.label).join(", ")}</span>;
 }
 
 function EventTypePublicDetails({ event }: { event: EventRow }) {
@@ -230,18 +387,99 @@ function EventTypePublicDetails({ event }: { event: EventRow }) {
   return null;
 }
 
+function AgendaEventCard({
+  event,
+  windows,
+  isExpanded,
+  onToggle,
+  detailIdPrefix,
+  variant = "standard",
+}: {
+  event: EventRow;
+  windows: CalendarWindow[];
+  isExpanded: boolean;
+  onToggle: (eventId: string) => void;
+  detailIdPrefix: string;
+  variant?: "standard" | "next-up";
+}) {
+  const matchingWindows = getWindowsForEvent(event, windows);
+  const description = getEventDescription(event);
+  const detailsId = `${detailIdPrefix}-${event.id}`;
+  const isNextUp = variant === "next-up";
+
+  return (
+    <article
+      className={`agenda-event-card ${isNextUp ? "agenda-event-card--next-up" : ""} ${isExpanded ? "is-expanded" : ""}`}
+    >
+      <button
+        type="button"
+        className="agenda-event-button"
+        aria-expanded={isExpanded}
+        aria-controls={detailsId}
+        onClick={() => onToggle(event.id)}
+      >
+        <span className="agenda-event-date">
+          <span>{formatAgendaDate(event, { weekday: "short" })}</span>
+          <strong>{formatAgendaDate(event, { month: "short", day: "numeric" })}</strong>
+        </span>
+        <span className="agenda-event-body">
+          {isNextUp && <span className="agenda-event-kicker">Next Up</span>}
+          <span className="agenda-event-heading">
+            <span className="agenda-event-title">{event.title}</span>
+            <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName(event.event_type)}`}>
+              {getEventTypeLabel(event.event_type)}
+            </Badge>
+          </span>
+          <span className="agenda-event-date-line">{formatAgendaDate(event)}</span>
+          <span className="agenda-event-time">{formatAgendaTimeRange(event)}</span>
+          {description && <span className="agenda-event-description">{description}</span>}
+          <span className="agenda-event-footer">
+            <span className="agenda-event-meta">
+              <EventAudienceMeta event={event} />
+              <EventWindowMeta windows={matchingWindows} />
+            </span>
+            <span className="agenda-event-open-label">{isExpanded ? "Hide details" : "View details"}</span>
+          </span>
+        </span>
+      </button>
+
+      {isExpanded && (
+        <div id={detailsId} className="agenda-event-expanded">
+          {description && <p className="mb-1">{description}</p>}
+          <p className="mb-1">
+            <strong>Starts:</strong> {formatEventDateTime(event.start)}
+          </p>
+          <p className="mb-1">
+            <strong>Ends:</strong> {formatEventDateTime(event.end)}
+          </p>
+          <EventTypePublicDetails event={event} />
+          <p className="mb-0 text-body-secondary">
+            <strong>Schedule windows:</strong>{" "}
+            {matchingWindows.length > 0
+              ? matchingWindows.map((window) => window.label).join(", ")
+              : "Outside configured school windows"}
+          </p>
+        </div>
+      )}
+    </article>
+  );
+}
+
 export default function Scheduling() {
   const { session } = useAuth();
   const { roles, loading: rolesLoading } = useRoles();
   const userId = session?.user?.id ?? null;
+  const [agendaNow] = useState(() => new Date());
   const [events, setEvents] = useState<EventRow[]>([]);
   const [windows, setWindows] = useState<CalendarWindow[]>([]);
   const [selectedWindowId, setSelectedWindowId] = useState<string>("all");
+  const [selectedEventType, setSelectedEventType] = useState<EventTypeFilter>("all");
+  const [displayMode, setDisplayMode] = useState<CalendarDisplayMode>("agenda");
   const [currentMonth, setCurrentMonth] = useState(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
   });
-  const [selectedDateKey, setSelectedDateKey] = useState(() => toDateKey(new Date()));
+  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const [expandedEventIds, setExpandedEventIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -285,13 +523,22 @@ export default function Scheduling() {
     fetchCalendarData();
   }, []);
 
-  const filteredEvents = events
-    .filter((event) => canViewEvent(roles, event, userId))
-    .filter((event) => {
-      if (selectedWindowId === "all") return true;
-      const matchingWindows = getWindowsForEvent(event, windows);
-      return matchingWindows.some((window) => window.id === selectedWindowId);
-    });
+  const visibleEvents = useMemo(() => {
+    return events
+      .filter((event) => canViewEvent(roles, event, userId))
+      .sort((a, b) => compareEventDateTimes(a.start, b.start));
+  }, [events, roles, userId]);
+
+  const filteredEvents = useMemo(() => {
+    return visibleEvents
+      .filter((event) => {
+        if (selectedWindowId === "all") return true;
+        const matchingWindows = getWindowsForEvent(event, windows);
+        return matchingWindows.some((window) => window.id === selectedWindowId);
+      })
+      .filter((event) => selectedEventType === "all" || normalizeEventType(event.event_type) === selectedEventType)
+      .sort((a, b) => compareEventDateTimes(a.start, b.start));
+  }, [selectedEventType, selectedWindowId, visibleEvents, windows]);
 
   const selectedWindow = useMemo(
     () => windows.find((window) => window.id === selectedWindowId) ?? null,
@@ -336,7 +583,16 @@ export default function Scheduling() {
     return map;
   }, [filteredEvents, monthGridDays]);
 
-  const selectedDayEvents = eventsByDay.get(selectedDateKey) ?? [];
+  const selectedDayEvents = selectedDateKey ? eventsByDay.get(selectedDateKey) ?? [] : [];
+  const selectedDayDetailsDescription =
+    selectedDateKey && selectedDayEvents.length > 0
+      ? `${formatDayHeading(selectedDateKey)} - ${selectedDayEvents.length} event${selectedDayEvents.length === 1 ? "" : "s"}`
+      : null;
+
+  const upcomingAgendaEvents = useMemo(() => getUpcomingEvents(filteredEvents, agendaNow), [agendaNow, filteredEvents]);
+  const agendaGroups = useMemo(() => getAgendaGroups(upcomingAgendaEvents, agendaNow), [agendaNow, upcomingAgendaEvents]);
+  const agendaEventCount = upcomingAgendaEvents.length;
+  const nextUpEvent = upcomingAgendaEvents[0] ?? null;
 
   function toggleEventExpanded(eventId: string) {
     setExpandedEventIds((current) => {
@@ -355,7 +611,7 @@ export default function Scheduling() {
     <Card>
       <PageHeader
         title="Scheduling"
-        subtitle="Chapter calendar with school schedule windows. All event times are shown in America/New_York."
+        subtitle="Official chapter schedule with school schedule windows. All event times are shown in America/New_York."
         bordered
         actions={
           !rolesLoading && canManageEvents ? (
@@ -364,93 +620,218 @@ export default function Scheduling() {
         }
       />
 
-      <div className="mt-4">
-        <Select
-          id="windowFilter"
-          label="School schedule filter"
-          value={selectedWindowId}
-          onChange={(event) => {
-            const nextId = event.target.value;
-            setSelectedWindowId(nextId);
+      <div className="schedule-control-bar">
+        <div className="schedule-filter-row">
+          <Select
+            id="windowFilter"
+            className="schedule-filter-field"
+            label="Schedule"
+            value={selectedWindowId}
+            onChange={(event) => {
+              const nextId = event.target.value;
+              setSelectedWindowId(nextId);
 
-            if (nextId === "all") {
-              return;
-            }
+              if (nextId === "all") {
+                return;
+              }
 
-            const nextWindow = windows.find((window) => window.id === nextId);
-            if (!nextWindow) {
-              return;
-            }
+              const nextWindow = windows.find((window) => window.id === nextId);
+              if (!nextWindow) {
+                return;
+              }
 
-            const firstDay = toDayStart(toCalendarDate(nextWindow.start));
-            setCurrentMonth(new Date(firstDay.getFullYear(), firstDay.getMonth(), 1));
-            setSelectedDateKey(toDateKey(firstDay));
-          }}
-        >
-          <option value="all">All windows and off-schedule events</option>
-          {windows.map((window) => (
-            <option key={window.id} value={window.id}>
-              {window.label} ({window.start} to {window.end})
-            </option>
-          ))}
-        </Select>
+              const firstDay = toDayStart(toCalendarDate(nextWindow.start));
+              setCurrentMonth(new Date(firstDay.getFullYear(), firstDay.getMonth(), 1));
+              setSelectedDateKey(toDateKey(firstDay));
+            }}
+          >
+            <option value="all">All windows and off-schedule events</option>
+            {windows.map((window) => (
+              <option key={window.id} value={window.id}>
+                {window.label} ({window.start} to {window.end})
+              </option>
+            ))}
+          </Select>
+
+          <Select
+            id="eventTypeFilter"
+            className="schedule-filter-field"
+            label="Event type"
+            value={selectedEventType}
+            onChange={(event) => setSelectedEventType(event.target.value as EventTypeFilter)}
+          >
+            <option value="all">All event types</option>
+            {eventTypeOptions.map((eventType) => (
+              <option key={eventType.slug} value={eventType.slug}>
+                {eventType.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <div className="schedule-view-actions">
+          {displayMode === "agenda" ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => setDisplayMode("calendar")}>
+              Month View
+            </Button>
+          ) : (
+            <Button type="button" variant="outline" size="sm" onClick={() => setDisplayMode("agenda")}>
+              Agenda
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="mt-4 d-flex flex-wrap gap-2 align-items-end justify-content-between">
         <SectionHeader
           className="mt-0"
-          title="Calendar month"
-          description={`Showing ${filteredEvents.length} event${filteredEvents.length === 1 ? "" : "s"} in this filter.`}
+          title={displayMode === "agenda" ? "Agenda" : "Month View"}
+          description={
+            displayMode === "agenda"
+              ? `Showing ${agendaEventCount} upcoming event${agendaEventCount === 1 ? "" : "s"} in these filters.`
+              : `Showing ${filteredEvents.length} event${filteredEvents.length === 1 ? "" : "s"} in these filters.`
+          }
         />
         <div className="d-flex gap-2 flex-wrap">
-          <Button
-            type="button"
-            variant="outline-secondary"
-            size="sm"
-            disabled={!canGoPrev}
-            onClick={() => setCurrentMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
-          >
-            Previous
-          </Button>
-          {!selectedWindow && (
-            <Button
-              type="button"
-              variant="outline-secondary"
-              size="sm"
-              onClick={() => {
-                const today = new Date();
-                setCurrentMonth(new Date(today.getFullYear(), today.getMonth(), 1));
-                setSelectedDateKey(toDateKey(today));
-              }}
-            >
-              Today
-            </Button>
-          )}
-          <Button
-            type="button"
-            variant="outline-secondary"
-            size="sm"
-            disabled={!canGoNext}
-            onClick={() => setCurrentMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
-          >
-            Next
-          </Button>
+          {displayMode === "calendar" ? (
+            <>
+              <Button
+                type="button"
+                variant="outline-secondary"
+                size="sm"
+                disabled={!canGoPrev}
+                onClick={() => setCurrentMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+              >
+                Previous
+              </Button>
+              {!selectedWindow && (
+                <Button
+                  type="button"
+                  variant="outline-secondary"
+                  size="sm"
+                  onClick={() => {
+                    const today = new Date();
+                    setCurrentMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+                    setSelectedDateKey(toDateKey(today));
+                  }}
+                >
+                  Today
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="outline-secondary"
+                size="sm"
+                disabled={!canGoNext}
+                onClick={() => setCurrentMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+              >
+                Next
+              </Button>
+            </>
+          ) : null}
         </div>
       </div>
 
       {loading && <p className="announcements-state">Loading calendar...</p>}
       {errorMessage && <p className="mt-4 text-danger">{errorMessage}</p>}
 
-      {!loading && filteredEvents.length === 0 && (
+      {!loading && displayMode === "calendar" && filteredEvents.length === 0 && (
         <EmptyState
           title="No events in this view"
           description="No events match your current visibility and schedule filter."
         />
       )}
 
-      {!loading && filteredEvents.length > 0 && (
+      {!loading && displayMode === "agenda" && (
         <>
-          <div className="mt-4">
+          <section className="next-up-section" aria-label="Next Up">
+            <SectionHeader
+              className="mt-0"
+              size="sm"
+              title="Next Up"
+              description="The next event visible under the current filters."
+            />
+            {nextUpEvent ? (
+              <AgendaEventCard
+                event={nextUpEvent}
+                windows={windows}
+                isExpanded={expandedEventIds.has(nextUpEvent.id)}
+                onToggle={toggleEventExpanded}
+                detailIdPrefix="next-up-event-details"
+                variant="next-up"
+              />
+            ) : (
+              <EmptyState
+                compact
+                title="No upcoming events match these filters."
+                description="Try another schedule window or event type."
+              />
+            )}
+          </section>
+
+          {agendaEventCount > 0 && (
+            <div className="agenda-group-list">
+              {agendaGroups.map((group) => {
+                const groupHeadingId = `agenda-heading-${group.key}`;
+
+                return (
+                  <section key={group.key} className="agenda-group" aria-labelledby={groupHeadingId}>
+                    <div className="agenda-group-header">
+                      <h3 id={groupHeadingId}>{group.title}</h3>
+                      <span>
+                        {group.events.length} event{group.events.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    {group.events.length === 0 ? (
+                      <p className="agenda-group-empty">{group.emptyMessage}</p>
+                    ) : (
+                      <div className="agenda-card-list">
+                        {group.events.map((event) => (
+                          <AgendaEventCard
+                            key={`${group.key}-${event.id}`}
+                            event={event}
+                            windows={windows}
+                            isExpanded={expandedEventIds.has(event.id)}
+                            onToggle={toggleEventExpanded}
+                            detailIdPrefix={`agenda-${group.key}-event-details`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {!loading && displayMode === "calendar" && filteredEvents.length > 0 && (
+        <>
+          {selectedDayDetailsDescription && (
+            <section className="month-event-details-section" aria-label="Selected day details">
+              <SectionHeader
+                className="mt-0"
+                size="sm"
+                title="Selected day details"
+                description={selectedDayDetailsDescription}
+              />
+              <div className="agenda-card-list">
+                {selectedDayEvents.map((event) => (
+                  <AgendaEventCard
+                    key={event.id}
+                    event={event}
+                    windows={windows}
+                    isExpanded={expandedEventIds.has(event.id)}
+                    onToggle={toggleEventExpanded}
+                    detailIdPrefix="month-event-details"
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          <div className="month-calendar-section">
             <h3 className="h4 mb-3">
               {selectedWindow
                 ? `${selectedWindow.label} (${selectedWindow.start} to ${selectedWindow.end})`
@@ -499,78 +880,6 @@ export default function Scheduling() {
                 );
               })}
             </div>
-          </div>
-
-          <div className="mt-4 d-grid gap-3">
-            <SectionHeader className="mt-0" size="sm" title="Selected day details" />
-            {selectedDayEvents.length === 0 && (
-              <EmptyState
-                compact
-                title="No events on this day"
-                description="There are no visible events for the selected day and filter."
-              />
-            )}
-            {selectedDayEvents.map((event) => {
-              const matchingWindows = getWindowsForEvent(event, windows);
-              const isExpanded = expandedEventIds.has(event.id);
-              const expandedContentId = `event-details-${event.id}`;
-
-              return (
-                <article
-                  key={event.id}
-                  className={`event-detail-card event-detail-card--expandable ${isExpanded ? "is-expanded" : ""}`}
-                >
-                  <button
-                    type="button"
-                    className="event-detail-summary"
-                    aria-expanded={isExpanded}
-                    aria-controls={expandedContentId}
-                    onClick={() => toggleEventExpanded(event.id)}
-                  >
-                    <span className="event-detail-summary-main">
-                      <span className="event-detail-title-row">
-                        <span className="event-detail-title">{event.title}</span>
-                        <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName(event.event_type)}`}>
-                          {getEventTypeLabel(event.event_type)}
-                        </Badge>
-                      </span>
-                      <span className="event-detail-time">
-                        {formatEventDateTime(event.start)} to {formatEventDateTime(event.end)}
-                      </span>
-                      <span className="event-detail-preview">{event.description || "No description provided."}</span>
-                    </span>
-                    <span className="event-detail-toggle-label">{isExpanded ? "Hide details" : "View details"}</span>
-                  </button>
-
-                  {isExpanded && (
-                    <div id={expandedContentId} className="event-detail-expanded">
-                      <p className="mb-1">{event.description || "No description provided."}</p>
-                      <p className="mb-1">
-                        <strong>Starts:</strong> {formatEventDateTime(event.start)}
-                      </p>
-                      <p className="mb-1">
-                        <strong>Ends:</strong> {formatEventDateTime(event.end)}
-                      </p>
-                      <EventTypePublicDetails event={event} />
-                      <p className="mb-1 text-body-secondary">
-                        <strong>Schedule windows:</strong>{" "}
-                        {matchingWindows.length > 0
-                          ? matchingWindows.map((window) => window.label).join(", ")
-                          : "Outside configured school windows"}
-                      </p>
-                      <div className="d-flex gap-2 flex-wrap mt-2">
-                        <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName(event.event_type)}`}>
-                          {getEventTypeLabel(event.event_type)}
-                        </Badge>
-                        <Badge variant="info">brother</Badge>
-                        {(event.event_type === "alumni_event" || event.visible_to_alum) && <Badge variant="info">alum</Badge>}
-                        {event.visible_to_neophyte && <Badge variant="info">neophyte</Badge>}
-                      </div>
-                    </div>
-                  )}
-                </article>
-              );
-            })}
           </div>
         </>
       )}

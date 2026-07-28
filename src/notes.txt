@@ -10,5 +10,11 @@ timezones off in calendar
 use names instead of role slugs where appropriate
 
 June 24:
-testing: as a logged out user, going to / displays basic home page (do i need that page?). going to /fakepage throws not found and then 
-returns to /login as intended. /admin goes back to log in. 
+testing: as a logged out user, going to / displays basic home page (login or register). going to /fakepage throws not found and then 
+returns to basic home page. /admin goes back to home page. /budget and /app returns to /login. /announcements not found but /app/announcements 
+goes to /login. same with scheduling, directory, account. log in/log out seems to persist correctly. pending and suspended account always redirects 
+to /pending and /suspended respectively even on fake routes. admin cannot view the calendar display unless they have the brother role as well?
+president can CRUD events, but cannot access any /admin paths and therefor cant do anything else that a normal member cant. also cannot delete 
+anybody's announcement, which admin is able to do. same with vp. pres, vp and treasurer can reach /budget/admin but there is no button for them to do so on UI.
+budget accounts work as intended, protected as they should be. negative transactions are blocked. budgets are allowed to go negative remaining which I think is okay.
+approved number is allowed to go over allocation, again I think thats okay. 
