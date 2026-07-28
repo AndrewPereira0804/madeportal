@@ -9,6 +9,12 @@ Protected app routes:
 - `/app/tools/cs-chair/community-service-events`: community service event creator, attendance hours table, and Nationals logging tracker for `cs-chair`
 - `/app/tools/alumni-chair/alumni-events`: alumni event creator with required public location details for `alumni-chair`
 - `/app/tools/professional-dev/professional-development-events`: professional development event creator with optional public speaker details for `professional-dev`
+- `/app/tools/chapter-dev/brotherhood-events`: scoped event creator for `chapter-dev`
+- `/app/tools/philo-chair/philanthropy-events`: scoped event creator for `philo-chair`
+- `/app/tools/scholarship/scholarship-events`: scoped event creator for `scholarship`
+- `/app/tools/membered/new-member-events`: scoped event creator for `membered`
+- `/app/tools/hm/house-events`: scoped event creator for `hm`
+- `/app/tools/rec/events`: all-type event creator for `rec`
 - `/app/tools/treasurer`: Treasurer budget tool index
 - `/app/tools/treasurer/overview`: active-cycle budget overview
 - `/app/tools/treasurer/requests`: submitted expense request review
@@ -71,6 +77,8 @@ Role slugs:
 - `stew` has a chair tool workspace for weekly wait-on schedules under `/app/tools/stew/wait-ons`
 - `alumni-chair` has a chair tool workspace for alumni events under `/app/tools/alumni-chair/alumni-events`
 - `professional-dev` has a chair tool workspace for professional development events under `/app/tools/professional-dev/professional-development-events`
+- `chapter-dev`, `philo-chair`, `scholarship`, `membered`, and `hm` have scoped chair event workspaces that reuse `/app/events/manage`
+- `rec` has a chair event workspace that reuses `/app/events/manage` with every event type available
 - Budget workflows are no longer a top-level sidebar item; they live under Tools and Treasurer tools.
 - Budget-account-capable roles are currently a frontend helper list; replace this with an admin-managed source if role budget eligibility needs to change without code edits.
 

@@ -129,7 +129,7 @@ const eventTypeManagerRoleSlugs: Record<EventTypeSlug, string[]> = {
   dei: [],
   community_service: ["cs-chair", "community-service-chair"],
   philanthropy: ["philo-chair", "philanthropy-chair"],
-  house_meeting: [],
+  house_meeting: ["hm", "house-manager"],
   alumni_event: ["alumni-chair", "alumni-chairman"],
   rush: [],
   scholarship: ["scholarship"],

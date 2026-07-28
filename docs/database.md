@@ -210,6 +210,7 @@ Frontend usage:
 - `src/pages/app/tools/CommunityServiceEventsTool.tsx` creates community service events and updates event `details` for organization, location, attendance hours, and Nationals logging state.
 - `src/pages/app/tools/AlumniEventsTool.tsx` creates alumni events and stores the required public `location` value in `details`.
 - `src/pages/app/tools/ProfessionalDevelopmentEventsTool.tsx` creates professional development events and stores an optional public `speaker` value in `details`.
+- `src/pages/app/tools/ChairTools.tsx` reuses `src/pages/app/ManageEvents.tsx` for scoped Chapter Development, Philanthropy, Scholarship, Member Educator, and House Manager event workspaces, plus the Recorder all-type event workspace.
 
 Important: frontend supplies `created_by`; do not rely on the `gen_random_uuid()` default because it can produce invalid foreign keys.
 
@@ -480,7 +481,7 @@ Frontend currently uses a stricter/higher-level role split for event management:
 - `alumni-chair`: `alumni_event`.
 - `chapter-dev`: `brotherhood_event`.
 - `cs-chair`: `community_service`.
-- `hm`: `work_party`.
+- `hm`: `house_meeting`, `work_party`.
 - `hsm`: `brotherhood_event`, `party`, `formal`, `hsm_event`.
 - `membered`: `new_member_meeting`, `new_member_event`.
 - `philo-chair`: `philanthropy`.
@@ -493,6 +494,15 @@ The dedicated Party and Formal tool routes are exposed under both `/app/tools/so
 The dedicated Alumni Event tool route is `/app/tools/alumni-chair/alumni-events`. It creates `alumni_event` rows, forces alumni visibility, and stores the public-facing `location` field in `events.details`. Frontend helpers also treat `alumni_event` rows as alumni-visible by event type.
 
 The dedicated Professional Development tool route is `/app/tools/professional-dev/professional-development-events`. It creates `professional_development` events and stores the optional public-facing `speaker` field in `events.details`.
+
+The scoped chair event tool routes reuse the general event manager with a fixed event-type set:
+
+- `/app/tools/chapter-dev/brotherhood-events`: `brotherhood_event`.
+- `/app/tools/philo-chair/philanthropy-events`: `philanthropy`.
+- `/app/tools/scholarship/scholarship-events`: `scholarship`.
+- `/app/tools/membered/new-member-events`: `new_member_meeting`, `new_member_event`.
+- `/app/tools/hm/house-events`: `house_meeting`, `work_party`.
+- `/app/tools/rec/events`: all event types.
 
 This is a known area where hosted RLS and frontend role intent should be re-verified before changing event behavior.
 

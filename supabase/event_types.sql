@@ -109,7 +109,7 @@ as $$
           or (check_event_type = 'philanthropy' and role_slug in ('philo-chair', 'philanthropy-chair'))
           or (check_event_type = 'professional_development' and role_slug in ('professional-dev', 'professional-dev-chair', 'professional-development', 'professional-development-chair'))
           or (check_event_type = 'scholarship' and role_slug = 'scholarship')
-          or (check_event_type = 'work_party' and role_slug in ('hm', 'house-manager'))
+          or (check_event_type in ('house_meeting', 'work_party') and role_slug in ('hm', 'house-manager'))
         )
     );
 $$;

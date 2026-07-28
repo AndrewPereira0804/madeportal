@@ -53,11 +53,29 @@ type EventDraft = {
   visible_to_neophyte: boolean;
 };
 
+type ManageEventsProps = {
+  title?: string;
+  subtitle?: string;
+  returnPath?: string;
+  returnLabel?: string;
+  scopedEventTypes?: EventTypeSlug[];
+};
+
 function dbError(action: string, message: string) {
   return `Database error while trying to ${action}: ${message}`;
 }
 
-export default function ManageEvents() {
+function uniqueEventTypes(eventTypes: EventTypeSlug[]) {
+  return eventTypes.filter((eventType, index) => eventTypes.indexOf(eventType) === index);
+}
+
+export default function ManageEvents({
+  title = "Manage Events",
+  subtitle = "Create, edit, and delete events you are permitted to manage.",
+  returnPath = "/app/scheduling",
+  returnLabel = "Back to Calendar",
+  scopedEventTypes,
+}: ManageEventsProps = {}) {
   const { session } = useAuth();
   const { roles, loading: rolesLoading } = useRoles();
   const [events, setEvents] = useState<EventRow[]>([]);
@@ -76,17 +94,47 @@ export default function ManageEvents() {
   });
 
   const userId = session?.user?.id ?? null;
-  const canManage = useMemo(() => canManageRoleEvents(roles), [roles]);
   const canManageAll = useMemo(() => canManageAllEvents(roles), [roles]);
-  const canUseOwnEventFallback = useMemo(() => canManageOwnEvents(roles), [roles]);
+  const scopedEventTypeList = useMemo(
+    () => scopedEventTypes ? uniqueEventTypes(scopedEventTypes) : null,
+    [scopedEventTypes]
+  );
+  const scopedEventTypeSet = useMemo(
+    () => scopedEventTypeList ? new Set<EventTypeSlug>(scopedEventTypeList) : null,
+    [scopedEventTypeList]
+  );
+  const canUseOwnEventFallback = useMemo(
+    () => !scopedEventTypeSet && canManageOwnEvents(roles),
+    [roles, scopedEventTypeSet]
+  );
   const manageableEventTypes = useMemo(() => getManageableEventTypes(roles), [roles]);
+  const visibleManageableEventTypes = useMemo(
+    () =>
+      scopedEventTypeSet
+        ? manageableEventTypes.filter((eventType) => scopedEventTypeSet.has(eventType))
+        : manageableEventTypes,
+    [manageableEventTypes, scopedEventTypeSet]
+  );
+  const canManage = useMemo(
+    () =>
+      scopedEventTypeSet
+        ? canManageAll || visibleManageableEventTypes.length > 0
+        : canManageRoleEvents(roles),
+    [canManageAll, roles, scopedEventTypeSet, visibleManageableEventTypes]
+  );
   const createEventTypeOptions = useMemo(() => {
-    if (canManageAll || (canUseOwnEventFallback && manageableEventTypes.length === 0)) {
-      return generalEventTypeOptions;
+    const baseEventTypeOptions = scopedEventTypeSet ? eventTypeOptions : generalEventTypeOptions;
+    const allowedOptions =
+      canManageAll || (canUseOwnEventFallback && manageableEventTypes.length === 0)
+        ? baseEventTypeOptions
+        : baseEventTypeOptions.filter((eventType) => visibleManageableEventTypes.includes(eventType.slug));
+
+    if (!scopedEventTypeSet) {
+      return allowedOptions;
     }
 
-    return generalEventTypeOptions.filter((eventType) => manageableEventTypes.includes(eventType.slug));
-  }, [canManageAll, canUseOwnEventFallback, manageableEventTypes]);
+    return allowedOptions.filter((eventType) => scopedEventTypeSet.has(eventType.slug));
+  }, [canManageAll, canUseOwnEventFallback, manageableEventTypes, scopedEventTypeSet, visibleManageableEventTypes]);
   const canCreateFromManager = createEventTypeOptions.length > 0;
   const defaultDraftEventType = createEventTypeOptions.some((eventType) => eventType.slug === defaultEventType)
     ? defaultEventType
@@ -114,7 +162,7 @@ export default function ManageEvents() {
       setLoading(true);
       setErrorMessage(null);
 
-      if (!canManageAll && manageableEventTypes.length === 0 && (!canUseOwnEventFallback || !userId)) {
+      if (!canManageAll && visibleManageableEventTypes.length === 0 && (!canUseOwnEventFallback || !userId)) {
         setEvents([]);
         setLoading(false);
         return;
@@ -124,11 +172,15 @@ export default function ManageEvents() {
         .from("events")
         .select("id, created_at, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte");
 
+      if (scopedEventTypeList) {
+        query = query.in("event_type", scopedEventTypeList);
+      }
+
       if (!canManageAll) {
-        if (manageableEventTypes.length > 0 && canUseOwnEventFallback && userId) {
-          query = query.or(`event_type.in.(${manageableEventTypes.join(",")}),created_by.eq.${userId}`);
-        } else if (manageableEventTypes.length > 0) {
-          query = query.in("event_type", manageableEventTypes);
+        if (visibleManageableEventTypes.length > 0 && canUseOwnEventFallback && userId) {
+          query = query.or(`event_type.in.(${visibleManageableEventTypes.join(",")}),created_by.eq.${userId}`);
+        } else if (visibleManageableEventTypes.length > 0) {
+          query = query.in("event_type", visibleManageableEventTypes);
         } else if (canUseOwnEventFallback && userId) {
           query = query.eq("created_by", userId);
         }
@@ -143,6 +195,10 @@ export default function ManageEvents() {
         setErrorMessage(dbError("load events", error.message));
       } else {
         if (ignore) return;
+        if (scopedEventTypeSet) {
+          nextEvents = nextEvents.filter((event) => Boolean(event.event_type && scopedEventTypeSet.has(event.event_type)));
+        }
+
         if (!canManageAll) {
           nextEvents = nextEvents.filter((event) => canManageEvent(roles, event.created_by, userId, event.event_type));
         }
@@ -165,7 +221,17 @@ export default function ManageEvents() {
       ignore = true;
       window.clearTimeout(timeoutId);
     };
-  }, [canManage, canManageAll, canUseOwnEventFallback, manageableEventTypes, roles, rolesLoading, userId]);
+  }, [
+    canManage,
+    canManageAll,
+    canUseOwnEventFallback,
+    roles,
+    rolesLoading,
+    scopedEventTypeList,
+    scopedEventTypeSet,
+    userId,
+    visibleManageableEventTypes,
+  ]);
 
   function resetDraft() {
     setEditingId(null);
@@ -294,10 +360,10 @@ export default function ManageEvents() {
   return (
     <Card>
       <PageHeader
-        title="Manage Events"
-        subtitle="Create, edit, and delete events you are permitted to manage."
+        title={title}
+        subtitle={subtitle}
         bordered
-        actions={<Button to="/app/scheduling" variant="outline-secondary">Back to Calendar</Button>}
+        actions={<Button to={returnPath} variant="outline-secondary">{returnLabel}</Button>}
       />
 
       {(editingId || canCreateFromManager) && (
