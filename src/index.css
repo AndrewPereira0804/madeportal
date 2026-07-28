@@ -3168,6 +3168,20 @@ button:disabled {
   gap: 0.72rem;
 }
 
+.month-event-details-section {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.72rem;
+  padding: 0.92rem;
+  border: 1px solid rgba(43, 32, 20, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(255, 252, 246, 0.46);
+}
+
+.month-calendar-section {
+  margin-top: 1rem;
+}
+
 .agenda-group-list {
   margin-top: 1.15rem;
   display: grid;

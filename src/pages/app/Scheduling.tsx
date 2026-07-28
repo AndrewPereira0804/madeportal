@@ -151,6 +151,14 @@ function formatMonthHeading(date: Date) {
   return date.toLocaleString("en-US", { month: "long", year: "numeric" });
 }
 
+function formatDayHeading(dateKey: string) {
+  return toCalendarDate(dateKey).toLocaleString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+}
+
 function formatEventTime(event: EventRow, day: Date) {
   const dayStart = toDayStart(day).getTime();
   const eventStart = getEventDateTimeMs(event.start);
@@ -296,16 +304,6 @@ function EventWindowMeta({ windows }: { windows: CalendarWindow[] }) {
   }
 
   return <span className="event-window-meta">{windows.map((window) => window.label).join(", ")}</span>;
-}
-
-function EventVisibilityBadges({ event }: { event: EventRow }) {
-  return (
-    <div className="event-visibility-badges">
-      <Badge variant="info">brother</Badge>
-      {(event.event_type === "alumni_event" || event.visible_to_alum) && <Badge variant="info">alum</Badge>}
-      {event.visible_to_neophyte && <Badge variant="info">neophyte</Badge>}
-    </div>
-  );
 }
 
 function EventTypePublicDetails({ event }: { event: EventRow }) {
@@ -481,7 +479,7 @@ export default function Scheduling() {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
   });
-  const [selectedDateKey, setSelectedDateKey] = useState(() => toDateKey(new Date()));
+  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const [expandedEventIds, setExpandedEventIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -585,7 +583,11 @@ export default function Scheduling() {
     return map;
   }, [filteredEvents, monthGridDays]);
 
-  const selectedDayEvents = eventsByDay.get(selectedDateKey) ?? [];
+  const selectedDayEvents = selectedDateKey ? eventsByDay.get(selectedDateKey) ?? [] : [];
+  const selectedDayDetailsDescription =
+    selectedDateKey && selectedDayEvents.length > 0
+      ? `${formatDayHeading(selectedDateKey)} - ${selectedDayEvents.length} event${selectedDayEvents.length === 1 ? "" : "s"}`
+      : null;
 
   const upcomingAgendaEvents = useMemo(() => getUpcomingEvents(filteredEvents, agendaNow), [agendaNow, filteredEvents]);
   const agendaGroups = useMemo(() => getAgendaGroups(upcomingAgendaEvents, agendaNow), [agendaNow, upcomingAgendaEvents]);
@@ -806,7 +808,30 @@ export default function Scheduling() {
 
       {!loading && displayMode === "calendar" && filteredEvents.length > 0 && (
         <>
-          <div className="mt-4">
+          {selectedDayDetailsDescription && (
+            <section className="month-event-details-section" aria-label="Selected day details">
+              <SectionHeader
+                className="mt-0"
+                size="sm"
+                title="Selected day details"
+                description={selectedDayDetailsDescription}
+              />
+              <div className="agenda-card-list">
+                {selectedDayEvents.map((event) => (
+                  <AgendaEventCard
+                    key={event.id}
+                    event={event}
+                    windows={windows}
+                    isExpanded={expandedEventIds.has(event.id)}
+                    onToggle={toggleEventExpanded}
+                    detailIdPrefix="month-event-details"
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          <div className="month-calendar-section">
             <h3 className="h4 mb-3">
               {selectedWindow
                 ? `${selectedWindow.label} (${selectedWindow.start} to ${selectedWindow.end})`
@@ -855,76 +880,6 @@ export default function Scheduling() {
                 );
               })}
             </div>
-          </div>
-
-          <div className="mt-4 d-grid gap-3">
-            <SectionHeader className="mt-0" size="sm" title="Selected day details" />
-            {selectedDayEvents.length === 0 && (
-              <EmptyState
-                compact
-                title="No events on this day"
-                description="There are no visible events for the selected day and filter."
-              />
-            )}
-            {selectedDayEvents.map((event) => {
-              const matchingWindows = getWindowsForEvent(event, windows);
-              const isExpanded = expandedEventIds.has(event.id);
-              const expandedContentId = `event-details-${event.id}`;
-
-              return (
-                <article
-                  key={event.id}
-                  className={`event-detail-card event-detail-card--expandable ${isExpanded ? "is-expanded" : ""}`}
-                >
-                  <button
-                    type="button"
-                    className="event-detail-summary"
-                    aria-expanded={isExpanded}
-                    aria-controls={expandedContentId}
-                    onClick={() => toggleEventExpanded(event.id)}
-                  >
-                    <span className="event-detail-summary-main">
-                      <span className="event-detail-title-row">
-                        <span className="event-detail-title">{event.title}</span>
-                        <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName(event.event_type)}`}>
-                          {getEventTypeLabel(event.event_type)}
-                        </Badge>
-                      </span>
-                      <span className="event-detail-time">
-                        {formatEventDateTime(event.start)} to {formatEventDateTime(event.end)}
-                      </span>
-                      <span className="event-detail-preview">{event.description || "No description provided."}</span>
-                    </span>
-                    <span className="event-detail-toggle-label">{isExpanded ? "Hide details" : "View details"}</span>
-                  </button>
-
-                  {isExpanded && (
-                    <div id={expandedContentId} className="event-detail-expanded">
-                      <p className="mb-1">{event.description || "No description provided."}</p>
-                      <p className="mb-1">
-                        <strong>Starts:</strong> {formatEventDateTime(event.start)}
-                      </p>
-                      <p className="mb-1">
-                        <strong>Ends:</strong> {formatEventDateTime(event.end)}
-                      </p>
-                      <EventTypePublicDetails event={event} />
-                      <p className="mb-1 text-body-secondary">
-                        <strong>Schedule windows:</strong>{" "}
-                        {matchingWindows.length > 0
-                          ? matchingWindows.map((window) => window.label).join(", ")
-                          : "Outside configured school windows"}
-                      </p>
-                      <div className="d-flex gap-2 flex-wrap mt-2">
-                        <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName(event.event_type)}`}>
-                          {getEventTypeLabel(event.event_type)}
-                        </Badge>
-                        <EventVisibilityBadges event={event} />
-                      </div>
-                    </div>
-                  )}
-                </article>
-              );
-            })}
           </div>
         </>
       )}
