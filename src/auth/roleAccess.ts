@@ -121,6 +121,13 @@ const professionalDevelopmentEventToolRoleSlugs = new Set([
   "professional-development-chair",
 ]);
 const waitOnToolRoleSlugs = new Set(["stew", "steward"]);
+const emergencyContactReaderRoleSlugs = new Set([
+  "admin",
+  "ea",
+  "eda",
+  "hsm",
+  "health-safety-manager",
+]);
 
 const eventTypeManagerRoleSlugs: Record<EventTypeSlug, string[]> = {
   party: ["social-chair", "hsm", "health-safety-manager"],
@@ -380,6 +387,14 @@ export function canManageProfessionalDevelopmentEvents(roles: string[]) {
 export function canManageWaitOns(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
   return canAccessAllChairTools(roles) || (!hasAlumniBaseline(roles) && hasAnyRole(roleSet, waitOnToolRoleSlugs));
+}
+
+export function canReadAllEmergencyContacts(roles: string[]) {
+  return hasAnyRole(normalizeRoleSet(roles), emergencyContactReaderRoleSlugs);
+}
+
+export function canManageAllEmergencyContacts(roles: string[]) {
+  return hasAdminRole(roles);
 }
 
 export function canViewEvent(roles: string[], event: EventVisibility, currentUserId?: string | null) {

@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getChapterStatus, type ChapterStatus } from "../../auth/roleAccess";
+import {
+  canManageAllEmergencyContacts,
+  canReadAllEmergencyContacts,
+  getChapterStatus,
+  type ChapterStatus,
+} from "../../auth/roleAccess";
+import useRoles from "../../auth/useRoles";
 import supabase from "../../config/supabaseClient";
 import { useAuth } from "../../auth/authContext";
+import EmergencyContactsSection from "./EmergencyContactsSection";
 import ProfileDetails from "./ProfileDetails";
 import ProfileEditForm from "./ProfileEditForm";
 import type { MajorRow, ProfileRow, RawMajorRow, RawProfileRow, RawUserRoleRow, RoleDetail } from "./profileTypes";
@@ -56,6 +63,7 @@ function formatMemberName(profile: ProfileRow) {
 
 export default function MemberDirectory() {
   const { session } = useAuth();
+  const { roles: currentUserRoles } = useRoles();
   const userId = session?.user.id ?? null;
 
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
@@ -220,6 +228,8 @@ export default function MemberDirectory() {
     : null;
   const selectedRoles = selectedProfile ? rolesByUser[selectedProfile.user_id] ?? [] : [];
   const isSelectedOwnProfile = selectedProfile?.user_id === userId;
+  const canReadAnyEmergencyContacts = canReadAllEmergencyContacts(currentUserRoles);
+  const canManageAnyEmergencyContacts = canManageAllEmergencyContacts(currentUserRoles);
   const hasActiveFilters = search.trim() !== "" || majorFilter !== "all" || chapterFilter !== "all";
   const activeCountLabel =
     filteredProfiles.length === profiles.length
@@ -332,18 +342,28 @@ export default function MemberDirectory() {
             {!selectedProfile ? (
               <p className="mb-0 text-body-secondary">No member selected.</p>
             ) : (
-              <div className={isSelectedOwnProfile ? "account-surface directory-profile-surface" : "directory-profile-single"}>
-                <ProfileDetails profile={selectedProfile} majors={majors} roles={selectedRoles} />
-                {isSelectedOwnProfile && (
-                  <ProfileEditForm
-                    profile={selectedProfile}
-                    majors={majors}
-                    currentUserId={userId}
-                    idPrefix="directory"
-                    onSaved={handleProfileSaved}
-                  />
-                )}
-              </div>
+              <>
+                <div className={isSelectedOwnProfile ? "account-surface directory-profile-surface" : "directory-profile-single"}>
+                  <ProfileDetails profile={selectedProfile} majors={majors} roles={selectedRoles} />
+                  {isSelectedOwnProfile && (
+                    <ProfileEditForm
+                      profile={selectedProfile}
+                      majors={majors}
+                      currentUserId={userId}
+                      idPrefix="directory"
+                      onSaved={handleProfileSaved}
+                    />
+                  )}
+                </div>
+                <EmergencyContactsSection
+                  targetUserId={selectedProfile.user_id}
+                  currentUserId={userId}
+                  idPrefix={`directory-${selectedProfile.user_id}`}
+                  canReadAll={canReadAnyEmergencyContacts}
+                  canManageAll={canManageAnyEmergencyContacts}
+                  className="directory-emergency-contacts"
+                />
+              </>
             )}
           </div>
         </div>

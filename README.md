@@ -62,6 +62,7 @@ Tables used by the frontend:
 - `budget_transactions`: `id`, `budget_account_id`, `submitted_by`, `amount`, `vendor`, `category`, `description`, `transaction_date`, `status`, `receipt_url`, `approved_by`, `approved_at`, `denial_reason`, `created_at`
 - `wait_on_schedules`: `id`, `week_start`, `published`, `created_by`, `created_at`, `updated_at`
 - `wait_on_assignments`: `id`, `schedule_id`, `slot_key`, `brother_id`, `created_at`
+- `emergency_contacts`: `id`, `user_id`, `contact_type`, `name`, `phone`, `email`, `created_at`, `updated_at`
 
 Status values expected by UI:
 - `pending`
@@ -274,6 +275,7 @@ Repository policy/function SQL files:
 - `supabase/event_types.sql`
 - `supabase/events_calendar_policies.sql`
 - `supabase/events_management_access_policies.sql`
+- `supabase/emergency_contacts.sql`
 
 Important:
 - The current hosted RLS policy snapshot is documented in `docs/database.md`.

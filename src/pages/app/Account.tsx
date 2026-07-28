@@ -3,6 +3,7 @@ import supabase from "../../config/supabaseClient";
 import { useAuth } from "../../auth/authContext";
 import ProfileDetails from "./ProfileDetails";
 import ProfileEditForm from "./ProfileEditForm";
+import EmergencyContactsSection from "./EmergencyContactsSection";
 import type { MajorRow, ProfileRow, RawMajorRow, RawProfileRow, RawUserRoleRow, RoleDetail } from "./profileTypes";
 import { normalizeMajor, normalizeProfile, normalizeRoles, PROFILE_COLUMNS } from "./profileTypes";
 import { Button, Card, EmptyState, PageHeader } from "../../components/ui";
@@ -122,16 +123,24 @@ export default function Account() {
           description="Portal could not find a profile row for this account."
         />
       ) : (
-        <div className="account-surface mt-4">
-          <ProfileDetails profile={profile} majors={majors} roles={roles} />
-          <ProfileEditForm
-            profile={profile}
-            majors={majors}
+        <>
+          <div className="account-surface mt-4">
+            <ProfileDetails profile={profile} majors={majors} roles={roles} />
+            <ProfileEditForm
+              profile={profile}
+              majors={majors}
+              currentUserId={userId}
+              idPrefix="account"
+              onSaved={setProfile}
+            />
+          </div>
+          <EmergencyContactsSection
+            targetUserId={profile.user_id}
             currentUserId={userId}
             idPrefix="account"
-            onSaved={setProfile}
+            className="mt-4"
           />
-        </div>
+        </>
       )}
     </Card>
   );

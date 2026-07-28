@@ -1,10 +1,10 @@
 # Database Contract
 
-Last updated: 2026-06-29
+Last updated: 2026-07-28
 
 ## Source Of Truth
 
-Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
+Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
 
 Schema exports in this document are for context only. Do not run them directly as migrations because export order, enum placeholders, constraints, policies, and triggers may be incomplete.
 
@@ -96,6 +96,7 @@ Referenced by:
 - `budget_transactions.approved_by`
 - `wait_on_schedules.created_by`
 - `wait_on_assignments.brother_id`
+- `emergency_contacts.user_id`
 
 Frontend usage:
 
@@ -103,6 +104,39 @@ Frontend usage:
 - `src/pages/Register.tsx` inserts pending profiles.
 - `src/pages/app/ManageMembers.tsx` reads profiles and updates status.
 - `src/pages/app/Announcement.tsx` reads author names.
+- `src/pages/app/Account.tsx` loads the signed-in user's profile before rendering emergency contacts.
+
+### public.emergency_contacts
+
+Purpose: user-owned emergency contact records attached to profile rows.
+
+Columns:
+
+- `id uuid primary key default gen_random_uuid()`
+- `user_id uuid not null references public.profiles(user_id) on delete cascade`
+- `contact_type text not null`
+- `name text not null`
+- `phone text not null`
+- `email text`
+- `created_at timestamptz not null default now()`
+- `updated_at timestamptz not null default now()`
+
+Current repo constraint intent:
+
+- `contact_type` must be one of: `mother`, `father`, `parent`, `guardian`, `sibling`, `spouse`, `partner`, `child`, `grandparent`, `aunt_uncle`, `cousin`, `friend`, `roommate`, `other`.
+- `name` and `phone` must not be blank.
+- `email` is optional but must not be blank when provided.
+
+Frontend usage:
+
+- `src/pages/app/EmergencyContactsSection.tsx` reads and mutates contacts.
+- `src/pages/app/Account.tsx` allows users to CRUD their own contacts.
+- `src/pages/app/MemberDirectory.tsx` shows contacts for the selected member only to the owner, emergency-contact readers, or admins.
+
+Hosted status:
+
+- Applied to hosted Supabase on 2026-07-28 through migrations `add_emergency_contacts`, `harden_emergency_contacts_access`, and `consolidate_emergency_contact_policies`.
+- Verified hosted state: table exists, RLS is enabled, `anon` does not have SELECT, `authenticated` has Data API CRUD table privileges, and the four consolidated RLS policies are present.
 
 ### public.roles
 
@@ -450,6 +484,37 @@ Expected capabilities:
 
 The legacy `/admin` route redirects to `/app/manage`. `ea` and `eda` should not need the `admin` role to use `/app/manage/members`.
 
+### Emergency Contacts
+
+Frontend visibility:
+
+- Users can manage their own contacts from `/app/account`.
+- Users can also manage their own contacts when their own profile is selected in `/app/directory`.
+- `admin`, `ea`, `eda`, `hsm`, and `health-safety-manager` can read the emergency-contact section for selected directory profiles.
+- `admin` can edit and delete contacts for selected directory profiles.
+
+Frontend helper:
+
+- `src/auth/roleAccess.ts`
+
+Database helpers:
+
+- `public.can_read_all_emergency_contacts(uuid)`
+- `public.can_manage_all_emergency_contacts(uuid)`
+
+Expected capabilities:
+
+- Authenticated users can read, insert, update, and delete contacts where `emergency_contacts.user_id = auth.uid()`.
+- `admin`, `ea`, `eda`, `hsm`, and `health-safety-manager` can read all emergency contact rows.
+- `admin` can insert, update, and delete all emergency contact rows.
+- Non-admin all-contact readers cannot insert, update, or delete contacts for other users.
+
+Rollout note:
+
+- The current hosted project has the emergency-contact rollout applied and verified.
+- For new environments, apply `supabase/emergency_contacts.sql` before using the frontend emergency contact workflow.
+- Because Supabase Data API auto-exposure settings can vary by project, verify that `authenticated` has table privileges and RLS is enabled after rollout.
+
 ### Announcements
 
 Hosted policy snapshot:
@@ -657,6 +722,36 @@ Used by hosted wait-on schedule and assignment policies.
 Repo definition:
 
 - `supabase/wait_on_schedules.sql`
+
+### public.can_read_all_emergency_contacts(uuid)
+
+Expected behavior: returns true when the user has one of:
+
+- `admin`
+- `ea`
+- `eda`
+- `hsm`
+- `health-safety-manager`
+
+Repo definition:
+
+- `supabase/emergency_contacts.sql`
+
+Hosted status:
+
+- Applied and verified on hosted Supabase on 2026-07-28.
+
+### public.can_manage_all_emergency_contacts(uuid)
+
+Expected behavior: returns true when the user has the `admin` role.
+
+Repo definition:
+
+- `supabase/emergency_contacts.sql`
+
+Hosted status:
+
+- Applied and verified on hosted Supabase on 2026-07-28.
 
 ### public.is_role_member(text, uuid)
 
@@ -1178,6 +1273,22 @@ Rollout note:
 
 - This file is intended to fix hosted policy gaps where event managers without the `brother` role cannot view or manage calendar events.
 - It does not remove existing event visibility or owner policies.
+
+### supabase/emergency_contacts.sql
+
+Purpose:
+
+- Creates `emergency_contacts` for user-owned emergency contact records.
+- Adds contact type and non-blank required field constraints.
+- Adds `public.can_read_all_emergency_contacts(uuid)` for `admin`, `ea`, `eda`, `hsm`, and `health-safety-manager`.
+- Adds `public.can_manage_all_emergency_contacts(uuid)` for `admin`.
+- Enables RLS, grants authenticated Data API access, revokes `anon` table privileges, and creates consolidated own-CRUD, read-all, and admin-manage policies.
+- Adds an `updated_at` trigger for contact updates.
+- Notifies PostgREST to reload the schema cache.
+
+Hosted status:
+
+- Applied and verified against hosted Supabase on 2026-07-28.
 
 ### supabase/wait_on_schedules.sql
 
