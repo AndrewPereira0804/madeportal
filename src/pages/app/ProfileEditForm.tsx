@@ -52,6 +52,12 @@ export default function ProfileEditForm({ profile, majors, currentUserId, idPref
     setErrorMessage(null);
     setSuccessMessage(null);
 
+    if (!payload) {
+      setErrorMessage("Nothing to update.");
+      setSaving(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("profiles")
       .update(payload)
