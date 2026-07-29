@@ -3,7 +3,9 @@ import supabase from "../../config/supabaseClient";
 import useRoles from "../../auth/useRoles";
 import { Navigate } from "react-router-dom";
 import {
+  canAssignRole,
   canManageMembers,
+  canManageRoleAssignments,
   normalizeRoleSlugsForAssignment,
   toggleRoleForAssignment,
 } from "../../auth/roleAccess";
@@ -97,7 +99,9 @@ function statusPillClass(status: AccountStatus) {
 
 export default function Accounts() {
   const { roles, loading: rolesLoading } = useRoles();
-  const hasMemberManagementAccess = canManageMembers(roles);
+  const hasStatusManagementAccess = canManageMembers(roles);
+  const hasRoleAssignmentAccess = canManageRoleAssignments(roles);
+  const hasMemberManagementAccess = hasStatusManagementAccess || hasRoleAssignmentAccess;
 
   const [tab, setTab] = useState<AccountStatus>("pending");
   const [loading, setLoading] = useState(true);
@@ -255,12 +259,19 @@ export default function Accounts() {
     setSaving(true);
     setErrorMsg(null);
 
-    const current = users.find((u) => u.user_id === userId)?.roleSlugs ?? [];
+    const targetUser = users.find((u) => u.user_id === userId);
+    if (!targetUser || targetUser.status !== "active") {
+      setErrorMsg("Roles can only be edited for active accounts.");
+      setSaving(false);
+      return;
+    }
+
+    const current = targetUser.roleSlugs;
     const currentSet = new Set(current);
     const nextSet = new Set(normalizeRoleSlugsForAssignment(nextSlugs));
 
-    const toAdd = [...nextSet].filter((r) => !currentSet.has(r));
-    const toRemove = [...currentSet].filter((r) => !nextSet.has(r));
+    const toAdd = [...nextSet].filter((r) => !currentSet.has(r) && assignableRoleSlugSet.has(r));
+    const toRemove = [...currentSet].filter((r) => !nextSet.has(r) && assignableRoleSlugSet.has(r));
 
     if (toRemove.length > 0) {
       const { error: delErr } = await supabase
@@ -312,6 +323,13 @@ export default function Accounts() {
     [rolesLookup]
   );
 
+  const assignableRoleSlugs = useMemo(
+    () => allRoleSlugs.filter((roleSlug) => canAssignRole(roles, roleSlug)),
+    [allRoleSlugs, roles]
+  );
+
+  const assignableRoleSlugSet = new Set(assignableRoleSlugs);
+
   if (rolesLoading) {
     return <div className="accounts-loading">Loading...</div>;
   }
@@ -324,7 +342,7 @@ export default function Accounts() {
     <Card className="accounts-page">
       <PageHeader
         title="Manage Members"
-        subtitle="Approve or deny pending accounts, and manage roles for active members."
+        subtitle="Review account status and manage role assignments."
         bordered
       />
 
@@ -367,6 +385,7 @@ export default function Accounts() {
             <tbody>
               {filtered.map((u) => {
                 const isEditing = editingUserId === u.user_id;
+                const canEditRolesForUser = hasRoleAssignmentAccess && u.status === "active";
 
                 return (
                   <tr key={u.user_id}>
@@ -383,119 +402,130 @@ export default function Accounts() {
                     </td>
 
                     <td className="accounts-td">
-                      {!isEditing ? (
+                      {!isEditing || !canEditRolesForUser ? (
                         <div>
                           {u.roleSlugs.length > 0 ? u.roleSlugs.map(roleLabel).join(", ") : "(none)"}
                         </div>
                       ) : (
                         <div className="accounts-role-editor">
-                          {allRoleSlugs.map((slug) => (
-                            <label key={slug} className="accounts-role-option">
-                              <input
-                                type="checkbox"
-                                checked={draftRoleSlugs.includes(slug)}
-                                onChange={() => toggleDraftRole(slug)}
-                              />
-                              {roleLabel(slug)}
-                            </label>
-                          ))}
+                          {allRoleSlugs.map((slug) => {
+                            const canEditRole = assignableRoleSlugSet.has(slug);
+
+                            return (
+                              <label
+                                key={slug}
+                                className={`accounts-role-option${canEditRole ? "" : " accounts-role-option-disabled"}`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={draftRoleSlugs.includes(slug)}
+                                  disabled={!canEditRole || saving}
+                                  onChange={() => {
+                                    if (canEditRole) {
+                                      toggleDraftRole(slug);
+                                    }
+                                  }}
+                                />
+                                {roleLabel(slug)}
+                              </label>
+                            );
+                          })}
                         </div>
                       )}
                     </td>
 
                     <td className="accounts-td">
-                      {tab === "pending" && (
+                      {canEditRolesForUser && isEditing ? (
                         <div className="accounts-actions">
                           <Button
                             type="button"
                             disabled={saving}
-                            onClick={() => updateStatus(u.user_id, "active")}
+                            onClick={() => saveRoles(u.user_id, draftRoleSlugs)}
                             size="sm"
                           >
-                            Approve
+                            Save
                           </Button>
                           <Button
                             type="button"
                             disabled={saving}
                             onClick={() => {
-                              if (!window.confirm("Deny this account? (status -> suspended)")) {
-                                return;
-                              }
-                              updateStatus(u.user_id, "suspended");
+                              setEditingUserId(null);
+                              setDraftRoleSlugs([]);
                             }}
+                            variant="outline-secondary"
                             size="sm"
-                            variant="danger"
                           >
-                            Deny
+                            Cancel
                           </Button>
                         </div>
-                      )}
-
-                      {tab === "active" && (
+                      ) : (
                         <div className="accounts-actions">
-                          {!isEditing ? (
+                          {canEditRolesForUser && (
+                            <Button
+                              type="button"
+                              disabled={saving}
+                              onClick={() => startEditing(u)}
+                              variant="outline-secondary"
+                              size="sm"
+                            >
+                              Edit roles
+                            </Button>
+                          )}
+
+                          {tab === "pending" && hasStatusManagementAccess && (
                             <>
                               <Button
                                 type="button"
                                 disabled={saving}
-                                onClick={() => startEditing(u)}
-                                variant="outline-secondary"
+                                onClick={() => updateStatus(u.user_id, "active")}
                                 size="sm"
                               >
-                                Edit roles
+                                Approve
                               </Button>
                               <Button
                                 type="button"
                                 disabled={saving}
                                 onClick={() => {
-                                  if (!window.confirm("Suspend this account?")) {
+                                  if (!window.confirm("Deny this account? (status -> suspended)")) {
                                     return;
                                   }
                                   updateStatus(u.user_id, "suspended");
                                 }}
+                                size="sm"
                                 variant="danger"
-                                size="sm"
                               >
-                                Suspend
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <Button
-                                type="button"
-                                disabled={saving}
-                                onClick={() => saveRoles(u.user_id, draftRoleSlugs)}
-                                size="sm"
-                              >
-                                Save
-                              </Button>
-                              <Button
-                                type="button"
-                                disabled={saving}
-                                onClick={() => {
-                                  setEditingUserId(null);
-                                  setDraftRoleSlugs([]);
-                                }}
-                                variant="outline-secondary"
-                                size="sm"
-                              >
-                                Cancel
+                                Deny
                               </Button>
                             </>
                           )}
-                        </div>
-                      )}
 
-                      {tab === "suspended" && (
-                        <div className="accounts-actions">
-                          <Button
-                            type="button"
-                            disabled={saving}
-                            onClick={() => updateStatus(u.user_id, "active")}
-                            size="sm"
-                          >
-                            Reinstate
-                          </Button>
+                          {tab === "active" && hasStatusManagementAccess && (
+                            <Button
+                              type="button"
+                              disabled={saving}
+                              onClick={() => {
+                                if (!window.confirm("Suspend this account?")) {
+                                  return;
+                                }
+                                updateStatus(u.user_id, "suspended");
+                              }}
+                              variant="danger"
+                              size="sm"
+                            >
+                              Suspend
+                            </Button>
+                          )}
+
+                          {tab === "suspended" && hasStatusManagementAccess && (
+                            <Button
+                              type="button"
+                              disabled={saving}
+                              onClick={() => updateStatus(u.user_id, "active")}
+                              size="sm"
+                            >
+                              Reinstate
+                            </Button>
+                          )}
                         </div>
                       )}
                     </td>
@@ -515,9 +545,11 @@ export default function Accounts() {
         </div>
       )}
 
-      <p className="accounts-tip">
-        Tip: when you deny an account, it moves to the Suspended tab.
-      </p>
+      {hasStatusManagementAccess && (
+        <p className="accounts-tip">
+          Tip: when you deny an account, it moves to the Suspended tab.
+        </p>
+      )}
     </Card>
   );
 }

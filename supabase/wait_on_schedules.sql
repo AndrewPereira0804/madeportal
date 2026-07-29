@@ -56,6 +56,7 @@ security definer
 set search_path = public
 as $$
   select check_user_id is not null
+    and public.is_active(check_user_id)
     and exists (
       select 1
       from public.user_roles

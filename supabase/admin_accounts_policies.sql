@@ -1,3 +1,7 @@
+-- Legacy/stale rollout helper. Hosted profile and user-role RLS is now
+-- maintained by supabase/profiles_policies.sql and supabase/user_roles_policies.sql.
+-- Do not run this file against hosted Supabase without rebuilding those policies.
+
 -- =========================
 -- 0) Drop dependent objects + old helper funcs
 -- =========================

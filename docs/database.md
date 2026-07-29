@@ -4,7 +4,7 @@ Last updated: 2026-07-29
 
 ## Source Of Truth
 
-Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
+Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The user-role assignment policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The active-status role guard was applied and verified through the Supabase plugin on 2026-07-29. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
 
 Schema exports in this document are for context only. Do not run them directly as migrations because export order, enum placeholders, constraints, policies, and triggers may be incomplete.
 
@@ -35,6 +35,8 @@ Frontend auth and authorization expectations:
 - A new registered user inserts a `profiles` row with `status = 'pending'`.
 - App routing gates users by `profiles.status`.
 - Role checks read `public.user_roles`.
+- `profiles.status` is the ultimate authorization gate: `pending` and `suspended` accounts must not receive or use role-based permissions.
+- When a profile status changes to `pending` or `suspended`, hosted Supabase deletes that user's `public.user_roles` rows.
 
 ## Status Values
 
@@ -102,7 +104,7 @@ Frontend usage:
 
 - `src/auth/useStatus.tsx` reads `status`.
 - `src/pages/Register.tsx` inserts pending profiles.
-- `src/pages/app/ManageMembers.tsx` reads profiles and updates status.
+- `src/pages/app/ManageMembers.tsx` reads profiles, updates status for status managers, and edits allowed role assignments.
 - `src/pages/app/Announcement.tsx` reads author names.
 - `src/pages/app/Account.tsx` loads the signed-in user's profile before rendering emergency contacts.
 
@@ -165,7 +167,7 @@ Columns:
 Frontend usage:
 
 - `src/auth/useRoles.tsx` reads roles for the current user.
-- `src/pages/app/ManageMembers.tsx` reads and edits user roles.
+- `src/pages/app/ManageMembers.tsx` reads user roles and edits assignments through scoped insert/delete operations.
 
 ### public.announcements
 
@@ -462,27 +464,37 @@ The Manage Members workflow is available at `/app/manage/members`.
 
 Frontend visibility:
 
-- `admin`
-- `ea`
-- `eda`
+- Profile status managers: `admin`, `ea`/`president`, and `eda`/`vp`/`vice-president`/`vice_president`.
+- Role assignment managers: `admin`, President, VP, and Recorder role variants.
 
-Frontend helper:
+Frontend helpers:
 
 - `src/auth/roleAccess.ts`
 
-Database helper:
+Database helpers:
 
 - `public.can_manage_members(uuid)`
+- `public.current_user_can_manage_role_assignment(text)`
+- `public.current_user_can_insert_role_assignment(text, uuid)`
+- `public.current_user_can_read_role_assignments()`
+- `public.remove_roles_for_inactive_profile()`
 
 Expected capabilities:
 
-- Read all profiles.
-- Update profile status for approve, deny, suspend, and reinstate.
-- Read all user role assignments.
-- Insert and delete user role assignments.
+- Status managers can read all profiles and update profile status for approve, deny, suspend, and reinstate.
+- Role assignment managers can read all profiles and user-role rows required by the editor.
+- Role assignment managers can insert roles only for users whose `profiles.status = 'active'`.
+- Pending and suspended profiles cannot receive new role rows through the authenticated Data API.
+- When an account becomes pending or suspended, hosted Supabase removes that user's existing `user_roles` rows.
+- `admin` can insert/delete any `user_roles` row, including `admin` and President roles.
+- President (`ea`/`president`) can insert/delete VP, Recorder, and lower roles, but cannot grant/remove `admin` or President roles.
+- VP (`eda`/`vp`/`vice-president`/`vice_president`) can insert/delete Recorder and lower roles, but cannot grant/remove `admin`, President, or VP roles.
+- Recorder (`rec`/`recorder`) can insert/delete lower roles, but cannot grant/remove Recorder, VP, President, or `admin`.
+- No other role can insert or delete another user's role assignment.
+- Client role changes are insert/delete only; authenticated users do not have direct `UPDATE` on `public.user_roles`.
 - Read role catalog.
 
-The legacy `/admin` route redirects to `/app/manage`. `ea` and `eda` should not need the `admin` role to use `/app/manage/members`.
+The legacy `/admin` route redirects to `/app/manage`. `ea`, `eda`, and `rec` should not need the `admin` role to use `/app/manage/members` for their permitted management actions.
 
 ### Emergency Contacts
 
@@ -656,7 +668,7 @@ Treasurer tool paths:
 Hosted policy notes:
 
 - The 2026-06-25 RLS policy export verifies the budget table policies listed below.
-- The helper function bodies behind `current_user_is_active()`, `is_budget_manager()`, and `can_access_budget_account(uuid)` were not included in the policy export. Ask for hosted function definitions before changing budget access assumptions.
+- The helper function bodies behind `is_budget_manager()` and `can_access_budget_account(uuid)` were not included in the policy export. Ask for hosted function definitions before changing budget access assumptions.
 
 ## Helper Functions
 
@@ -664,23 +676,7 @@ Hosted policy notes:
 
 Expected behavior: returns true when the user has `user_roles.role_slug = 'admin'`.
 
-Hosted definition:
-
-```sql
-CREATE OR REPLACE FUNCTION public.is_admin(check_user_id uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE SECURITY DEFINER
-SET search_path TO 'public'
-AS $function$
-  select exists (
-    select 1
-    from public.user_roles
-    where user_id = check_user_id
-      and role_slug = 'admin'
-  );
-$function$;
-```
+Hosted definition now checks both `public.is_active(check_user_id)` and the `admin` role row.
 
 Known dependencies:
 
@@ -689,35 +685,47 @@ Known dependencies:
 
 ### public.can_manage_members(uuid)
 
-Expected behavior: returns true when the user has one of:
+Expected behavior: returns true when the user is active and has one of:
 
 - `admin`
 - `ea`
 - `eda`
+- `president`
+- `vice-president`
+- `vice_president`
+- `vp`
 
-Used by hosted profile and user role policies for Manage Members.
+Used by hosted profile status policies for Manage Members.
 
-Hosted definition:
+Hosted definition now checks both `public.is_active(check_user_id)` and the allowed member-manager role rows.
 
-```sql
-CREATE OR REPLACE FUNCTION public.can_manage_members(check_user_id uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE SECURITY DEFINER
-SET search_path TO 'public'
-AS $function$
-  select exists (
-    select 1
-    from public.user_roles
-    where user_id = check_user_id
-      and role_slug in ('admin', 'ea', 'eda')
-  );
-$function$;
-```
+### public.current_user_can_manage_role_assignment(text)
+
+Expected behavior: returns true for the current authenticated user only when their active profile and assigned roles allow them to insert/delete the target role slug:
+
+- `admin`: any role.
+- President (`ea`/`president`): VP, Recorder, and lower roles only.
+- VP (`eda`/`vp`/`vice-president`/`vice_president`): Recorder and lower roles only.
+- Recorder (`rec`/`recorder`): lower roles only.
+- Any other role: no role assignment authority.
+
+Used by hosted `user_roles` DELETE policy and by role-assignment read helpers.
+
+### public.current_user_can_insert_role_assignment(text, uuid)
+
+Expected behavior: returns true when the current authenticated user can manage the target role slug and the target profile status is `active`.
+
+Used by hosted `user_roles` INSERT policy so roles cannot be assigned to pending or suspended accounts.
+
+### public.current_user_can_read_role_assignments()
+
+Expected behavior: returns true when `current_user_can_manage_role_assignment('brother')` is true.
+
+Used by hosted profile and user-role SELECT policies so role assignment managers can load the Manage Members editor.
 
 ### public.can_manage_wait_ons(uuid)
 
-Expected behavior: returns true when the user has one of:
+Expected behavior: returns true when the user is active and has one of:
 
 - `admin`
 - `ea`
@@ -737,7 +745,7 @@ Repo definition:
 
 ### public.can_read_all_emergency_contacts(uuid)
 
-Expected behavior: returns true when the user has one of:
+Expected behavior: returns true when the user is active and has one of:
 
 - `admin`
 - `ea`
@@ -755,7 +763,7 @@ Hosted status:
 
 ### public.can_manage_all_emergency_contacts(uuid)
 
-Expected behavior: returns true when the user has the `admin` role.
+Expected behavior: returns true when the user is active and has the `admin` role.
 
 Repo definition:
 
@@ -769,43 +777,15 @@ Hosted status:
 
 Hosted event and role policies reference `is_role_member(role_slug, user_id)`.
 
-Expected behavior: returns true when the given user has the given role slug in `public.user_roles`.
+Expected behavior: returns true when the given user is active and has the given role slug in `public.user_roles`.
 
-Hosted definition:
-
-```sql
-CREATE OR REPLACE FUNCTION public.is_role_member(p_role_slug text, p_user_id uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-AS $function$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.user_roles ur
-    WHERE ur.user_id = p_user_id
-      AND ur.role_slug = p_role_slug
-  );
-$function$;
-```
+Hosted definition now checks `public.is_active(p_user_id)` before accepting the role row.
 
 ### public.is_active(uuid)
 
 Expected behavior: returns true when the user's profile status is `active`.
 
-Hosted definition:
-
-```sql
-CREATE OR REPLACE FUNCTION public.is_active(uid uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-AS $function$
-  select exists (
-    select 1 from public.profiles
-    where user_id = uid and status = 'active'
-  );
-$function$;
-```
+Hosted definition returns true only when the supplied user ID has a profile row with `status = 'active'`.
 
 ### public.increment_announcement_likes(uuid)
 
@@ -958,7 +938,6 @@ After the 2026-07-29 event policy rebuild, hosted event RLS no longer depends on
 
 The 2026-06-25 RLS policy export references these helper functions, but the export did not include their hosted definitions:
 
-- `public.current_user_is_active()`
 - `public.is_budget_manager()`
 - `public.can_access_budget_account(uuid)`
 
@@ -966,7 +945,7 @@ Repo SQL defines or references some event helpers, but hosted function bodies sh
 
 ## Hosted RLS Policy Snapshot
 
-This section reflects the policy export provided on 2026-06-25.
+This section started from the policy export provided on 2026-06-25 and includes later hosted policy updates marked by date.
 
 ### public.announcements
 
@@ -1129,6 +1108,9 @@ Hosted policy intent after the 2026-07-29 profile hardening:
   - Allows rows where the target profile is `active` and the requesting user is active via `is_active(auth.uid())`.
 - `Member managers can read all profiles`
   - SELECT to authenticated for active `admin`, `ea`, or `eda` users via `can_manage_members(auth.uid())`.
+- `Role assignment managers can read all profiles`
+  - SELECT to authenticated for active role assignment managers via `current_user_can_read_role_assignments()`.
+  - Exists so President, VP, and Recorder role managers can load the member editor without broad profile-update rights.
 - `Member managers can update profiles`
   - UPDATE to authenticated for active `admin`, `ea`, or `eda` users.
   - Includes both `USING` and `WITH CHECK`.
@@ -1147,6 +1129,7 @@ Grant and trigger notes:
 - `authenticated` does not have UPDATE privilege on `profiles.user_id`, `profiles.email`, or `profiles.created_at`.
 - `authenticated` has UPDATE privilege on `profiles.status` so active member managers can use direct PostgREST status updates.
 - The `prevent_profile_self_privilege_escalation` trigger blocks non-member-managers from changing `profiles.status` or `profiles.user_id`, including self-escalation from `pending` to `active`.
+- The `remove_roles_for_inactive_profile` trigger deletes all `user_roles` rows for a profile when `status` changes to `pending` or `suspended`.
 - Delete permissions are intentionally absent for `authenticated`; profile deletion is not a current frontend workflow.
 
 ### public.roles
@@ -1158,20 +1141,27 @@ Grant and trigger notes:
 
 ### public.user_roles
 
+Hosted policy intent after the 2026-07-29 user-role assignment hardening:
+
 - `Active users can read active user roles`
   - SELECT to authenticated when both the requesting user and target user are active.
-- `Member managers can delete user roles`
-  - DELETE to authenticated via `can_manage_members(auth.uid())`.
-- `Member managers can insert user roles`
-  - INSERT to authenticated via `can_manage_members(auth.uid())`.
-- `Member managers can read all user roles`
-  - SELECT to authenticated via `can_manage_members(auth.uid())`.
+- `Role assignment managers can read all user roles`
+  - SELECT to authenticated via `current_user_can_read_role_assignments()`.
+- `Role assignment managers can insert allowed user roles`
+  - INSERT to authenticated with `current_user_can_insert_role_assignment(role_slug, user_id)`.
+  - Requires the target profile to be `active`.
+- `Role assignment managers can delete allowed user roles`
+  - DELETE to authenticated using `current_user_can_manage_role_assignment(role_slug)`.
 - `Users can read own roles`
-  - SELECT to authenticated where `user_id = auth.uid()`.
-- `read own roles`
-  - SELECT to authenticated where `user_id = auth.uid()`.
+  - SELECT to authenticated where `user_id = auth.uid()` and the requesting user is active.
 
-`Users can read own roles` and `read own roles` are duplicate in intent. Do not remove either without confirming hosted cleanup.
+Grant notes:
+
+- `anon` has no `user_roles` table or column privileges.
+- `authenticated` has table-level SELECT and DELETE so RLS can evaluate reads/deletes.
+- `authenticated` has INSERT only on `user_id` and `role_slug`; `created_at` is database-generated.
+- `authenticated` has no direct UPDATE, TRUNCATE, REFERENCES, or TRIGGER privilege on `user_roles`.
+- Pending/suspended users cannot read stale own-role rows through RLS.
 
 ## Repo SQL Files
 
@@ -1187,6 +1177,36 @@ Purpose:
 Warning:
 
 - Current file drops helper functions with `cascade`. If run, verify dependent policies afterwards.
+- This file is superseded for hosted profile and user-role RLS by `supabase/profiles_policies.sql` and `supabase/user_roles_policies.sql`.
+
+### supabase/profile_status_role_guards.sql
+
+Purpose:
+
+- Makes `profiles.status = 'active'` the required gate for role-based helper functions.
+- Updates older helper functions so stale `user_roles` rows do not grant permissions to pending or suspended accounts.
+- Adds `current_user_can_insert_role_assignment(text, uuid)` so `user_roles` INSERT requires an active target profile.
+- Adds `remove_roles_for_inactive_profile()` so moving a profile to `pending` or `suspended` removes all role assignments.
+- Tightens the own-role SELECT policy so inactive users cannot read stale own-role rows through RLS.
+
+Hosted status:
+
+- Applied and verified against hosted Supabase on 2026-07-29 through migrations `enforce_active_status_for_role_permissions` and `require_active_status_for_own_role_reads`.
+
+### supabase/user_roles_policies.sql
+
+Purpose:
+
+- Enables and consolidates RLS on `user_roles`.
+- Revokes broad anonymous and authenticated table privileges.
+- Grants authenticated users read/delete table privileges and insert privileges only for `user_id` and `role_slug`.
+- Adds `current_user_can_manage_role_assignment(text)`, `current_user_can_insert_role_assignment(text, uuid)`, and `current_user_can_read_role_assignments()`.
+- Replaces broad member-manager insert/delete policies with role-hierarchy-scoped insert/delete policies.
+- Adds a profile read policy for role assignment managers without granting additional profile update access.
+
+Hosted status:
+
+- Applied and verified against hosted Supabase on 2026-07-29.
 
 ### supabase/announcements_policies.sql
 
@@ -1343,7 +1363,7 @@ Purpose:
 ## Known Drift And Cleanup Items
 
 - Hosted `announcement_likes` aggregate trigger state is not documented in the latest schema export.
-- Hosted definitions for budget policy helpers (`current_user_is_active`, `is_budget_manager`, `can_access_budget_account`) are not documented in the latest export.
+- Hosted definitions for some budget policy helpers (`is_budget_manager`, `can_access_budget_account`) are not fully documented in the latest export.
 - Repo `announcement_likes.sql` may differ from hosted foreign-key delete behavior.
 - No repo SQL file currently documents the hosted `budget_cycles`, `budget_accounts`, and `budget_transactions` setup.
 - Trigger attachment for `rls_auto_enable` is not documented yet.

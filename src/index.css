@@ -2509,6 +2509,15 @@ button:disabled {
   width: auto;
 }
 
+.accounts-role-option-disabled {
+  opacity: 0.55;
+}
+
+.accounts-role-option-disabled,
+.accounts-role-option-disabled input {
+  cursor: not-allowed;
+}
+
 .accounts-actions,
 .budget-row-actions {
   display: flex;

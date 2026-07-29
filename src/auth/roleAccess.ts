@@ -64,6 +64,26 @@ const budgetAccountRoleSlugs = new Set([
 
 const recorderRoleSlugs = new Set(["rec", "recorder"]);
 
+const roleAssignmentManagerRoleSlugs = new Set([
+  ...memberManagerRoleSlugs,
+  ...recorderRoleSlugs,
+]);
+
+const presidentRestrictedRoleSlugs = new Set([
+  ...adminRoleSlugs,
+  ...presidentRoleSlugs,
+]);
+
+const vicePresidentRestrictedRoleSlugs = new Set([
+  ...presidentRestrictedRoleSlugs,
+  ...vicePresidentRoleSlugs,
+]);
+
+const recorderRestrictedRoleSlugs = new Set([
+  ...vicePresidentRestrictedRoleSlugs,
+  ...recorderRoleSlugs,
+]);
+
 const fullEventManagerRoleSlugs = new Set([
   ...memberManagerRoleSlugs,
   ...recorderRoleSlugs,
@@ -246,6 +266,38 @@ export function canManageMembers(roles: string[]) {
   return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, memberManagerRoleSlugs);
 }
 
+export function canManageRoleAssignments(roles: string[]) {
+  const roleSet = normalizeRoleSet(roles);
+  return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, roleAssignmentManagerRoleSlugs);
+}
+
+export function canAssignRole(roles: string[], targetRoleSlug: string) {
+  const roleSet = normalizeRoleSet(roles);
+  const normalizedTargetRoleSlug = normalizeRoleSlug(targetRoleSlug);
+
+  if (hasAlumniBaseline(roles) || !normalizedTargetRoleSlug) {
+    return false;
+  }
+
+  if (hasAnyRole(roleSet, adminRoleSlugs)) {
+    return true;
+  }
+
+  if (hasAnyRole(roleSet, presidentRoleSlugs)) {
+    return !presidentRestrictedRoleSlugs.has(normalizedTargetRoleSlug);
+  }
+
+  if (hasAnyRole(roleSet, vicePresidentRoleSlugs)) {
+    return !vicePresidentRestrictedRoleSlugs.has(normalizedTargetRoleSlug);
+  }
+
+  if (hasAnyRole(roleSet, recorderRoleSlugs)) {
+    return !recorderRestrictedRoleSlugs.has(normalizedTargetRoleSlug);
+  }
+
+  return false;
+}
+
 export function canManageBudgets(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
   return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, budgetManagerRoleSlugs);
@@ -412,7 +464,7 @@ export function canCreateAnnouncements(roles: string[]) {
 }
 
 export function canAccessManagement(roles: string[]) {
-  return canManageMembers(roles);
+  return canManageMembers(roles) || canManageRoleAssignments(roles);
 }
 
 export function canAccessSystemAdmin(roles: string[]) {

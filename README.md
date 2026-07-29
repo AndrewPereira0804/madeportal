@@ -24,7 +24,7 @@ Protected app routes:
 - `/app/tools/treasurer/accounts/:accountId`: budget account detail, expense submission, and transaction history
 - `/app/tools/stew/wait-ons`: Steward weekly wait-on scheduler and publishing tool
 - `/app/wait-ons`: published weekly wait-on form for active members
-- `/app/manage`: chapter management hub for `admin`, `ea`, and `eda`
+- `/app/manage`: chapter management hub for member status managers and role-assignment managers
 - `/app/manage/members`: member approval, role assignment, and status management
 - `/app/announcements`: announcement feed
 - `/app/announcements/create`
@@ -46,7 +46,7 @@ Legacy compatibility redirects:
 
 ## Supabase Data Model (minimum used by current code)
 
-For the full database contract, read `docs/database.md`. The user-provided hosted schema and RLS policy exports from 2026-06-25 are canonical unless the user says they are outdated.
+For the full database contract, read `docs/database.md`. It tracks the 2026-06-25 hosted export plus later verified hosted RLS updates.
 
 Tables used by the frontend:
 - `profiles`: `user_id`, `name`, `email`, `status`, `created_at`
@@ -70,8 +70,12 @@ Status values expected by UI:
 - `suspended`
 
 Role slugs:
-- `admin` is used for admin access checks
-- `ea` and `eda` are used with `admin` for chapter/member-management access and all chair tool access through `/app/tools`
+- `profiles.status` is the ultimate access gate: `pending` and `suspended` accounts should have no role-based access, even if stale role rows exist
+- `admin` is used for admin access checks and can assign any role, including `admin` and President roles
+- `ea`/`president` can assign VP, Recorder, and lower roles, but not `admin` or President roles
+- `eda`/`vp`/`vice-president`/`vice_president` can assign Recorder and lower roles, but not `admin`, President, or VP roles
+- `rec`/`recorder` can assign lower roles, but not Recorder, VP, President, or `admin`
+- `ea` and `eda` are used with `admin` for chapter/member status-management access and all chair tool access through `/app/tools`
 - `admin`, `ea`, `eda`, and `rec`/`recorder` can manage all event types
 - Event-type chair access is mapped in `src/auth/roleAccess.ts`; the current rollout adds role rows for `alumni-chair`, `chapter-dev`, and `professional-dev` if missing.
 - `treasurer` has a chair tool workspace for separated budget workflows under `/app/tools/treasurer`
@@ -85,7 +89,7 @@ Role slugs:
 
 ## Supabase Relationship & RLS Working Notes
 
-This section summarizes the canonical hosted schema export and the latest available RLS working notes. Schema facts and RLS policies from the 2026-06-25 user-provided exports are canonical unless the user says they are outdated. Function bodies and trigger attachments remain external state unless they are verified from a fresh hosted export or repo SQL.
+This section summarizes the canonical hosted schema export and the latest available RLS working notes. See `docs/database.md` for later verified hosted policy hardening after the 2026-06-25 export. Function bodies and trigger attachments remain external state unless they are verified from a fresh hosted export or repo SQL.
 
 Important expectations:
 - If you notice a discrepancy between app behavior, SQL files, and hosted Supabase state, **do not assume** the intended behavior.
@@ -278,7 +282,9 @@ Repository policy/function SQL files:
 - `supabase/events_calendar_policies.sql`
 - `supabase/events_management_access_policies.sql`
 - `supabase/emergency_contacts.sql`
+- `supabase/profile_status_role_guards.sql`
 - `supabase/profiles_policies.sql`
+- `supabase/user_roles_policies.sql`
 
 Important:
 - The current hosted RLS policy snapshot is documented in `docs/database.md`.
