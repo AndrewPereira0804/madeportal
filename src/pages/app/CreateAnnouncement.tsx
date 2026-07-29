@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/authContext";
 import supabase from "../../config/supabaseClient";
+import { canCreateAnnouncements } from "../../auth/roleAccess";
+import useRoles from "../../auth/useRoles";
 import { Button, Card, Input, PageHeader, Textarea } from "../../components/ui";
 
 type FormValues = {
@@ -19,7 +21,6 @@ async function addAnnouncement(
   const { error } = await supabase.from("announcements").insert({
     title,
     body,
-    created_at: new Date().toISOString(),
     author_id: authorId,
     visibility,
   });
@@ -30,6 +31,8 @@ async function addAnnouncement(
 export default function CreateAnnouncement() {
   const navigate = useNavigate();
   const { session } = useAuth();
+  const { roles, loading: rolesLoading } = useRoles();
+  const canCreate = canCreateAnnouncements(roles);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const {
     register,
@@ -42,6 +45,11 @@ export default function CreateAnnouncement() {
 
     if (!session?.user?.id) {
       setErrorMessage("You must be logged in to create an announcement.");
+      return;
+    }
+
+    if (!canCreate) {
+      setErrorMessage("Only President, VP, or Admin roles can create announcements.");
       return;
     }
 
@@ -59,6 +67,42 @@ export default function CreateAnnouncement() {
 
     navigate("/app/announcements");
   };
+
+  if (rolesLoading) {
+    return (
+      <Card>
+        <PageHeader
+          title="Create Announcement"
+          subtitle="Share a chapter update or notice with members."
+          bordered
+          actions={
+            <Button type="button" variant="outline-secondary" onClick={() => navigate("/app/announcements")}>
+              Cancel
+            </Button>
+          }
+        />
+        <p className="mt-4 mb-0">Loading permissions...</p>
+      </Card>
+    );
+  }
+
+  if (!canCreate) {
+    return (
+      <Card>
+        <PageHeader
+          title="Create Announcement"
+          subtitle="Share a chapter update or notice with members."
+          bordered
+          actions={
+            <Button type="button" variant="outline-secondary" onClick={() => navigate("/app/announcements")}>
+              Back
+            </Button>
+          }
+        />
+        <div className="form-error mb-0 mt-4">Only President, VP, or Admin roles can create announcements.</div>
+      </Card>
+    );
+  }
 
   return (
     <Card>

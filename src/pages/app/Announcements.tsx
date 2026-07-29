@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import supabase from "../../config/supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/authContext";
-import { canModerateAnnouncements } from "../../auth/roleAccess";
+import { canCreateAnnouncements, canModerateAnnouncements } from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
 import { Button, Card, EmptyState, PageHeader } from "../../components/ui";
 
@@ -34,6 +34,7 @@ export default function Announcements() {
     const [deletingId, setDeletingId] = useState<AnnouncementRow["id"] | null>(null);
     const userId = session?.user?.id;
     const canModerate = canModerateAnnouncements(roles);
+    const canCreate = canCreateAnnouncements(roles);
 
     useEffect(() => {
         let ignore = false;
@@ -151,9 +152,11 @@ export default function Announcements() {
                 subtitle="Latest chapter updates and notices."
                 bordered
                 actions={
-                    <Button type="button" onClick={() => navigate("create")}>
-                        Create Announcement
-                    </Button>
+                    canCreate ? (
+                        <Button type="button" onClick={() => navigate("create")}>
+                            Create Announcement
+                        </Button>
+                    ) : undefined
                 }
             />
 
@@ -165,7 +168,11 @@ export default function Announcements() {
                 <EmptyState
                     title="No announcements yet"
                     description="Chapter updates, notices, and operational posts will appear here."
-                    action={<Button type="button" onClick={() => navigate("create")}>Create announcement</Button>}
+                    action={
+                        canCreate ? (
+                            <Button type="button" onClick={() => navigate("create")}>Create announcement</Button>
+                        ) : undefined
+                    }
                 />
             )}
 
@@ -185,7 +192,7 @@ export default function Announcements() {
                             onDelete={handleDelete}
                             isDeleting={deletingId === announcement.id}
                             canDelete={announcement.author_id === userId || canModerate}
-                            canEdit={announcement.author_id === userId}
+                            canEdit={announcement.author_id === userId || canModerate}
                         />
                     ))}
                 </div>

@@ -8,7 +8,6 @@ import {
   canManageEvent,
   canManageEventType,
   canManageEvents as canManageRoleEvents,
-  canManageOwnEvents,
   getManageableEventTypes,
 } from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
@@ -103,10 +102,6 @@ export default function ManageEvents({
     () => scopedEventTypeList ? new Set<EventTypeSlug>(scopedEventTypeList) : null,
     [scopedEventTypeList]
   );
-  const canUseOwnEventFallback = useMemo(
-    () => !scopedEventTypeSet && canManageOwnEvents(roles),
-    [roles, scopedEventTypeSet]
-  );
   const manageableEventTypes = useMemo(() => getManageableEventTypes(roles), [roles]);
   const visibleManageableEventTypes = useMemo(
     () =>
@@ -125,7 +120,7 @@ export default function ManageEvents({
   const createEventTypeOptions = useMemo(() => {
     const baseEventTypeOptions = scopedEventTypeSet ? eventTypeOptions : generalEventTypeOptions;
     const allowedOptions =
-      canManageAll || (canUseOwnEventFallback && manageableEventTypes.length === 0)
+      canManageAll
         ? baseEventTypeOptions
         : baseEventTypeOptions.filter((eventType) => visibleManageableEventTypes.includes(eventType.slug));
 
@@ -134,7 +129,7 @@ export default function ManageEvents({
     }
 
     return allowedOptions.filter((eventType) => scopedEventTypeSet.has(eventType.slug));
-  }, [canManageAll, canUseOwnEventFallback, manageableEventTypes, scopedEventTypeSet, visibleManageableEventTypes]);
+  }, [canManageAll, scopedEventTypeSet, visibleManageableEventTypes]);
   const canCreateFromManager = createEventTypeOptions.length > 0;
   const defaultDraftEventType = createEventTypeOptions.some((eventType) => eventType.slug === defaultEventType)
     ? defaultEventType
@@ -146,10 +141,7 @@ export default function ManageEvents({
   const selectedFormEventType = editingId ? draft.event_type : selectedCreateEventType;
   const isAlumniEventSelected = selectedFormEventType === "alumni_event";
   const canCreateSelectedEventType =
-    canManageEventType(roles, selectedCreateEventType) ||
-    (canUseOwnEventFallback &&
-      manageableEventTypes.length === 0 &&
-      createEventTypeOptions.some((eventType) => eventType.slug === selectedCreateEventType));
+    canManageEventType(roles, selectedCreateEventType);
 
   const canEditOrDeleteEvent = (event: EventRow) => {
     return canManageEvent(roles, event.created_by, userId, event.event_type);
@@ -162,7 +154,7 @@ export default function ManageEvents({
       setLoading(true);
       setErrorMessage(null);
 
-      if (!canManageAll && visibleManageableEventTypes.length === 0 && (!canUseOwnEventFallback || !userId)) {
+      if (!canManageAll && visibleManageableEventTypes.length === 0) {
         setEvents([]);
         setLoading(false);
         return;
@@ -177,12 +169,8 @@ export default function ManageEvents({
       }
 
       if (!canManageAll) {
-        if (visibleManageableEventTypes.length > 0 && canUseOwnEventFallback && userId) {
-          query = query.or(`event_type.in.(${visibleManageableEventTypes.join(",")}),created_by.eq.${userId}`);
-        } else if (visibleManageableEventTypes.length > 0) {
+        if (visibleManageableEventTypes.length > 0) {
           query = query.in("event_type", visibleManageableEventTypes);
-        } else if (canUseOwnEventFallback && userId) {
-          query = query.eq("created_by", userId);
         }
       }
 
@@ -224,7 +212,6 @@ export default function ManageEvents({
   }, [
     canManage,
     canManageAll,
-    canUseOwnEventFallback,
     roles,
     rolesLoading,
     scopedEventTypeList,
@@ -274,13 +261,12 @@ export default function ManageEvents({
     setSaving(true);
     setErrorMessage(null);
 
-    const payload = {
+    const eventPayload = {
       title: draft.title.trim(),
       description: draft.description.trim() || null,
       event_type: eventTypeForSave,
       start: toEventTimestamp(draft.start),
       end: toEventTimestamp(draft.end),
-      created_by: userId,
       visible_to_alum: eventTypeForSave === "alumni_event" || draft.visible_to_alum,
       visible_to_neophyte: draft.visible_to_neophyte,
     };
@@ -295,7 +281,7 @@ export default function ManageEvents({
 
       const { data, error } = await supabase
         .from("events")
-        .update(payload)
+        .update(eventPayload)
         .eq("id", editingId)
         .select("id, created_at, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte")
         .single();
@@ -309,7 +295,10 @@ export default function ManageEvents({
     } else {
       const { data, error } = await supabase
         .from("events")
-        .insert(payload)
+        .insert({
+          ...eventPayload,
+          created_by: userId,
+        })
         .select("id, created_at, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte")
         .single();
 

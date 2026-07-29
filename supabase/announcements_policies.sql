@@ -1,46 +1,185 @@
 alter table public.announcements enable row level security;
 
+revoke all on public.announcements from anon;
+revoke all on public.announcements from public;
+revoke all on public.announcements from authenticated;
+
+grant select on public.announcements to authenticated;
+grant insert (title, body, author_id, visibility) on public.announcements to authenticated;
+grant update (title, body, visibility) on public.announcements to authenticated;
+grant delete on public.announcements to authenticated;
+
 drop policy if exists "Authenticated users can read announcements" on public.announcements;
 drop policy if exists "Authenticated users can insert announcements" on public.announcements;
 drop policy if exists "Authors can update own announcements" on public.announcements;
 drop policy if exists "Admins can update any announcement" on public.announcements;
 drop policy if exists "Authors can delete own announcements" on public.announcements;
 drop policy if exists "Admins can delete any announcement" on public.announcements;
+drop policy if exists "active_users_can_read_announcements" on public.announcements;
+drop policy if exists "authenticated_insert_announcements" on public.announcements;
+drop policy if exists "authenticated_update_likes" on public.announcements;
+drop policy if exists "Active users can read visible announcements" on public.announcements;
+drop policy if exists "Permitted roles can insert announcements" on public.announcements;
+drop policy if exists "Authors can update own visible announcements" on public.announcements;
+drop policy if exists "Announcement managers can update announcements" on public.announcements;
+drop policy if exists "Announcement managers can delete announcements" on public.announcements;
 
-create policy "Authenticated users can read announcements"
+create policy "Active users can read visible announcements"
 on public.announcements
 for select
 to authenticated
-using (true);
+using (
+  visibility = 'active'::public.user_status
+  and exists (
+    select 1
+    from public.profiles p
+    where p.user_id = (select auth.uid())
+      and p.status = 'active'::public.user_status
+  )
+);
 
-create policy "Authenticated users can insert announcements"
+create policy "Permitted roles can insert announcements"
 on public.announcements
 for insert
 to authenticated
-with check (author_id = auth.uid());
+with check (
+  author_id = (select auth.uid())
+  and visibility = 'active'::public.user_status
+  and exists (
+    select 1
+    from public.profiles p
+    where p.user_id = (select auth.uid())
+      and p.status = 'active'::public.user_status
+  )
+  and exists (
+    select 1
+    from public.user_roles ur
+    where ur.user_id = (select auth.uid())
+      and ur.role_slug in (
+        'admin',
+        'ea',
+        'eda',
+        'president',
+        'vice-president',
+        'vice_president',
+        'vp'
+      )
+  )
+);
 
-create policy "Authors can update own announcements"
+create policy "Authors can update own visible announcements"
 on public.announcements
 for update
 to authenticated
-using (author_id = auth.uid())
-with check (author_id = auth.uid());
+using (
+  author_id = (select auth.uid())
+  and visibility = 'active'::public.user_status
+  and exists (
+    select 1
+    from public.profiles p
+    where p.user_id = (select auth.uid())
+      and p.status = 'active'::public.user_status
+  )
+)
+with check (
+  author_id = (select auth.uid())
+  and visibility = 'active'::public.user_status
+  and exists (
+    select 1
+    from public.profiles p
+    where p.user_id = (select auth.uid())
+      and p.status = 'active'::public.user_status
+  )
+);
 
-create policy "Admins can update any announcement"
+create policy "Announcement managers can update announcements"
 on public.announcements
 for update
 to authenticated
-using (public.is_admin(auth.uid()))
-with check (public.is_admin(auth.uid()));
+using (
+  visibility = 'active'::public.user_status
+  and exists (
+    select 1
+    from public.profiles p
+    where p.user_id = (select auth.uid())
+      and p.status = 'active'::public.user_status
+  )
+  and exists (
+    select 1
+    from public.user_roles ur
+    where ur.user_id = (select auth.uid())
+      and ur.role_slug in (
+        'admin',
+        'ea',
+        'eda',
+        'president',
+        'vice-president',
+        'vice_president',
+        'vp'
+      )
+  )
+)
+with check (
+  visibility = 'active'::public.user_status
+  and exists (
+    select 1
+    from public.profiles p
+    where p.user_id = (select auth.uid())
+      and p.status = 'active'::public.user_status
+  )
+  and exists (
+    select 1
+    from public.user_roles ur
+    where ur.user_id = (select auth.uid())
+      and ur.role_slug in (
+        'admin',
+        'ea',
+        'eda',
+        'president',
+        'vice-president',
+        'vice_president',
+        'vp'
+      )
+  )
+);
 
 create policy "Authors can delete own announcements"
 on public.announcements
 for delete
 to authenticated
-using (author_id = auth.uid());
+using (
+  author_id = (select auth.uid())
+  and exists (
+    select 1
+    from public.profiles p
+    where p.user_id = (select auth.uid())
+      and p.status = 'active'::public.user_status
+  )
+);
 
-create policy "Admins can delete any announcement"
+create policy "Announcement managers can delete announcements"
 on public.announcements
 for delete
 to authenticated
-using (public.is_admin(auth.uid()));
+using (
+  exists (
+    select 1
+    from public.profiles p
+    where p.user_id = (select auth.uid())
+      and p.status = 'active'::public.user_status
+  )
+  and exists (
+    select 1
+    from public.user_roles ur
+    where ur.user_id = (select auth.uid())
+      and ur.role_slug in (
+        'admin',
+        'ea',
+        'eda',
+        'president',
+        'vice-president',
+        'vice_president',
+        'vp'
+      )
+  )
+);

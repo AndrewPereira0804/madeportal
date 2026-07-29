@@ -272,10 +272,13 @@ Repository policy/function SQL files:
 - `supabase/admin_accounts_policies.sql`
 - `supabase/announcements_policies.sql`
 - `supabase/auth_profile_triggers.sql`
+- `supabase/calendars_policies.sql`
+- `supabase/events_policies.sql`
 - `supabase/event_types.sql`
 - `supabase/events_calendar_policies.sql`
 - `supabase/events_management_access_policies.sql`
 - `supabase/emergency_contacts.sql`
+- `supabase/profiles_policies.sql`
 
 Important:
 - The current hosted RLS policy snapshot is documented in `docs/database.md`.

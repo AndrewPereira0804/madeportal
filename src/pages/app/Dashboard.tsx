@@ -307,9 +307,9 @@ export default function Dashboard() {
 
   const visibleEvents = useMemo(() => {
     return events
-      .filter((event) => canViewEvent(roles, event, userId))
+      .filter((event) => canViewEvent(roles, event))
       .slice(0, 4);
-  }, [events, roles, userId]);
+  }, [events, roles]);
 
   const visibleAnnouncements = useMemo(() => {
     return announcements

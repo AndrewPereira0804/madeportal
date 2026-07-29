@@ -25,6 +25,7 @@ async function savePendingProfile(userId: string, name: string, email: string) {
     status: "pending",
   }, {
     onConflict: "user_id",
+    ignoreDuplicates: true,
   });
 }
 

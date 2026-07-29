@@ -106,11 +106,6 @@ const chairRoleSlugs = new Set([
   "treasurer",
 ]);
 
-const ownEventManagerRoleSlugs = new Set([
-  ...chairRoleSlugs,
-  "treasurer",
-]);
-
 const alumniEventToolRoleSlugs = new Set(["alumni-chair", "alumni-chairman"]);
 const partyFormalEventToolRoleSlugs = new Set(["social-chair", "hsm", "health-safety-manager"]);
 const communityServiceEventToolRoleSlugs = new Set(["cs-chair", "community-service-chair"]);
@@ -246,11 +241,6 @@ function hasAlumniBaseline(roles: string[]) {
   return getChapterStatus(roles) === "alumni";
 }
 
-function hasActiveChapterBaseline(roles: string[]) {
-  const chapterStatus = getChapterStatus(roles);
-  return chapterStatus === "neophyte" || chapterStatus === "brother";
-}
-
 export function canManageMembers(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
   return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, memberManagerRoleSlugs);
@@ -312,13 +302,8 @@ export function canManageAllEvents(roles: string[]) {
   return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, fullEventManagerRoleSlugs);
 }
 
-export function canManageOwnEvents(roles: string[]) {
-  const roleSet = normalizeRoleSet(roles);
-  return hasActiveChapterBaseline(roles) && hasAnyRole(roleSet, ownEventManagerRoleSlugs);
-}
-
 export function canManageEvents(roles: string[]) {
-  return canManageAllEvents(roles) || getManageableEventTypes(roles).length > 0 || canManageOwnEvents(roles);
+  return canManageAllEvents(roles) || getManageableEventTypes(roles).length > 0;
 }
 
 export function getManageableEventTypes(roles: string[]) {
@@ -348,15 +333,11 @@ export function canManageEventType(roles: string[], eventType: string | null | u
 
 export function canManageEvent(
   roles: string[],
-  eventCreatedBy: string | null,
-  currentUserId: string | null,
+  _eventCreatedBy: string | null,
+  _currentUserId: string | null,
   eventType?: string | null,
 ) {
-  if (canManageEventType(roles, eventType)) {
-    return true;
-  }
-
-  return Boolean(canManageOwnEvents(roles) && eventCreatedBy && currentUserId && eventCreatedBy === currentUserId);
+  return canManageEventType(roles, eventType);
 }
 
 export function canManagePartyEvents(roles: string[]) {
@@ -397,12 +378,12 @@ export function canManageAllEmergencyContacts(roles: string[]) {
   return hasAdminRole(roles);
 }
 
-export function canViewEvent(roles: string[], event: EventVisibility, currentUserId?: string | null) {
+export function canViewEvent(roles: string[], event: EventVisibility) {
   if (canManageAllEvents(roles)) {
     return true;
   }
 
-  if (event.created_by && currentUserId && event.created_by === currentUserId && canManageOwnEvents(roles)) {
+  if (canManageEventType(roles, event.event_type)) {
     return true;
   }
 
@@ -423,7 +404,7 @@ export function canViewEvent(roles: string[], event: EventVisibility, currentUse
 }
 
 export function canModerateAnnouncements(roles: string[]) {
-  return !hasAlumniBaseline(roles) && hasAdminRole(roles);
+  return !hasAlumniBaseline(roles) && (hasAdminRole(roles) || hasPresidentOrVicePresidentRole(roles));
 }
 
 export function canCreateAnnouncements(roles: string[]) {

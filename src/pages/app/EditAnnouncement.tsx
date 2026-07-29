@@ -98,7 +98,7 @@ export default function EditAnnouncement() {
         data.author_id === session?.user?.id || canModerate;
 
       if (!canEditAnnouncement) {
-        setLoadError("You can only edit your own announcements unless you are an admin.");
+        setLoadError("You can only edit your own announcements unless you are President, VP, or Admin.");
         setLoadingAnnouncement(false);
         return;
       }
@@ -135,7 +135,7 @@ export default function EditAnnouncement() {
       announcementAuthorId === session.user.id || canModerate;
 
     if (!canEditAnnouncement) {
-      setSubmitError("You can only edit your own announcements unless you are an admin.");
+      setSubmitError("You can only edit your own announcements unless you are President, VP, or Admin.");
       return;
     }
 

@@ -1,10 +1,10 @@
 # Database Contract
 
-Last updated: 2026-07-28
+Last updated: 2026-07-29
 
 ## Source Of Truth
 
-Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
+Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
 
 Schema exports in this document are for context only. Do not run them directly as migrations because export order, enum placeholders, constraints, policies, and triggers may be incomplete.
 
@@ -221,8 +221,8 @@ Columns:
 - `title text not null`
 - `description text`
 - `start timestamp without time zone not null`
-- `end timestamp without time zone`
-- `created_by uuid default gen_random_uuid() references public.profiles(user_id)`
+- `end timestamp without time zone not null`
+- `created_by uuid not null references public.profiles(user_id)`
 - `visible_to_alum boolean not null`
 - `visible_to_neophyte boolean not null`
 - `event_type text not null default 'brotherhood_event'`
@@ -246,7 +246,7 @@ Frontend usage:
 - `src/pages/app/tools/ProfessionalDevelopmentEventsTool.tsx` creates professional development events and stores an optional public `speaker` value in `details`.
 - `src/pages/app/tools/ChairTools.tsx` reuses `src/pages/app/ManageEvents.tsx` for scoped Chapter Development, Philanthropy, Scholarship, Member Educator, and House Manager event workspaces, plus the Recorder all-type event workspace.
 
-Important: frontend supplies `created_by`; do not rely on the `gen_random_uuid()` default because it can produce invalid foreign keys.
+Important: frontend supplies `created_by`. Hosted RLS now requires `created_by = auth.uid()` on insert, and client updates are not granted `created_by` column access.
 
 ### public.calendars
 
@@ -517,29 +517,38 @@ Rollout note:
 
 ### Announcements
 
-Hosted policy snapshot:
+Hosted policy intent after the 2026-07-28 announcement hardening:
 
-- Active users can read announcements.
-- Authenticated active users can insert announcements for themselves.
-- Authenticated users can update `likes`.
+- Active users can read visible announcements where `visibility = 'active'`.
+- Active users with `admin`, `ea`, `eda`, `president`, `vice-president`, `vice_president`, or `vp` can insert announcements for themselves.
+- Authors can update and delete their own visible announcements.
+- `admin`, President, and VP role variants can update and delete all visible announcements.
+- Update policies must include both `USING` and `WITH CHECK`; `USING` controls existing rows and `WITH CHECK` validates the resulting row.
+- Clients are granted `UPDATE` only on `title`, `body`, and `visibility`; direct client updates to `author_id`, `likes`, and timestamps are not part of the announcement edit workflow.
 - Per-user like state should live in `announcement_likes` with one row per `(announcement_id, user_id)`.
 - The aggregate `announcements.likes` count should stay aligned with `announcement_likes`.
 
-Repo SQL may not match hosted policy intent. The current hosted `active_users_can_read_announcements` policy is more restrictive than the repo's older `Authenticated users can read announcements` policy.
+Repo SQL in `supabase/announcements_policies.sql` is the rollout/reference script for this policy set.
 
 Important: the 2026-06-25 RLS policy export includes current-user read, insert, and delete policies for `announcement_likes`. Trigger state for keeping `announcements.likes` synchronized remains external/unverified until a fresh function/trigger export is provided.
 
 ### Events
 
-Hosted policy snapshot:
+Hosted policy intent after the 2026-07-29 event policy rebuild:
 
-- Users can select events if they are `brother`, created the event, or are in a visible audience role.
-- `alum` can view events where `visible_to_alum` is true.
-- `neophyte` can view events where `visible_to_neophyte` is true.
-- Users can insert events they own.
-- Event owners or `brother` users can update/delete events.
+- Users whose profile status is `active` can read permitted events.
+- Active `brother` users can read all events.
+- Active `neophyte` users can read events where `visible_to_neophyte` is true.
+- Active `alum`/`alumni` users can read `alumni_event` rows and rows where `visible_to_alum` is true.
+- Full event managers can read, insert, update, and delete all valid event types.
+- Event-type managers can read, insert, update, and delete only rows whose `event_type` is allowed for one of their roles.
+- Ordinary members cannot insert, update, or delete events by ownership or by `brother` role alone.
+- Inserts must set `created_by = auth.uid()` and must pass active status, role/event-type authorization, nonblank title, `end > start`, object `details`, and alumni visibility rules.
+- Updates include both `USING` and `WITH CHECK`; `USING` validates the existing row's event type and `WITH CHECK` validates the resulting row's event type and row invariants.
+- Client updates are not granted access to `id`, `created_at`, or `created_by`.
+- There is no `calendar_id` column on `events`; calendar validity is currently represented by the required `start`/`end` window.
 
-Frontend currently uses a stricter/higher-level role split for event management:
+Frontend uses the same role split for event management:
 
 - Full CRUD roles: `admin`, `ea`, `eda`, `rec`, `recorder`.
 - `social-chair`: `party`, `formal`.
@@ -552,7 +561,6 @@ Frontend currently uses a stricter/higher-level role split for event management:
 - `philo-chair`: `philanthropy`.
 - `professional-dev`: `professional_development`.
 - `scholarship`: `scholarship`.
-- Own-event fallback roles remain for legacy event records where applicable.
 
 The dedicated Party and Formal tool routes are exposed under both `/app/tools/social-chair/*` and `/app/tools/hsm/*`. Both roles read and update the same `events` rows by event type, so Social Chair can edit Party/Formal events created by HSM and HSM can edit Party/Formal events created by Social Chair when hosted RLS includes the matching `can_manage_event_type` behavior.
 
@@ -569,7 +577,7 @@ The scoped chair event tool routes reuse the general event manager with a fixed 
 - `/app/tools/hm/house-events`: `house_meeting`, `work_party`.
 - `/app/tools/rec/events`: all event types.
 
-This is a known area where hosted RLS and frontend role intent should be re-verified before changing event behavior.
+The old permissive `events_insert_own`, `events_update_allowed`, and `events_delete_allowed` policies were removed because permissive RLS policies are OR'd together and those legacy policies undermined the scoped role policies.
 
 ### Chair Tools
 
@@ -613,9 +621,13 @@ Expected capabilities:
 
 ### Calendars
 
-Hosted policy snapshot currently allows authenticated users to select, insert, update, and delete calendars.
+Hosted policy intent after the 2026-07-29 calendar hardening:
 
-There are multiple duplicate SELECT policies in hosted state. Treat this as external state to clean up deliberately, not as a frontend bug.
+- Users whose profile status is `active` can read calendar windows.
+- Users whose profile status is `active` and who hold `admin`, `ea`, `eda`, President, VP, or Recorder role variants can insert, update, and delete calendar windows.
+- All other authenticated users have no calendar write access.
+- Anonymous users have no direct calendar table or sequence access.
+- Clients are granted `INSERT` and `UPDATE` only on `start`, `end`, and `name`; direct client writes to `id` are not granted.
 
 ### Budgets
 
@@ -938,9 +950,9 @@ Event trigger attachment was not included in the provided export. Verify hosted 
 
 ### Other Event Helpers
 
-Repo SQL includes `has_role`, `can_full_crud_events`, and `can_create_owned_events`, but hosted policies currently reference `is_role_member`.
+Older repo SQL included event helper functions such as `has_role`, `can_full_crud_events`, `can_create_owned_events`, `can_manage_events`, `can_manage_all_events`, and `can_manage_event_type`.
 
-Do not assume repo helper names match hosted helper names for events unless the relevant SQL file has been reconciled with hosted functions.
+After the 2026-07-29 event policy rebuild, hosted event RLS no longer depends on public event helper RPC functions. Direct client execute privileges on the old event helper functions were revoked during the rollout.
 
 ### Other Policy Helpers
 
@@ -949,8 +961,6 @@ The 2026-06-25 RLS policy export references these helper functions, but the expo
 - `public.current_user_is_active()`
 - `public.is_budget_manager()`
 - `public.can_access_budget_account(uuid)`
-- `public.can_manage_events(uuid)`
-- `public.can_manage_event_type(uuid, text)`
 
 Repo SQL defines or references some event helpers, but hosted function bodies should be verified before changing access behavior that depends on any of these helpers.
 
@@ -960,17 +970,28 @@ This section reflects the policy export provided on 2026-06-25.
 
 ### public.announcements
 
-- `active_users_can_read_announcements`
+- `Active users can read visible announcements`
   - SELECT to authenticated.
-  - Allows users whose profile status is `active`.
-- `authenticated_insert_announcements`
+  - Allows users whose profile status is `active` to read rows where `visibility = 'active'`.
+- `Permitted roles can insert announcements`
   - INSERT to authenticated.
-  - Requires `author_id = auth.uid()` and active profile status.
-- `authenticated_update_likes`
+  - Requires active profile status, `author_id = auth.uid()`, `visibility = 'active'`, and one of `admin`, `ea`, `eda`, `president`, `vice-president`, `vice_president`, or `vp`.
+- `Authors can update own visible announcements`
   - UPDATE to authenticated.
-  - Allows update with `using (true)` and `with check (true)`.
+  - Allows active authors to update their own active-visible announcements.
+  - Includes both `USING` and `WITH CHECK`.
+- `Announcement managers can update announcements`
+  - UPDATE to authenticated.
+  - Allows active `admin`, President, and VP role variants to update active-visible announcements.
+  - Includes both `USING` and `WITH CHECK`.
+- `Authors can delete own announcements`
+  - DELETE to authenticated.
+  - Allows active authors to delete their own announcements.
+- `Announcement managers can delete announcements`
+  - DELETE to authenticated.
+  - Allows active `admin`, President, and VP role variants to delete announcements.
 
-Note: this direct `announcements.likes` update policy is legacy for the current frontend like flow. Current frontend code inserts/deletes rows in `announcement_likes`.
+Note: the old direct `announcements.likes` update policy was removed. Current frontend code inserts/deletes rows in `announcement_likes`.
 
 ### public.announcement_likes
 
@@ -1061,53 +1082,38 @@ Verified from the 2026-06-29 Supabase plugin migration:
 
 ### public.calendars
 
-- `calendars_select_all_authenticated`
-- `calendars_select_authenticated`
-- `calendars_select_authenticated_only`
-- `calendars_insert_authenticated`
-- `calendars_update_authenticated`
-- `calendars_delete_authenticated`
-
-All current calendar policies allow authenticated users with `true` predicates.
+- `Active users can read calendars`
+  - SELECT to authenticated.
+  - Allows users whose profile status is `active` to read calendar windows.
+- `Calendar managers can insert calendars`
+  - INSERT to authenticated.
+  - Requires active profile status and one of `admin`, `ea`, `eda`, `president`, `vice-president`, `vice_president`, `vp`, `rec`, or `recorder`.
+- `Calendar managers can update calendars`
+  - UPDATE to authenticated.
+  - Allows active calendar managers to update calendar windows.
+  - Includes both `USING` and `WITH CHECK`.
+- `Calendar managers can delete calendars`
+  - DELETE to authenticated.
+  - Allows active calendar managers to delete calendar windows.
 
 ### public.events
 
-- `Event managers can read all events`
+- `Active users can read permitted events`
   - SELECT to authenticated.
-  - Allows users passing `can_manage_events(auth.uid())`.
-- `Event managers can insert events`
+  - Allows active full managers and active event-type managers to read rows they can manage.
+  - Allows active `brother` users to read all events.
+  - Allows active `neophyte` users to read neophyte-visible events.
+  - Allows active `alum`/`alumni` users to read alumni-visible events and `alumni_event` rows.
+- `Approved event roles can insert events`
   - INSERT to authenticated.
-  - Requires `created_by = auth.uid()` and `can_manage_events(auth.uid())`.
-- `Event managers can update all events`
+  - Requires active profile status, `created_by = auth.uid()`, allowed `event_type`, nonblank `title`, `end > start`, object `details`, and `visible_to_alum = true` for `alumni_event`.
+- `Event managers can update allowed events`
   - UPDATE to authenticated.
-  - Allows and checks users passing `can_manage_events(auth.uid())`.
-- `Event managers can delete all events`
+  - Allows active full managers or active event-type managers to update existing rows whose current `event_type` they can manage.
+  - Includes `WITH CHECK` so the resulting row still has an allowed `event_type`, nonblank `title`, `end > start`, object `details`, and valid alumni visibility.
+- `Event managers can delete allowed events`
   - DELETE to authenticated.
-  - Allows users passing `can_manage_events(auth.uid())`.
-- `Event type managers can read manageable events`
-  - SELECT to authenticated.
-  - Allows rows passing `can_manage_event_type(auth.uid(), event_type)`.
-- `Event type managers can create manageable events`
-  - INSERT to authenticated.
-  - Requires `created_by = auth.uid()` and manageable `event_type`.
-- `Event type managers can update manageable events`
-  - UPDATE to authenticated.
-  - Allows and checks manageable `event_type`.
-- `Event type managers can delete manageable events`
-  - DELETE to authenticated.
-  - Allows manageable `event_type`.
-- `events_select_visible`
-  - SELECT to authenticated.
-  - Allows `brother`, owner, visible alum, or visible neophyte.
-- `events_insert_own`
-  - INSERT to authenticated.
-  - Requires `created_by = auth.uid()`.
-- `events_update_allowed`
-  - UPDATE to authenticated.
-  - Allows owner or `brother`.
-- `events_delete_allowed`
-  - DELETE to authenticated.
-  - Allows owner or `brother`.
+  - Allows active full managers or active event-type managers to delete rows whose current `event_type` they can manage.
 
 ### public.majors
 
@@ -1116,33 +1122,32 @@ All current calendar policies allow authenticated users with `true` predicates.
 
 ### public.profiles
 
-Current hosted policies include both newer member-manager policies and older profile policies:
+Hosted policy intent after the 2026-07-29 profile hardening:
 
 - `Active users can read active profiles`
   - SELECT to authenticated.
   - Allows rows where the target profile is `active` and the requesting user is active via `is_active(auth.uid())`.
 - `Member managers can read all profiles`
-  - SELECT to authenticated via `can_manage_members(auth.uid())`.
-- `Member managers can update all profiles`
-  - UPDATE to authenticated via `can_manage_members(auth.uid())`.
-- `Users can insert own profile`
-  - INSERT to authenticated where `user_id = auth.uid()`.
+  - SELECT to authenticated for active `admin`, `ea`, or `eda` users via `can_manage_members(auth.uid())`.
+- `Member managers can update profiles`
+  - UPDATE to authenticated for active `admin`, `ea`, or `eda` users.
+  - Includes both `USING` and `WITH CHECK`.
+- `Users can insert own pending profile`
+  - INSERT to authenticated where `user_id = auth.uid()` and `status = 'pending'`.
 - `Users can read own profile`
   - SELECT to authenticated where `user_id = auth.uid()`.
-- `profiles_admin_all`
-  - ALL to authenticated for users with `admin` in `user_roles`.
-- `profiles_delete_own`
-  - DELETE to authenticated where `user_id = auth.uid()`.
-- `profiles_insert_authenticated`
-  - INSERT to authenticated for admins or for own pending profile rows.
-- `profiles_select_own`
-  - SELECT to authenticated where `user_id = auth.uid()`.
-- `profiles_update_own`
+- `Users can update own profile details`
   - UPDATE to authenticated where `user_id = auth.uid()`.
-- `update_own_profile_while_pending`
-  - UPDATE to authenticated where `user_id = auth.uid()` and the row status is `pending`.
+  - Includes both `USING` and `WITH CHECK`.
 
-This overlap may be intentional or may be cleanup debt. Do not remove policy overlap without confirming desired hosted behavior.
+Grant and trigger notes:
+
+- `anon` has no `profiles` table privileges.
+- `authenticated` has SELECT and limited INSERT/UPDATE column privileges only.
+- `authenticated` does not have UPDATE privilege on `profiles.user_id`, `profiles.email`, or `profiles.created_at`.
+- `authenticated` has UPDATE privilege on `profiles.status` so active member managers can use direct PostgREST status updates.
+- The `prevent_profile_self_privilege_escalation` trigger blocks non-member-managers from changing `profiles.status` or `profiles.user_id`, including self-escalation from `pending` to `active`.
+- Delete permissions are intentionally absent for `authenticated`; profile deletion is not a current frontend workflow.
 
 ### public.roles
 
@@ -1190,14 +1195,24 @@ Purpose:
 - Enables RLS on announcements.
 - Creates announcement read/insert/update/delete policies.
 
-Current mismatch:
+Hosted status:
 
-- Repo file allows all authenticated users to read announcements.
-- Hosted snapshot allows active users to read announcements.
-- Repo file includes admin update/delete policies using `is_admin`.
-- Hosted snapshot provided does not include those admin update/delete policies.
+- Applied and verified against hosted Supabase on 2026-07-28.
+- Replaces the stale broad authenticated read/insert/update policies with active visible read, permitted-role insert, explicit author/manager update, and explicit author/manager delete policies.
 
-Treat hosted state as canonical until this is reconciled.
+### supabase/profiles_policies.sql
+
+Purpose:
+
+- Enables and consolidates RLS on profiles.
+- Removes broad legacy self-update, self-delete, and admin-all profile policies.
+- Revokes anonymous profile table privileges and narrows authenticated grants to required columns.
+- Allows own pending inserts, own profile-detail updates, active-user reads of active profiles, and active member-manager reads/status updates.
+- Adds `prevent_profile_self_privilege_escalation()` to block non-member-managers from changing `profiles.status` or `profiles.user_id`.
+
+Hosted status:
+
+- Applied and verified against hosted Supabase on 2026-07-29.
 
 ### supabase/auth_profile_triggers.sql
 
@@ -1226,6 +1241,34 @@ Current mismatch:
 
 - The latest hosted schema export shows `announcement_likes` foreign keys without `on delete cascade`; the repo rollout script currently defines cascade behavior for announcement/profile deletion. Verify hosted constraints before relying on automatic cleanup.
 
+### supabase/calendars_policies.sql
+
+Purpose:
+
+- Enables RLS on calendars.
+- Revokes broad anonymous and authenticated table privileges.
+- Grants authenticated users calendar read access and grants write operation privileges only so RLS can enforce role-based writes.
+- Creates active-user SELECT plus manager-only INSERT, UPDATE, and DELETE calendar policies.
+
+Hosted status:
+
+- Applied and verified against hosted Supabase on 2026-07-29.
+
+### supabase/events_policies.sql
+
+Purpose:
+
+- Enables and consolidates RLS on events.
+- Removes broad legacy event policies and old additive event-manager policies.
+- Revokes anonymous event table access and narrows authenticated grants.
+- Creates one SELECT, INSERT, UPDATE, and DELETE policy for the current event authorization model.
+- Drops the unsafe `created_by` default, makes `created_by` and `end` required, and adds row validity constraints for title, event timing, and alumni-event visibility.
+- Revokes direct client execute privileges on the old event helper functions, because the consolidated policies no longer depend on those public RPC helpers.
+
+Hosted status:
+
+- Applied and verified against hosted Supabase on 2026-07-29.
+
 ### supabase/event_types.sql
 
 Purpose:
@@ -1237,15 +1280,13 @@ Purpose:
 - Backfills missing event details to `{}`.
 - Adds the current allowed event type check constraint, including `hsm_event`.
 - Adds a JSON object check constraint for event details.
-- Adds `public.can_manage_all_events(uuid)` and `public.can_manage_event_type(uuid, text)`.
-- Adds additive event-type manager policies for reading, creating, updating, and deleting manageable events.
 - Notifies PostgREST to reload the schema cache.
 
 Current schema note:
 
 - The 2026-06-25 hosted schema export already includes `events.event_type`, `events.details`, and their check constraints.
 - Use this file as the repo reconciliation/reference script for environments that do not yet match the canonical hosted schema.
-- Existing event manager policies may still allow broader event administration if `supabase/events_management_access_policies.sql` has not been reconciled in the hosted project; verify hosted RLS before relying only on frontend routing.
+- Event RLS now lives in `supabase/events_policies.sql`; do not add event policies in this file.
 
 ### supabase/events_calendar_policies.sql
 
@@ -1266,13 +1307,11 @@ Do not run this file against hosted Supabase without a deliberate migration plan
 
 Purpose:
 
-- Adds `public.can_manage_events(uuid)` for full event managers.
-- Adds additive event RLS policies so `admin`, `ea`, `eda`, recorder, and president/vice-president slug variants can read, create, update, and delete events.
+- Superseded pointer to `supabase/events_policies.sql`.
 
 Rollout note:
 
-- This file is intended to fix hosted policy gaps where event managers without the `brother` role cannot view or manage calendar events.
-- It does not remove existing event visibility or owner policies.
+- Do not use this file for event policy rollout. The old additive version could reintroduce permissive OR paths.
 
 ### supabase/emergency_contacts.sql
 
@@ -1303,13 +1342,9 @@ Purpose:
 
 ## Known Drift And Cleanup Items
 
-- Hosted calendar policies include duplicate SELECT policies.
-- Hosted profile and user role policies include overlapping legacy and new policies.
-- Hosted `announcement_likes` aggregate trigger state is not documented in the latest export.
+- Hosted `announcement_likes` aggregate trigger state is not documented in the latest schema export.
 - Hosted definitions for budget policy helpers (`current_user_is_active`, `is_budget_manager`, `can_access_budget_account`) are not documented in the latest export.
-- Repo announcement policies differ from hosted announcement policies.
 - Repo `announcement_likes.sql` may differ from hosted foreign-key delete behavior.
-- Repo event/calendar policies differ from hosted event/calendar policies.
 - No repo SQL file currently documents the hosted `budget_cycles`, `budget_accounts`, and `budget_transactions` setup.
 - Trigger attachment for `rls_auto_enable` is not documented yet.
 

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import supabase from "../../config/supabaseClient";
-import { useAuth } from "../../auth/authContext";
 import { canManageEvents as canManageRoleEvents, canViewEvent } from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
 import { Badge, Button, Card, EmptyState, PageHeader, SectionHeader, Select } from "../../components/ui";
@@ -466,9 +465,7 @@ function AgendaEventCard({
 }
 
 export default function Scheduling() {
-  const { session } = useAuth();
   const { roles, loading: rolesLoading } = useRoles();
-  const userId = session?.user?.id ?? null;
   const [agendaNow] = useState(() => new Date());
   const [events, setEvents] = useState<EventRow[]>([]);
   const [windows, setWindows] = useState<CalendarWindow[]>([]);
@@ -525,9 +522,9 @@ export default function Scheduling() {
 
   const visibleEvents = useMemo(() => {
     return events
-      .filter((event) => canViewEvent(roles, event, userId))
+      .filter((event) => canViewEvent(roles, event))
       .sort((a, b) => compareEventDateTimes(a.start, b.start));
-  }, [events, roles, userId]);
+  }, [events, roles]);
 
   const filteredEvents = useMemo(() => {
     return visibleEvents
