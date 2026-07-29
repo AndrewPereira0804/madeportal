@@ -282,6 +282,7 @@ Repository policy/function SQL files:
 - `supabase/events_calendar_policies.sql`
 - `supabase/events_management_access_policies.sql`
 - `supabase/emergency_contacts.sql`
+- `supabase/helper_hardening.sql`
 - `supabase/profile_status_role_guards.sql`
 - `supabase/profiles_policies.sql`
 - `supabase/user_roles_policies.sql`

@@ -234,7 +234,7 @@ export function hasPresidentOrVicePresidentRole(roles: string[]) {
 }
 
 export function getStatusRedirectPath(status: string | null, currentPath: string) {
-  if (status === "pending" && currentPath !== "/pending") {
+  if ((status === null || status === "pending") && currentPath !== "/pending") {
     return "/pending";
   }
 
@@ -257,25 +257,21 @@ export function canAccessApp(status: string | null, roles: string[]) {
   return hasAdminRole(roles) || getChapterStatus(roles) !== null;
 }
 
-function hasAlumniBaseline(roles: string[]) {
-  return getChapterStatus(roles) === "alumni";
-}
-
 export function canManageMembers(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
-  return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, memberManagerRoleSlugs);
+  return hasAnyRole(roleSet, memberManagerRoleSlugs);
 }
 
 export function canManageRoleAssignments(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
-  return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, roleAssignmentManagerRoleSlugs);
+  return hasAnyRole(roleSet, roleAssignmentManagerRoleSlugs);
 }
 
 export function canAssignRole(roles: string[], targetRoleSlug: string) {
   const roleSet = normalizeRoleSet(roles);
   const normalizedTargetRoleSlug = normalizeRoleSlug(targetRoleSlug);
 
-  if (hasAlumniBaseline(roles) || !normalizedTargetRoleSlug) {
+  if (!normalizedTargetRoleSlug) {
     return false;
   }
 
@@ -300,7 +296,7 @@ export function canAssignRole(roles: string[], targetRoleSlug: string) {
 
 export function canManageBudgets(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
-  return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, budgetManagerRoleSlugs);
+  return hasAnyRole(roleSet, budgetManagerRoleSlugs);
 }
 
 export function getBudgetAccountRoleSlugs(roles: string[]) {
@@ -323,12 +319,12 @@ export function isChairRoleSlug(roleSlug: string) {
 
 export function canAccessAllChairTools(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
-  return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, memberManagerRoleSlugs);
+  return hasAnyRole(roleSet, memberManagerRoleSlugs);
 }
 
 export function canAccessChairTool(roles: string[], roleSlug: string) {
   const normalizedRoleSlug = normalizeRoleSlug(roleSlug);
-  if (hasAlumniBaseline(roles) || !chairRoleSlugs.has(normalizedRoleSlug)) {
+  if (!chairRoleSlugs.has(normalizedRoleSlug)) {
     return false;
   }
 
@@ -351,7 +347,7 @@ export function canAccessBudgetAccount(roles: string[], accountRoleSlug: string)
 
 export function canManageAllEvents(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
-  return !hasAlumniBaseline(roles) && hasAnyRole(roleSet, fullEventManagerRoleSlugs);
+  return hasAnyRole(roleSet, fullEventManagerRoleSlugs);
 }
 
 export function canManageEvents(roles: string[]) {
@@ -394,32 +390,32 @@ export function canManageEvent(
 
 export function canManagePartyEvents(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
-  return canAccessAllChairTools(roles) || (!hasAlumniBaseline(roles) && hasAnyRole(roleSet, partyFormalEventToolRoleSlugs));
+  return canAccessAllChairTools(roles) || hasAnyRole(roleSet, partyFormalEventToolRoleSlugs);
 }
 
 export function canManageFormalEvents(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
-  return canAccessAllChairTools(roles) || (!hasAlumniBaseline(roles) && hasAnyRole(roleSet, partyFormalEventToolRoleSlugs));
+  return canAccessAllChairTools(roles) || hasAnyRole(roleSet, partyFormalEventToolRoleSlugs);
 }
 
 export function canManageCommunityServiceEvents(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
-  return canAccessAllChairTools(roles) || (!hasAlumniBaseline(roles) && hasAnyRole(roleSet, communityServiceEventToolRoleSlugs));
+  return canAccessAllChairTools(roles) || hasAnyRole(roleSet, communityServiceEventToolRoleSlugs);
 }
 
 export function canManageAlumniEvents(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
-  return canAccessAllChairTools(roles) || (!hasAlumniBaseline(roles) && hasAnyRole(roleSet, alumniEventToolRoleSlugs));
+  return canAccessAllChairTools(roles) || hasAnyRole(roleSet, alumniEventToolRoleSlugs);
 }
 
 export function canManageProfessionalDevelopmentEvents(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
-  return canAccessAllChairTools(roles) || (!hasAlumniBaseline(roles) && hasAnyRole(roleSet, professionalDevelopmentEventToolRoleSlugs));
+  return canAccessAllChairTools(roles) || hasAnyRole(roleSet, professionalDevelopmentEventToolRoleSlugs);
 }
 
 export function canManageWaitOns(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
-  return canAccessAllChairTools(roles) || (!hasAlumniBaseline(roles) && hasAnyRole(roleSet, waitOnToolRoleSlugs));
+  return canAccessAllChairTools(roles) || hasAnyRole(roleSet, waitOnToolRoleSlugs);
 }
 
 export function canReadAllEmergencyContacts(roles: string[]) {
@@ -456,11 +452,11 @@ export function canViewEvent(roles: string[], event: EventVisibility) {
 }
 
 export function canModerateAnnouncements(roles: string[]) {
-  return !hasAlumniBaseline(roles) && (hasAdminRole(roles) || hasPresidentOrVicePresidentRole(roles));
+  return hasAdminRole(roles) || hasPresidentOrVicePresidentRole(roles);
 }
 
 export function canCreateAnnouncements(roles: string[]) {
-  return !hasAlumniBaseline(roles) && (hasAdminRole(roles) || hasPresidentOrVicePresidentRole(roles));
+  return hasAdminRole(roles) || hasPresidentOrVicePresidentRole(roles);
 }
 
 export function canAccessManagement(roles: string[]) {

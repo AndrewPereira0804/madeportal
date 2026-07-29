@@ -14,12 +14,45 @@ type UserRoleResult = {
     | null;
 };
 
+type ProfileStatusResult = {
+  status: string | null;
+};
+
 function getRoleSlug(row: UserRoleResult) {
   if (Array.isArray(row.roles)) {
     return row.roles[0]?.slug;
   }
 
   return row.roles?.slug;
+}
+
+async function fetchActiveUserRoleSlugs(userId: string) {
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("status")
+    .eq("user_id", userId)
+    .single();
+
+  const profileStatus = (profile as ProfileStatusResult | null)?.status ?? null;
+
+  if (profileError || profileStatus !== "active") {
+    return {
+      roles: [] as string[],
+      error: profileError,
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("roles!inner(slug)")
+    .eq("user_id", userId);
+
+  return {
+    roles: ((data ?? []) as UserRoleResult[])
+      .map(getRoleSlug)
+      .filter((slug): slug is string => Boolean(slug)),
+    error,
+  };
 }
 
 export default function useRoles() {
@@ -41,11 +74,8 @@ export default function useRoles() {
       }
 
       setLoading(true);
-      supabase
-        .from("user_roles")
-        .select("roles!inner(slug)")
-        .eq("user_id", userId)
-        .then(({ data, error }) => {
+      fetchActiveUserRoleSlugs(userId)
+        .then(({ roles: activeRoles, error }) => {
           if (ignore) {
             return;
           }
@@ -54,11 +84,7 @@ export default function useRoles() {
             console.warn("could not fetch user roles", error);
             setRoles([]);
           } else {
-            setRoles(
-              ((data ?? []) as UserRoleResult[])
-                .map(getRoleSlug)
-                .filter((slug): slug is string => Boolean(slug))
-            );
+            setRoles(activeRoles);
           }
           setLoading(false);
         });

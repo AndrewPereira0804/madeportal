@@ -1,3 +1,7 @@
+-- Baseline per-user announcement likes setup.
+-- Apply supabase/helper_hardening.sql after this file for the current hosted
+-- private-trigger helper, active-status like policies, and grant cleanup.
+
 create table if not exists public.announcement_likes (
     announcement_id uuid not null references public.announcements(id) on delete cascade,
     user_id uuid not null references public.profiles(user_id) on delete cascade,

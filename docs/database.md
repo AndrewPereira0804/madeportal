@@ -4,7 +4,7 @@ Last updated: 2026-07-29
 
 ## Source Of Truth
 
-Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The user-role assignment policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The active-status role guard was applied and verified through the Supabase plugin on 2026-07-29. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
+Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The user-role assignment policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The active-status role guard was applied and verified through the Supabase plugin on 2026-07-29. The internal helper hardening was applied and verified through the Supabase plugin on 2026-07-29. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
 
 Schema exports in this document are for context only. Do not run them directly as migrations because export order, enum placeholders, constraints, policies, and triggers may be incomplete.
 
@@ -34,7 +34,7 @@ Frontend auth and authorization expectations:
 - Login/register use Supabase email/password auth.
 - A new registered user inserts a `profiles` row with `status = 'pending'`.
 - App routing gates users by `profiles.status`.
-- Role checks read `public.user_roles`.
+- Role checks read `public.user_roles`, but frontend role helpers should treat non-`active` profiles as having no effective roles.
 - `profiles.status` is the ultimate authorization gate: `pending` and `suspended` accounts must not receive or use role-based permissions.
 - When a profile status changes to `pending` or `suspended`, hosted Supabase deletes that user's `public.user_roles` rows.
 
@@ -789,49 +789,21 @@ Hosted definition returns true only when the supplied user ID has a profile row 
 
 ### public.increment_announcement_likes(uuid)
 
-Previous expected behavior: authenticated users can increment an announcement's `likes` value and receive the new count. Throws if the caller is unauthenticated or the announcement does not exist.
+Removed from hosted Supabase on 2026-07-29 by `harden_internal_helper_functions`. Current frontend behavior uses per-user rows in `announcement_likes` so users can unlike and liked state can persist across reloads.
 
-Hosted definition:
-
-```sql
-CREATE OR REPLACE FUNCTION public.increment_announcement_likes(a_id uuid)
-RETURNS integer
-LANGUAGE plpgsql
-AS $function$
-DECLARE
-  new_likes integer;
-BEGIN
-  IF (select auth.uid()) IS NULL THEN
-    RAISE EXCEPTION 'not authenticated';
-  END IF;
-
-  UPDATE public.announcements
-  SET likes = COALESCE(likes, 0) + 1
-  WHERE id = a_id
-  RETURNING likes INTO new_likes;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'announcement not found';
-  END IF;
-
-  RETURN new_likes;
-END;
-$function$;
-```
-
-Frontend note: `src/pages/app/Likes.tsx` no longer uses this RPC for the like button. Current frontend behavior expects per-user rows in `announcement_likes` so users can unlike and liked state can persist across reloads.
-
-### public.apply_announcement_like_delta()
+### private.apply_announcement_like_delta()
 
 Expected behavior: trigger helper that increments `announcements.likes` after an `announcement_likes` insert and decrements it after an `announcement_likes` delete.
 
 Repo definition:
 
-- `supabase/announcement_likes.sql`
+- `supabase/helper_hardening.sql`
 
 Hosted status:
 
-- Not included in the latest schema-only export. Verify hosted functions/triggers before assuming the aggregate `announcements.likes` count is maintained automatically.
+- Applied and verified on hosted Supabase on 2026-07-29.
+- Trigger `announcement_likes_apply_delta` executes `private.apply_announcement_like_delta()`.
+- Direct `anon`, `authenticated`, and `public` execute privileges are not granted.
 
 ### public.handle_new_user()
 
@@ -926,22 +898,20 @@ Hosted definition summary:
 - Iterates `pg_event_trigger_ddl_commands()`.
 - Enables RLS for created tables and partitioned tables in the `public` schema.
 
-Event trigger attachment was not included in the provided export. Verify hosted event triggers before relying on automatic RLS enablement.
+Verified hosted status after the 2026-07-29 helper hardening:
+
+- Event trigger `ensure_rls` executes `public.rls_auto_enable()`.
+- Direct `anon`, `authenticated`, and `public` execute privileges are revoked.
 
 ### Other Event Helpers
 
 Older repo SQL included event helper functions such as `has_role`, `can_full_crud_events`, `can_create_owned_events`, `can_manage_events`, `can_manage_all_events`, and `can_manage_event_type`.
 
-After the 2026-07-29 event policy rebuild, hosted event RLS no longer depends on public event helper RPC functions. Direct client execute privileges on the old event helper functions were revoked during the rollout.
+After the 2026-07-29 event policy rebuild, hosted event RLS no longer depends on public event helper RPC functions. The old public `can_manage_events`, `can_manage_all_events`, and `can_manage_event_type` functions were removed during the 2026-07-29 helper hardening.
 
 ### Other Policy Helpers
 
-The 2026-06-25 RLS policy export references these helper functions, but the export did not include their hosted definitions:
-
-- `public.is_budget_manager()`
-- `public.can_access_budget_account(uuid)`
-
-Repo SQL defines or references some event helpers, but hosted function bodies should be verified before changing access behavior that depends on any of these helpers.
+Hosted RLS now uses `private.*` policy helpers for active status, role assignment, budget access, wait-on access, emergency-contact access, and profile-status triggers. Legacy `public.*` helper functions may still exist for historical compatibility, but direct `anon`, `authenticated`, and `public` execute privileges are revoked.
 
 ## Hosted RLS Policy Snapshot
 
@@ -976,48 +946,48 @@ Note: the old direct `announcements.likes` update policy was removed. Current fr
 
 - `Users can read own announcement likes`
   - SELECT to authenticated.
-  - Allows rows where `user_id = auth.uid()`.
+  - Allows rows where `user_id = auth.uid()` and the current profile is active.
 - `Users can like announcements`
   - INSERT to authenticated.
-  - Requires `user_id = auth.uid()`.
+  - Requires `user_id = auth.uid()`, an active current profile, and an active-visible announcement.
 - `Users can unlike own announcement likes`
   - DELETE to authenticated.
-  - Allows rows where `user_id = auth.uid()`.
+  - Allows rows where `user_id = auth.uid()` and the current profile is active.
 
-Trigger state for keeping `announcements.likes` aligned with `announcement_likes` is not proven by this policy export.
+Hosted trigger state was verified on 2026-07-29: `announcement_likes_apply_delta` executes `private.apply_announcement_like_delta()`.
 
 ### public.budget_cycles
 
 - `Active users can view budget cycles`
   - SELECT to authenticated.
-  - Allows users passing `current_user_is_active()`.
+  - Allows users passing `private.current_user_is_active()`.
 - `Budget managers can manage budget cycles`
   - ALL to authenticated.
-  - Allows and checks users passing `is_budget_manager()`.
+  - Allows and checks users passing `private.is_budget_manager()`.
 
 ### public.budget_accounts
 
 - `Users can view accessible budget accounts`
   - SELECT to authenticated.
-  - Allows rows passing `can_access_budget_account(id)`.
+  - Allows rows passing `private.can_access_budget_account(id)`.
 - `Budget managers can manage budget accounts`
   - ALL to authenticated.
-  - Allows and checks users passing `is_budget_manager()`.
+  - Allows and checks users passing `private.is_budget_manager()`.
 
 ### public.budget_transactions
 
 - `Users can view accessible budget transactions`
   - SELECT to authenticated.
-  - Allows rows whose `budget_account_id` passes `can_access_budget_account(budget_account_id)`.
+  - Allows rows whose `budget_account_id` passes `private.can_access_budget_account(budget_account_id)`.
 - `Users can submit transactions to accessible budgets`
   - INSERT to authenticated.
-  - Requires `submitted_by = auth.uid()`, `status = 'submitted'`, and accessible `budget_account_id`.
+  - Requires `submitted_by = auth.uid()`, `status = 'submitted'`, and `private.can_access_budget_account(budget_account_id)`.
 - `Budget managers can update budget transactions`
   - UPDATE to authenticated.
-  - Allows and checks users passing `is_budget_manager()`.
+  - Allows and checks users passing `private.is_budget_manager()`.
 - `Budget managers can delete budget transactions`
   - DELETE to authenticated.
-  - Allows users passing `is_budget_manager()`.
+  - Allows users passing `private.is_budget_manager()`.
 
 ### public.wait_on_schedules
 
@@ -1025,7 +995,7 @@ Verified from the 2026-06-29 Supabase plugin migration:
 
 - `Wait-on managers can read all schedules`
   - SELECT to authenticated.
-  - Allows users passing `can_manage_wait_ons(auth.uid())`.
+  - Allows users passing `private.can_manage_wait_ons(auth.uid())`.
 - `Active users can read published wait-on schedules`
   - SELECT to authenticated.
   - Allows active users to read rows where `published = true`.
@@ -1045,7 +1015,7 @@ Verified from the 2026-06-29 Supabase plugin migration:
 
 - `Wait-on managers can read all assignments`
   - SELECT to authenticated.
-  - Allows users passing `can_manage_wait_ons(auth.uid())`.
+  - Allows users passing `private.can_manage_wait_ons(auth.uid())`.
 - `Active users can read published wait-on assignments`
   - SELECT to authenticated.
   - Allows active users to read assignment rows whose parent schedule is published.
@@ -1105,11 +1075,11 @@ Hosted policy intent after the 2026-07-29 profile hardening:
 
 - `Active users can read active profiles`
   - SELECT to authenticated.
-  - Allows rows where the target profile is `active` and the requesting user is active via `is_active(auth.uid())`.
+  - Allows rows where the target profile is `active` and the requesting user is active via `private.is_active(auth.uid())`.
 - `Member managers can read all profiles`
-  - SELECT to authenticated for active `admin`, `ea`, or `eda` users via `can_manage_members(auth.uid())`.
+  - SELECT to authenticated for active `admin`, `ea`, or `eda` users via `private.can_manage_members(auth.uid())`.
 - `Role assignment managers can read all profiles`
-  - SELECT to authenticated for active role assignment managers via `current_user_can_read_role_assignments()`.
+  - SELECT to authenticated for active role assignment managers via `private.current_user_can_read_role_assignments()`.
   - Exists so President, VP, and Recorder role managers can load the member editor without broad profile-update rights.
 - `Member managers can update profiles`
   - UPDATE to authenticated for active `admin`, `ea`, or `eda` users.
@@ -1128,16 +1098,14 @@ Grant and trigger notes:
 - `authenticated` has SELECT and limited INSERT/UPDATE column privileges only.
 - `authenticated` does not have UPDATE privilege on `profiles.user_id`, `profiles.email`, or `profiles.created_at`.
 - `authenticated` has UPDATE privilege on `profiles.status` so active member managers can use direct PostgREST status updates.
-- The `prevent_profile_self_privilege_escalation` trigger blocks non-member-managers from changing `profiles.status` or `profiles.user_id`, including self-escalation from `pending` to `active`.
-- The `remove_roles_for_inactive_profile` trigger deletes all `user_roles` rows for a profile when `status` changes to `pending` or `suspended`.
+- The `prevent_profile_self_privilege_escalation` trigger executes `private.prevent_profile_self_privilege_escalation()` and blocks non-member-managers from changing `profiles.status` or `profiles.user_id`, including self-escalation from `pending` to `active`.
+- The `remove_roles_for_inactive_profile` trigger executes `private.remove_roles_for_inactive_profile()` and deletes all `user_roles` rows for a profile when `status` changes to `pending` or `suspended`.
 - Delete permissions are intentionally absent for `authenticated`; profile deletion is not a current frontend workflow.
 
 ### public.roles
 
 - `Authenticated users can read roles`
   - SELECT to authenticated using `true`.
-- `roles_select_for_member`
-  - SELECT to authenticated using `is_role_member(slug, auth.uid())`.
 
 ### public.user_roles
 
@@ -1146,12 +1114,12 @@ Hosted policy intent after the 2026-07-29 user-role assignment hardening:
 - `Active users can read active user roles`
   - SELECT to authenticated when both the requesting user and target user are active.
 - `Role assignment managers can read all user roles`
-  - SELECT to authenticated via `current_user_can_read_role_assignments()`.
+  - SELECT to authenticated via `private.current_user_can_read_role_assignments()`.
 - `Role assignment managers can insert allowed user roles`
-  - INSERT to authenticated with `current_user_can_insert_role_assignment(role_slug, user_id)`.
+  - INSERT to authenticated with `private.current_user_can_insert_role_assignment(role_slug, user_id)`.
   - Requires the target profile to be `active`.
 - `Role assignment managers can delete allowed user roles`
-  - DELETE to authenticated using `current_user_can_manage_role_assignment(role_slug)`.
+  - DELETE to authenticated using `private.current_user_can_manage_role_assignment(role_slug)`.
 - `Users can read own roles`
   - SELECT to authenticated where `user_id = auth.uid()` and the requesting user is active.
 
@@ -1259,7 +1227,22 @@ Purpose:
 
 Current mismatch:
 
-- The latest hosted schema export shows `announcement_likes` foreign keys without `on delete cascade`; the repo rollout script currently defines cascade behavior for announcement/profile deletion. Verify hosted constraints before relying on automatic cleanup.
+- The hosted project was later hardened by `supabase/helper_hardening.sql`, which moves the aggregate trigger helper to `private.apply_announcement_like_delta()` and requires active status for like reads/inserts/deletes.
+
+### supabase/helper_hardening.sql
+
+Purpose:
+
+- Creates the non-exposed `private` schema for policy helper functions.
+- Rebuilds helper-dependent RLS policies to call `private.*` helpers instead of public RPC helpers.
+- Moves trigger-only helpers for announcement likes, profile status guards, emergency-contact timestamps, and wait-on timestamps into `private`.
+- Revokes direct `anon`, `authenticated`, and `public` execute privileges from legacy public helper functions.
+- Drops stale public event helper functions and the old `increment_announcement_likes(uuid)` RPC.
+- Cleans broad `anon`/overbroad table grants from helper-adjacent tables.
+
+Hosted status:
+
+- Applied and verified against hosted Supabase on 2026-07-29 through migration `harden_internal_helper_functions`.
 
 ### supabase/calendars_policies.sql
 
@@ -1362,11 +1345,8 @@ Purpose:
 
 ## Known Drift And Cleanup Items
 
-- Hosted `announcement_likes` aggregate trigger state is not documented in the latest schema export.
-- Hosted definitions for some budget policy helpers (`is_budget_manager`, `can_access_budget_account`) are not fully documented in the latest export.
-- Repo `announcement_likes.sql` may differ from hosted foreign-key delete behavior.
-- No repo SQL file currently documents the hosted `budget_cycles`, `budget_accounts`, and `budget_transactions` setup.
-- Trigger attachment for `rls_auto_enable` is not documented yet.
+- Older reference scripts may still create public helper functions before `supabase/helper_hardening.sql` moves policy usage to `private`; apply the helper hardening script after older helper/policy scripts.
+- No dedicated repo SQL file currently documents the original hosted `budget_cycles`, `budget_accounts`, and `budget_transactions` table setup.
 
 ## Future Exports To Add
 
