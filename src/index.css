@@ -3003,6 +3003,9 @@ button:disabled {
 }
 
 .announcement-card {
+  --announcement-accent: var(--gold);
+  --announcement-accent-soft: rgba(207, 181, 59, 0.1);
+
   position: relative;
   overflow: hidden;
   border: 1px solid rgba(43, 32, 20, 0.12);
@@ -3018,7 +3021,87 @@ button:disabled {
   position: absolute;
   inset: 0 auto 0 0;
   width: 4px;
-  background: linear-gradient(180deg, var(--gold), rgba(207, 181, 59, 0.1));
+  background: linear-gradient(180deg, var(--announcement-accent), var(--announcement-accent-soft));
+}
+
+.announcement-card--admin {
+  --announcement-accent: #4b006e;
+  --announcement-accent-soft: rgba(75, 0, 110, 0.1);
+}
+
+.announcement-card--officer {
+  --announcement-accent: #cfb53b;
+  --announcement-accent-soft: rgba(207, 181, 59, 0.12);
+}
+
+.announcement-card--social {
+  --announcement-accent: #8f3d56;
+  --announcement-accent-soft: rgba(143, 61, 86, 0.12);
+}
+
+.announcement-card--service {
+  --announcement-accent: #2f765d;
+  --announcement-accent-soft: rgba(47, 118, 93, 0.12);
+}
+
+.announcement-card--philanthropy {
+  --announcement-accent: #b7831d;
+  --announcement-accent-soft: rgba(183, 131, 29, 0.12);
+}
+
+.announcement-card--alumni {
+  --announcement-accent: #5b5f97;
+  --announcement-accent-soft: rgba(91, 95, 151, 0.12);
+}
+
+.announcement-card--professional {
+  --announcement-accent: #536340;
+  --announcement-accent-soft: rgba(83, 99, 64, 0.12);
+}
+
+.announcement-card--chapter {
+  --announcement-accent: #7430a0;
+  --announcement-accent-soft: rgba(116, 48, 160, 0.12);
+}
+
+.announcement-card--scholarship {
+  --announcement-accent: #2f5f8f;
+  --announcement-accent-soft: rgba(47, 95, 143, 0.12);
+}
+
+.announcement-card--membered {
+  --announcement-accent: #9c4f70;
+  --announcement-accent-soft: rgba(156, 79, 112, 0.12);
+}
+
+.announcement-card--house {
+  --announcement-accent: #5f5348;
+  --announcement-accent-soft: rgba(95, 83, 72, 0.12);
+}
+
+.announcement-card--safety {
+  --announcement-accent: #6b4968;
+  --announcement-accent-soft: rgba(107, 73, 104, 0.12);
+}
+
+.announcement-card--steward {
+  --announcement-accent: #3f6f73;
+  --announcement-accent-soft: rgba(63, 111, 115, 0.12);
+}
+
+.announcement-card--treasurer {
+  --announcement-accent: #6b4a13;
+  --announcement-accent-soft: rgba(107, 74, 19, 0.12);
+}
+
+.announcement-card--recorder {
+  --announcement-accent: #6c518f;
+  --announcement-accent-soft: rgba(108, 81, 143, 0.12);
+}
+
+.announcement-card--rush {
+  --announcement-accent: #a14e2c;
+  --announcement-accent-soft: rgba(161, 78, 44, 0.12);
 }
 
 .announcement-card-top {
@@ -3112,10 +3195,137 @@ button:disabled {
   transform: translateY(-1px);
 }
 
+.like-btn {
+  --like-color: var(--accent);
+  --like-bg: rgba(75, 0, 110, 0.06);
+  --like-border: rgba(75, 0, 110, 0.2);
+  --like-ripple: rgba(75, 0, 110, 0.14);
+
+  position: relative;
+  isolation: isolate;
+  min-width: 6.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42rem;
+  overflow: hidden;
+  border-color: var(--like-border);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0)),
+    var(--like-bg);
+  color: var(--like-color);
+  padding: 0.36rem 0.5rem 0.36rem 0.48rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.like-btn::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 1.2rem;
+  z-index: -1;
+  width: 0;
+  height: 0;
+  border-radius: 999px;
+  background: var(--like-ripple);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+}
+
+.like-btn:hover:not(:disabled) {
+  border-color: rgba(143, 61, 86, 0.34);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.68), rgba(255, 255, 255, 0)),
+    rgba(143, 61, 86, 0.08);
+  color: #8f3d56;
+}
+
 .like-btn.is-liked {
-  border-color: rgba(207, 181, 59, 0.6);
-  background: rgba(207, 181, 59, 0.18);
-  color: #6b4a13;
+  --like-color: #8f3d56;
+  --like-bg: rgba(143, 61, 86, 0.1);
+  --like-border: rgba(143, 61, 86, 0.34);
+  --like-ripple: rgba(143, 61, 86, 0.18);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 8px 18px rgba(143, 61, 86, 0.1);
+}
+
+.like-btn.is-saving {
+  cursor: wait;
+}
+
+.like-btn.is-animating::after {
+  animation: like-ripple 360ms ease-out;
+}
+
+.like-btn.is-animating .like-btn__icon {
+  animation: like-pop 360ms cubic-bezier(0.22, 1.42, 0.36, 1) both;
+}
+
+.like-btn.is-animating .like-btn__count {
+  animation: like-count-bump 280ms ease-out both;
+}
+
+.like-btn__icon {
+  position: relative;
+  width: 0.72rem;
+  height: 0.72rem;
+  flex: 0 0 auto;
+  margin-right: 0.06rem;
+  background: currentColor;
+  border-radius: 0.16rem;
+  opacity: 0.68;
+  transform: rotate(-45deg) scale(0.82);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.like-btn__icon::before,
+.like-btn__icon::after {
+  content: "";
+  position: absolute;
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.like-btn__icon::before {
+  top: -0.36rem;
+  left: 0;
+}
+
+.like-btn__icon::after {
+  top: 0;
+  left: 0.36rem;
+}
+
+.like-btn.is-liked .like-btn__icon,
+.like-btn:hover:not(:disabled) .like-btn__icon {
+  opacity: 1;
+  transform: rotate(-45deg) scale(0.9);
+}
+
+.like-btn__label {
+  line-height: 1;
+}
+
+.like-btn__count {
+  min-width: 1.48rem;
+  min-height: 1.48rem;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(75, 0, 110, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 252, 246, 0.72);
+  color: var(--text-primary);
+  padding: 0 0.34rem;
+  font-size: 0.76rem;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .delete-button {
@@ -3127,6 +3337,45 @@ button:disabled {
   color: var(--danger);
   font-size: 0.84rem;
   font-weight: 650;
+}
+
+@keyframes like-pop {
+  0% {
+    transform: rotate(-45deg) scale(0.82);
+  }
+
+  46% {
+    transform: rotate(-45deg) scale(1.2);
+  }
+
+  100% {
+    transform: rotate(-45deg) scale(0.9);
+  }
+}
+
+@keyframes like-ripple {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 0.62;
+  }
+
+  100% {
+    width: 5.4rem;
+    height: 5.4rem;
+    opacity: 0;
+  }
+}
+
+@keyframes like-count-bump {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  48% {
+    transform: translateY(-2px);
+  }
 }
 
 /* Calendar and events */

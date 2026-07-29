@@ -77,6 +77,7 @@ Role slugs:
 - `rec`/`recorder` can assign lower roles, but not Recorder, VP, President, or `admin`
 - `ea` and `eda` are used with `admin` for chapter/member status-management access and all chair tool access through `/app/tools`
 - `admin`, `ea`, `eda`, and `rec`/`recorder` can manage all event types
+- Announcement creation is allowed for active `admin`, President/VP role variants, and configured chair roles. Authors can update/delete their own announcements; `admin` can update any announcement; `admin` plus President/VP role variants can delete any announcement.
 - Event-type chair access is mapped in `src/auth/roleAccess.ts`; the current rollout adds role rows for `alumni-chair`, `chapter-dev`, and `professional-dev` if missing.
 - `treasurer` has a chair tool workspace for separated budget workflows under `/app/tools/treasurer`
 - `stew` has a chair tool workspace for weekly wait-on schedules under `/app/tools/stew/wait-ons`

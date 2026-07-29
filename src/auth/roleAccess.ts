@@ -126,6 +126,105 @@ const chairRoleSlugs = new Set([
   "treasurer",
 ]);
 
+const announcementChairRoleSlugs = new Set([
+  ...chairRoleSlugs,
+  "alum-chair",
+  "prof-dev",
+  "rush-chair",
+  "social-events",
+]);
+
+const announcementCreatorRoleSlugs = new Set([
+  ...adminRoleSlugs,
+  ...presidentRoleSlugs,
+  ...vicePresidentRoleSlugs,
+  ...announcementChairRoleSlugs,
+]);
+
+const announcementDeleteManagerRoleSlugs = new Set([
+  ...adminRoleSlugs,
+  ...presidentRoleSlugs,
+  ...vicePresidentRoleSlugs,
+]);
+
+const announcementAuthorAccentPriority = [
+  {
+    accent: "social",
+    roles: ["social-chair", "social-events"],
+  },
+  {
+    accent: "service",
+    roles: ["cs-chair", "community-service-chair"],
+  },
+  {
+    accent: "philanthropy",
+    roles: ["philo-chair", "philanthropy-chair"],
+  },
+  {
+    accent: "alumni",
+    roles: ["alum-chair", "alumni-chair", "alumni-chairman"],
+  },
+  {
+    accent: "professional",
+    roles: [
+      "prof-dev",
+      "professional-dev",
+      "professional-dev-chair",
+      "professional-development",
+      "professional-development-chair",
+    ],
+  },
+  {
+    accent: "chapter",
+    roles: [
+      "chapter-dev",
+      "chapter-dev-chair",
+      "chapter-development",
+      "chapter-development-chair",
+    ],
+  },
+  {
+    accent: "scholarship",
+    roles: ["scholarship"],
+  },
+  {
+    accent: "membered",
+    roles: ["membered", "member-educator", "preceptor"],
+  },
+  {
+    accent: "house",
+    roles: ["hm", "house-manager"],
+  },
+  {
+    accent: "safety",
+    roles: ["hsm", "health-safety-manager"],
+  },
+  {
+    accent: "steward",
+    roles: ["stew", "steward"],
+  },
+  {
+    accent: "treasurer",
+    roles: ["treasurer"],
+  },
+  {
+    accent: "recorder",
+    roles: ["rec", "recorder"],
+  },
+  {
+    accent: "rush",
+    roles: ["rush-chair"],
+  },
+  {
+    accent: "officer",
+    roles: [...presidentRoleSlugs, ...vicePresidentRoleSlugs],
+  },
+  {
+    accent: "admin",
+    roles: [...adminRoleSlugs],
+  },
+] as const;
+
 const alumniEventToolRoleSlugs = new Set(["alumni-chair", "alumni-chairman"]);
 const partyFormalEventToolRoleSlugs = new Set(["social-chair", "hsm", "health-safety-manager"]);
 const communityServiceEventToolRoleSlugs = new Set(["cs-chair", "community-service-chair"]);
@@ -456,11 +555,28 @@ export function canViewEvent(roles: string[], event: EventVisibility) {
 }
 
 export function canModerateAnnouncements(roles: string[]) {
-  return hasAdminRole(roles) || hasPresidentOrVicePresidentRole(roles);
+  return canDeleteAnyAnnouncement(roles);
 }
 
 export function canCreateAnnouncements(roles: string[]) {
-  return hasAdminRole(roles) || hasPresidentOrVicePresidentRole(roles);
+  return hasAnyRole(normalizeRoleSet(roles), announcementCreatorRoleSlugs);
+}
+
+export function canDeleteAnyAnnouncement(roles: string[]) {
+  return hasAnyRole(normalizeRoleSet(roles), announcementDeleteManagerRoleSlugs);
+}
+
+export function canUpdateAnyAnnouncement(roles: string[]) {
+  return hasAdminRole(roles);
+}
+
+export function getAnnouncementAuthorAccent(roles: string[]) {
+  const roleSet = normalizeRoleSet(roles);
+  const match = announcementAuthorAccentPriority.find(({ roles: allowedRoles }) =>
+    allowedRoles.some((roleSlug) => roleSet.has(roleSlug))
+  );
+
+  return match?.accent ?? "general";
 }
 
 export function canAccessManagement(roles: string[]) {

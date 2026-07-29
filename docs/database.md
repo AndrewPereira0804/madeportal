@@ -4,7 +4,7 @@ Last updated: 2026-07-29
 
 ## Source Of Truth
 
-Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The user-role assignment policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The active-status role guard was applied and verified through the Supabase plugin on 2026-07-29. The internal helper hardening was applied and verified through the Supabase plugin on 2026-07-29. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
+Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28, and the chair-authoring/admin-update announcement policy revision was applied and verified through the Supabase plugin on 2026-07-29. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The user-role assignment policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The active-status role guard was applied and verified through the Supabase plugin on 2026-07-29. The internal helper hardening was applied and verified through the Supabase plugin on 2026-07-29. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
 
 Schema exports in this document are for context only. Do not run them directly as migrations because export order, enum placeholders, constraints, policies, and triggers may be incomplete.
 
@@ -435,6 +435,7 @@ Current hosted `public.roles` rows plus repo rollout additions:
 | --- | --- |
 | `admin` | Admin |
 | `alum` | Alumni |
+| `alum-chair` | Alumni Chairman |
 | `alumni-chair` | Alumni Chairman |
 | `brother` | Brother |
 | `chapter-dev` | Chapter Development |
@@ -447,10 +448,12 @@ Current hosted `public.roles` rows plus repo rollout additions:
 | `neophyte` | Neophyte |
 | `philo-chair` | Philanthropy Chairman |
 | `preceptor` | Preceptor |
+| `prof-dev` | Professional Development Chairman |
 | `professional-dev` | Professional Development |
 | `rec` | Recorder |
 | `scholarship` | Scholarship Chairman |
 | `social-chair` | Social Chairman |
+| `social-events` | Social Events Chairman |
 | `stew` | Steward |
 | `treasurer` | Treasurer |
 
@@ -529,12 +532,13 @@ Rollout note:
 
 ### Announcements
 
-Hosted policy intent after the 2026-07-28 announcement hardening:
+Hosted policy intent after the 2026-07-29 announcement chair-authoring revision:
 
 - Active users can read visible announcements where `visibility = 'active'`.
-- Active users with `admin`, `ea`, `eda`, `president`, `vice-president`, `vice_president`, or `vp` can insert announcements for themselves.
+- Active users with `admin`, President/VP role variants, or configured chair role slugs can insert announcements for themselves.
 - Authors can update and delete their own visible announcements.
-- `admin`, President, and VP role variants can update and delete all visible announcements.
+- `admin` can update all visible announcements.
+- `admin`, President, and VP role variants can delete all visible announcements.
 - Update policies must include both `USING` and `WITH CHECK`; `USING` controls existing rows and `WITH CHECK` validates the resulting row.
 - Clients are granted `UPDATE` only on `title`, `body`, and `visibility`; direct client updates to `author_id`, `likes`, and timestamps are not part of the announcement edit workflow.
 - Per-user like state should live in `announcement_likes` with one row per `(announcement_id, user_id)`.
@@ -924,20 +928,15 @@ This section started from the policy export provided on 2026-06-25 and includes 
   - Allows users whose profile status is `active` to read rows where `visibility = 'active'`.
 - `Permitted roles can insert announcements`
   - INSERT to authenticated.
-  - Requires active profile status, `author_id = auth.uid()`, `visibility = 'active'`, and one of `admin`, `ea`, `eda`, `president`, `vice-president`, `vice_president`, or `vp`.
-- `Authors can update own visible announcements`
+  - Requires active profile status, `author_id = auth.uid()`, `visibility = 'active'`, and one of `admin`, President/VP role variants, or configured chair role slugs.
+- `Authors and admins can update announcements`
   - UPDATE to authenticated.
   - Allows active authors to update their own active-visible announcements.
+  - Allows active `admin` users to update any active-visible announcement.
   - Includes both `USING` and `WITH CHECK`.
-- `Announcement managers can update announcements`
-  - UPDATE to authenticated.
-  - Allows active `admin`, President, and VP role variants to update active-visible announcements.
-  - Includes both `USING` and `WITH CHECK`.
-- `Authors can delete own announcements`
+- `Authors and announcement managers can delete announcements`
   - DELETE to authenticated.
   - Allows active authors to delete their own announcements.
-- `Announcement managers can delete announcements`
-  - DELETE to authenticated.
   - Allows active `admin`, President, and VP role variants to delete announcements.
 
 Note: the old direct `announcements.likes` update policy was removed. Current frontend code inserts/deletes rows in `announcement_likes`.
@@ -1185,8 +1184,8 @@ Purpose:
 
 Hosted status:
 
-- Applied and verified against hosted Supabase on 2026-07-28.
-- Replaces the stale broad authenticated read/insert/update policies with active visible read, permitted-role insert, explicit author/manager update, and explicit author/manager delete policies.
+- Applied and verified against hosted Supabase on 2026-07-28, then revised and verified on 2026-07-29.
+- Replaces the stale broad authenticated read/insert/update policies with active visible read, chair/officer/admin own-author insert, author-or-admin update, and author-or-officer/admin delete policies.
 
 ### supabase/profiles_policies.sql
 

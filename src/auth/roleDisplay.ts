@@ -6,6 +6,7 @@ type RoleLabelRow = {
 const roleLabelFallbacks: Record<string, string> = {
   admin: "Admin",
   alum: "Alumni",
+  "alum-chair": "Alumni Chairman",
   alumni: "Alumni",
   "alumni-chair": "Alumni Chairman",
   "alumni-chairman": "Alumni Chairman",
@@ -28,6 +29,7 @@ const roleLabelFallbacks: Record<string, string> = {
   "philo-chair": "Philanthropy Chairman",
   "philanthropy-chair": "Philanthropy Chairman",
   preceptor: "Preceptor",
+  "prof-dev": "Professional Development Chairman",
   "professional-dev": "Professional Development",
   "professional-dev-chair": "Professional Development",
   "professional-development": "Professional Development",
@@ -37,6 +39,7 @@ const roleLabelFallbacks: Record<string, string> = {
   "rush-chair": "Rush Chairman",
   scholarship: "Scholarship Chairman",
   "social-chair": "Social Chairman",
+  "social-events": "Social Events Chairman",
   stew: "Steward",
   steward: "Steward",
   treasurer: "Treasurer",

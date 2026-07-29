@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
 import Likes from "./Likes";
-import supabase from "../../config/supabaseClient";
 import { useNavigate } from "react-router-dom";
+import { getAnnouncementAuthorAccent } from "../../auth/roleAccess";
 import { Badge, Button } from "../../components/ui";
 
 export type AnnouncementData = {
@@ -13,6 +12,8 @@ export type AnnouncementData = {
     visibility: string;
     likes: number;
     likedByCurrentUser: boolean;
+    authorName: string;
+    authorRoleSlugs: string[];
 };
 
 type AnnouncementProps = AnnouncementData & {
@@ -22,63 +23,27 @@ type AnnouncementProps = AnnouncementData & {
     canEdit?: boolean;
 };
 
-
-async function getAuthorName(authorId: string | null): Promise<string> {
-    if (!authorId) {
-        return "Unknown";
-    }
-
-    const { data, error } = await supabase
-        .from("profiles")
-        .select("name")
-        .eq("user_id", authorId)
-        .single();
-
-    if (error) {
-        console.error("Error fetching author name:", error);
-        return "Unknown";
-    }
-
-    return data?.name ?? "Unknown";
-}
-
 export default function Announcement({
     id,
     title,
     body,
     date,
-    author_id,
     visibility,
     likes,
     likedByCurrentUser,
+    authorName,
+    authorRoleSlugs,
     onDelete,
     isDeleting = false,
     canDelete = false,
     canEdit = false,
 }: AnnouncementProps) {
-    const [authorName, setAuthorName] = useState("Unknown");
     const navigate = useNavigate();
     const showActions = canDelete || canEdit;
-
-    useEffect(() => {
-        let ignore = false;
-
-        async function loadAuthorName() {
-            const name = await getAuthorName(author_id);
-            if (!ignore) {
-                setAuthorName(name);
-            }
-        }
-
-        loadAuthorName();
-
-        return () => {
-            ignore = true;
-        };
-    }, [author_id]);
+    const accent = getAnnouncementAuthorAccent(authorRoleSlugs);
 
     return (
-        <article className="announcement-card">
+        <article className={`announcement-card announcement-card--${accent}`}>
             <div className="announcement-card-top">
                 <h2 className="announcement-title">{title}</h2>
                 <Badge variant="info">{visibility}</Badge>

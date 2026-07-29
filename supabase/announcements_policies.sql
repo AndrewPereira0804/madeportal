@@ -22,6 +22,9 @@ drop policy if exists "Active users can read visible announcements" on public.an
 drop policy if exists "Permitted roles can insert announcements" on public.announcements;
 drop policy if exists "Authors can update own visible announcements" on public.announcements;
 drop policy if exists "Announcement managers can update announcements" on public.announcements;
+drop policy if exists "Admins can update announcements" on public.announcements;
+drop policy if exists "Authors and admins can update announcements" on public.announcements;
+drop policy if exists "Authors and announcement managers can delete announcements" on public.announcements;
 drop policy if exists "Announcement managers can delete announcements" on public.announcements;
 
 create policy "Active users can read visible announcements"
@@ -62,37 +65,44 @@ with check (
         'president',
         'vice-president',
         'vice_president',
-        'vp'
+        'vp',
+        'alum-chair',
+        'alumni-chair',
+        'alumni-chairman',
+        'chapter-dev',
+        'chapter-dev-chair',
+        'chapter-development',
+        'chapter-development-chair',
+        'cs-chair',
+        'community-service-chair',
+        'hm',
+        'house-manager',
+        'hsm',
+        'health-safety-manager',
+        'membered',
+        'member-educator',
+        'philo-chair',
+        'philanthropy-chair',
+        'preceptor',
+        'prof-dev',
+        'professional-dev',
+        'professional-dev-chair',
+        'professional-development',
+        'professional-development-chair',
+        'rec',
+        'recorder',
+        'rush-chair',
+        'scholarship',
+        'social-chair',
+        'social-events',
+        'stew',
+        'steward',
+        'treasurer'
       )
   )
 );
 
-create policy "Authors can update own visible announcements"
-on public.announcements
-for update
-to authenticated
-using (
-  author_id = (select auth.uid())
-  and visibility = 'active'::public.user_status
-  and exists (
-    select 1
-    from public.profiles p
-    where p.user_id = (select auth.uid())
-      and p.status = 'active'::public.user_status
-  )
-)
-with check (
-  author_id = (select auth.uid())
-  and visibility = 'active'::public.user_status
-  and exists (
-    select 1
-    from public.profiles p
-    where p.user_id = (select auth.uid())
-      and p.status = 'active'::public.user_status
-  )
-);
-
-create policy "Announcement managers can update announcements"
+create policy "Authors and admins can update announcements"
 on public.announcements
 for update
 to authenticated
@@ -104,19 +114,16 @@ using (
     where p.user_id = (select auth.uid())
       and p.status = 'active'::public.user_status
   )
-  and exists (
-    select 1
-    from public.user_roles ur
-    where ur.user_id = (select auth.uid())
-      and ur.role_slug in (
-        'admin',
-        'ea',
-        'eda',
-        'president',
-        'vice-president',
-        'vice_president',
-        'vp'
-      )
+  and (
+    author_id = (select auth.uid())
+    or exists (
+      select 1
+      from public.user_roles ur
+      where ur.user_id = (select auth.uid())
+        and ur.role_slug in (
+          'admin'
+        )
+    )
   )
 )
 with check (
@@ -127,37 +134,20 @@ with check (
     where p.user_id = (select auth.uid())
       and p.status = 'active'::public.user_status
   )
-  and exists (
-    select 1
-    from public.user_roles ur
-    where ur.user_id = (select auth.uid())
-      and ur.role_slug in (
-        'admin',
-        'ea',
-        'eda',
-        'president',
-        'vice-president',
-        'vice_president',
-        'vp'
-      )
+  and (
+    author_id = (select auth.uid())
+    or exists (
+      select 1
+      from public.user_roles ur
+      where ur.user_id = (select auth.uid())
+        and ur.role_slug in (
+          'admin'
+        )
+    )
   )
 );
 
-create policy "Authors can delete own announcements"
-on public.announcements
-for delete
-to authenticated
-using (
-  author_id = (select auth.uid())
-  and exists (
-    select 1
-    from public.profiles p
-    where p.user_id = (select auth.uid())
-      and p.status = 'active'::public.user_status
-  )
-);
-
-create policy "Announcement managers can delete announcements"
+create policy "Authors and announcement managers can delete announcements"
 on public.announcements
 for delete
 to authenticated
@@ -168,18 +158,21 @@ using (
     where p.user_id = (select auth.uid())
       and p.status = 'active'::public.user_status
   )
-  and exists (
-    select 1
-    from public.user_roles ur
-    where ur.user_id = (select auth.uid())
-      and ur.role_slug in (
-        'admin',
-        'ea',
-        'eda',
-        'president',
-        'vice-president',
-        'vice_president',
-        'vp'
+  and (
+    author_id = (select auth.uid())
+    or exists (
+      select 1
+      from public.user_roles ur
+      where ur.user_id = (select auth.uid())
+        and ur.role_slug in (
+          'admin',
+          'ea',
+          'eda',
+          'president',
+          'vice-president',
+          'vice_president',
+          'vp'
+        )
       )
   )
 );

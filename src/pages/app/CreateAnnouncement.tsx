@@ -49,7 +49,7 @@ export default function CreateAnnouncement() {
     }
 
     if (!canCreate) {
-      setErrorMessage("Only President, VP, or Admin roles can create announcements.");
+      setErrorMessage("Only chair, President, VP, or Admin roles can create announcements.");
       return;
     }
 
@@ -99,7 +99,7 @@ export default function CreateAnnouncement() {
             </Button>
           }
         />
-        <div className="form-error mb-0 mt-4">Only President, VP, or Admin roles can create announcements.</div>
+        <div className="form-error mb-0 mt-4">Only chair, President, VP, or Admin roles can create announcements.</div>
       </Card>
     );
   }

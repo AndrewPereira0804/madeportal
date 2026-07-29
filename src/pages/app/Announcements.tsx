@@ -3,7 +3,11 @@ import { useEffect, useState } from "react";
 import supabase from "../../config/supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/authContext";
-import { canCreateAnnouncements, canModerateAnnouncements } from "../../auth/roleAccess";
+import {
+    canCreateAnnouncements,
+    canDeleteAnyAnnouncement,
+    canUpdateAnyAnnouncement,
+} from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
 import { Button, Card, EmptyState, PageHeader } from "../../components/ui";
 
@@ -16,13 +20,113 @@ type AnnouncementRow = {
     visibility: string;
     likes: number;
     likedByCurrentUser: boolean;
+    authorName: AnnouncementData["authorName"];
+    authorRoleSlugs: AnnouncementData["authorRoleSlugs"];
 };
 
-type AnnouncementRecord = Omit<AnnouncementRow, "likedByCurrentUser">;
+type AnnouncementRecord = Omit<AnnouncementRow, "likedByCurrentUser" | "authorName" | "authorRoleSlugs">;
 
 type AnnouncementLikeRow = {
     announcement_id: AnnouncementRow["id"];
 };
+
+type AuthorProfileRow = {
+    user_id: string;
+    name: string | null;
+};
+
+type AuthorRoleRow = {
+    user_id: string;
+    role_slug: string;
+};
+
+type AuthorMetadata = {
+    name: string;
+    roleSlugs: string[];
+};
+
+function getUniqueAuthorIds(announcements: AnnouncementRecord[]) {
+    return [
+        ...new Set(
+            announcements
+                .map((announcement) => announcement.author_id)
+                .filter((authorId): authorId is string => Boolean(authorId))
+        ),
+    ];
+}
+
+async function getAuthorMetadata(authorIds: string[]) {
+    const authorMetadataById = new Map<string, AuthorMetadata>();
+
+    authorIds.forEach((authorId) => {
+        authorMetadataById.set(authorId, {
+            name: "Unknown",
+            roleSlugs: [],
+        });
+    });
+
+    if (authorIds.length === 0) {
+        return authorMetadataById;
+    }
+
+    const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("user_id, name")
+        .in("user_id", authorIds);
+
+    if (profileError) {
+        console.warn("Could not fetch announcement author profiles:", profileError);
+    } else {
+        ((profileData ?? []) as AuthorProfileRow[]).forEach((profile) => {
+            authorMetadataById.set(profile.user_id, {
+                name: profile.name ?? "Unknown",
+                roleSlugs: authorMetadataById.get(profile.user_id)?.roleSlugs ?? [],
+            });
+        });
+    }
+
+    const { data: roleData, error: roleError } = await supabase
+        .from("user_roles")
+        .select("user_id, role_slug")
+        .in("user_id", authorIds);
+
+    if (roleError) {
+        console.warn("Could not fetch announcement author roles:", roleError);
+    } else {
+        ((roleData ?? []) as AuthorRoleRow[]).forEach((role) => {
+            const currentMetadata = authorMetadataById.get(role.user_id) ?? {
+                name: "Unknown",
+                roleSlugs: [],
+            };
+
+            authorMetadataById.set(role.user_id, {
+                ...currentMetadata,
+                roleSlugs: [...currentMetadata.roleSlugs, role.role_slug],
+            });
+        });
+    }
+
+    return authorMetadataById;
+}
+
+function applyAnnouncementMetadata(
+    announcements: AnnouncementRecord[],
+    likedAnnouncementIds: Set<string>,
+    authorMetadataById: Map<string, AuthorMetadata>
+) {
+    return announcements.map((announcement) => {
+        const authorMetadata = announcement.author_id
+            ? authorMetadataById.get(announcement.author_id)
+            : null;
+
+        return {
+            ...announcement,
+            likedByCurrentUser: likedAnnouncementIds.has(String(announcement.id)),
+            authorName: authorMetadata?.name ?? "Unknown",
+            authorRoleSlugs: authorMetadata?.roleSlugs ?? [],
+        };
+    });
+}
 
 export default function Announcements() {
     const navigate = useNavigate();
@@ -33,7 +137,8 @@ export default function Announcements() {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<AnnouncementRow["id"] | null>(null);
     const userId = session?.user?.id;
-    const canModerate = canModerateAnnouncements(roles);
+    const canDeleteAny = canDeleteAnyAnnouncement(roles);
+    const canUpdateAny = canUpdateAnyAnnouncement(roles);
     const canCreate = canCreateAnnouncements(roles);
 
     useEffect(() => {
@@ -54,41 +159,33 @@ export default function Announcements() {
                 }
 
                 const announcementRows = (data ?? []) as AnnouncementRecord[];
-                if (announcementRows.length === 0 || !userId) {
-                    if (!ignore) {
-                        setAnnouncements(
-                            announcementRows.map((announcement) => ({
-                                ...announcement,
-                                likedByCurrentUser: false,
-                            }))
-                        );
+                const authorMetadataById = await getAuthorMetadata(getUniqueAuthorIds(announcementRows));
+                const likedAnnouncementIds = new Set<string>();
+
+                if (announcementRows.length > 0 && userId) {
+                    const announcementIds = announcementRows.map((announcement) => announcement.id);
+                    const { data: likeData, error: likeError } = await supabase
+                        .from("announcement_likes")
+                        .select("announcement_id")
+                        .eq("user_id", userId)
+                        .in("announcement_id", announcementIds);
+
+                    if (likeError) {
+                        throw likeError;
                     }
-                    return;
+
+                    ((likeData ?? []) as AnnouncementLikeRow[]).forEach((like) =>
+                        likedAnnouncementIds.add(String(like.announcement_id))
+                    );
                 }
-
-                const announcementIds = announcementRows.map((announcement) => announcement.id);
-                const { data: likeData, error: likeError } = await supabase
-                    .from("announcement_likes")
-                    .select("announcement_id")
-                    .eq("user_id", userId)
-                    .in("announcement_id", announcementIds);
-
-                if (likeError) {
-                    throw likeError;
-                }
-
-                const likedAnnouncementIds = new Set(
-                    ((likeData ?? []) as AnnouncementLikeRow[]).map((like) =>
-                        String(like.announcement_id)
-                    )
-                );
 
                 if (!ignore) {
                     setAnnouncements(
-                        announcementRows.map((announcement) => ({
-                            ...announcement,
-                            likedByCurrentUser: likedAnnouncementIds.has(String(announcement.id)),
-                        }))
+                        applyAnnouncementMetadata(
+                            announcementRows,
+                            likedAnnouncementIds,
+                            authorMetadataById
+                        )
                     );
                 }
             } catch (error) {
@@ -189,10 +286,12 @@ export default function Announcements() {
                             visibility={announcement.visibility}
                             likes={announcement.likes}
                             likedByCurrentUser={announcement.likedByCurrentUser}
+                            authorName={announcement.authorName}
+                            authorRoleSlugs={announcement.authorRoleSlugs}
                             onDelete={handleDelete}
                             isDeleting={deletingId === announcement.id}
-                            canDelete={announcement.author_id === userId || canModerate}
-                            canEdit={announcement.author_id === userId || canModerate}
+                            canDelete={announcement.author_id === userId || canDeleteAny}
+                            canEdit={announcement.author_id === userId || canUpdateAny}
                         />
                     ))}
                 </div>
