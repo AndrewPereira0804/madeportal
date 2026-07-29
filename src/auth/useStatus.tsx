@@ -16,6 +16,7 @@ export function useStatus() {
   const { session } = useAuth();
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
   const userId = session?.user?.id ?? null;
 
   useEffect(() => {
@@ -25,6 +26,7 @@ export function useStatus() {
       if (!userId) {
         if (!ignore) {
           setStatus(null);
+          setLoadedUserId(null);
           setLoading(false);
         }
         return;
@@ -32,18 +34,19 @@ export function useStatus() {
 
       setLoading(true);
       fetchProfileStatus(userId).then(({ data, error }) => {
-          if (ignore) {
-            return;
-          }
+        if (ignore) {
+          return;
+        }
 
-          if (error) {
-            console.warn("could not fetch profile status", error);
-            setStatus(null);
-          } else {
-            setStatus(data?.status ?? null);
-          }
-          setLoading(false);
-        });
+        if (error) {
+          console.warn("could not fetch profile status", error);
+          setStatus(null);
+        } else {
+          setStatus(data?.status ?? null);
+        }
+        setLoadedUserId(userId);
+        setLoading(false);
+      });
     }, 0);
 
     return () => {
@@ -52,5 +55,8 @@ export function useStatus() {
     };
   }, [userId]);
 
-  return { status, loading };
+  return {
+    status,
+    loading: loading || (userId !== null && loadedUserId !== userId),
+  };
 }

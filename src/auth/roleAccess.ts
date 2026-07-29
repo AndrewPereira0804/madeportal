@@ -234,6 +234,10 @@ export function hasPresidentOrVicePresidentRole(roles: string[]) {
 }
 
 export function getStatusRedirectPath(status: string | null, currentPath: string) {
+  if (status === "active" && (currentPath === "/pending" || currentPath === "/suspended")) {
+    return "/app";
+  }
+
   if ((status === null || status === "pending") && currentPath !== "/pending") {
     return "/pending";
   }
