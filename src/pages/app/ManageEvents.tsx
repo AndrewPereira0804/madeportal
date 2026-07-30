@@ -11,16 +11,20 @@ import {
   getManageableEventTypes,
 } from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
-import { Badge, Button, Card, EmptyState, Input, PageHeader, SectionHeader, Select, Textarea } from "../../components/ui";
+import { ActionCard, Badge, Button, Card, EmptyState, Input, PageHeader, SectionHeader, Select, Textarea } from "../../components/ui";
 import {
   defaultEventType,
   eventTypeOptions,
-  generalEventTypeOptions,
   getEventTypeClassName,
   getEventTypeLabel,
   normalizeEventType,
   type EventTypeSlug,
 } from "../../lib/eventTypes";
+import {
+  getEventToolDefinitionsForEventTypes,
+  getEventToolPath,
+  getPreferredEventToolOwner,
+} from "../../lib/eventTools";
 import {
   compareEventDateTimes,
   formatEventDateTime,
@@ -118,7 +122,7 @@ export default function ManageEvents({
     [canManageAll, roles, scopedEventTypeSet, visibleManageableEventTypes]
   );
   const createEventTypeOptions = useMemo(() => {
-    const baseEventTypeOptions = scopedEventTypeSet ? eventTypeOptions : generalEventTypeOptions;
+    const baseEventTypeOptions = scopedEventTypeSet ? eventTypeOptions : [];
     const allowedOptions =
       canManageAll
         ? baseEventTypeOptions
@@ -130,7 +134,14 @@ export default function ManageEvents({
 
     return allowedOptions.filter((eventType) => scopedEventTypeSet.has(eventType.slug));
   }, [canManageAll, scopedEventTypeSet, visibleManageableEventTypes]);
-  const canCreateFromManager = createEventTypeOptions.length > 0;
+  const canCreateFromManager = Boolean(scopedEventTypeSet && createEventTypeOptions.length > 0);
+  const createEventToolDefinitions = useMemo(
+    () =>
+      scopedEventTypeSet
+        ? []
+        : getEventToolDefinitionsForEventTypes(visibleManageableEventTypes),
+    [scopedEventTypeSet, visibleManageableEventTypes]
+  );
   const defaultDraftEventType = createEventTypeOptions.some((eventType) => eventType.slug === defaultEventType)
     ? defaultEventType
     : createEventTypeOptions[0]?.slug ?? defaultEventType;
@@ -354,6 +365,41 @@ export default function ManageEvents({
         bordered
         actions={<Button to={returnPath} variant="outline-secondary">{returnLabel}</Button>}
       />
+
+      {!editingId && !scopedEventTypeSet && (
+        <section className="mt-4">
+          <SectionHeader
+            size="sm"
+            title="Create event"
+            description="Choose the event tool for the type you want to create."
+          />
+
+          {createEventToolDefinitions.length === 0 ? (
+            <EmptyState
+              compact
+              title="No creation tools available"
+              description="Event creation tools will appear here when your role can create events."
+            />
+          ) : (
+            <div className="action-card-grid tools-grid mt-3">
+              {createEventToolDefinitions.map((definition) => {
+                const ownerRoleSlug = getPreferredEventToolOwner(definition, roles);
+
+                return (
+                  <ActionCard
+                    key={definition.eventType}
+                    to={getEventToolPath(definition, ownerRoleSlug)}
+                    eyebrow="Create"
+                    title={definition.title}
+                    description={definition.description}
+                    meta={definition.meta}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       {(editingId || canCreateFromManager) && (
         <form className="event-management-form" onSubmit={handleSubmit}>

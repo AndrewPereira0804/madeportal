@@ -240,13 +240,13 @@ Event type constraints:
 Frontend usage:
 
 - `src/pages/app/Scheduling.tsx` reads events.
-- `src/pages/app/ManageEvents.tsx` creates, updates, and deletes events.
+- `src/pages/app/ManageEvents.tsx` updates and deletes events from `/app/events/manage`; event creation is routed through per-event-type tool pages.
 - `src/pages/app/tools/PartyEventsTool.tsx` creates party events and updates party event `details` from the Social Chair and HSM tool pages.
 - `src/pages/app/tools/FormalEventsTool.tsx` creates formal events and updates formal event `details` for cost, attendee, payment, and setup checklist state from the Social Chair and HSM tool pages.
 - `src/pages/app/tools/CommunityServiceEventsTool.tsx` creates community service events and updates event `details` for organization, location, attendance hours, and Nationals logging state.
 - `src/pages/app/tools/AlumniEventsTool.tsx` creates alumni events and stores the required public `location` value in `details`.
 - `src/pages/app/tools/ProfessionalDevelopmentEventsTool.tsx` creates professional development events and stores an optional public `speaker` value in `details`.
-- `src/pages/app/tools/ChairTools.tsx` reuses `src/pages/app/ManageEvents.tsx` for scoped Chapter Development, Philanthropy, Scholarship, Member Educator, and House Manager event workspaces, plus the Recorder all-type event workspace.
+- `src/pages/app/tools/ChairTools.tsx` routes each event type to a dedicated tool path. Simple event tools reuse `src/pages/app/ManageEvents.tsx` with one scoped event type; specialized tools own their type-specific `details` workflows.
 
 Important: frontend supplies `created_by`. Hosted RLS now requires `created_by = auth.uid()` on insert, and client updates are not granted `created_by` column access.
 
@@ -440,6 +440,7 @@ Current hosted `public.roles` rows plus repo rollout additions:
 | `brother` | Brother |
 | `chapter-dev` | Chapter Development |
 | `cs-chair` | Community Service Chairman |
+| `dei-chair` | DEI Chairman |
 | `ea` | Eminent Archon |
 | `eda` | Eminent Deputy Archon |
 | `hm` | House Manager |
@@ -449,15 +450,15 @@ Current hosted `public.roles` rows plus repo rollout additions:
 | `philo-chair` | Philanthropy Chairman |
 | `preceptor` | Preceptor |
 | `prof-dev` | Professional Development Chairman |
-| `professional-dev` | Professional Development |
 | `rec` | Recorder |
+| `rush-chair` | Rush Chairman |
 | `scholarship` | Scholarship Chairman |
 | `social-chair` | Social Chairman |
 | `social-events` | Social Events Chairman |
 | `stew` | Steward |
 | `treasurer` | Treasurer |
 
-Rows marked by this repo rollout (`alumni-chair`, `chapter-dev`, `professional-dev`) may not exist in older hosted exports; `supabase/event_types.sql` inserts them idempotently. Do not infer new permissions from role names alone. Check the permission sections and hosted RLS policies before changing behavior.
+Rows marked by this repo rollout (`alumni-chair`, `chapter-dev`, `dei-chair`, `prof-dev`, `rush-chair`, `social-events`) may not exist in older hosted exports; `supabase/event_types.sql` inserts them idempotently. Do not infer new permissions from role names alone. Check the permission sections and hosted RLS policies before changing behavior.
 
 ## Permission Intent
 
@@ -568,30 +569,39 @@ Frontend uses the same role split for event management:
 
 - Full CRUD roles: `admin`, `ea`, `eda`, `rec`, `recorder`.
 - `social-chair`: `party`, `formal`.
+- `social-events`: `sorority_fraternity`.
 - `alumni-chair`: `alumni_event`.
 - `chapter-dev`: `brotherhood_event`.
 - `cs-chair`: `community_service`.
+- `dei-chair`: `dei`.
 - `hm`: `house_meeting`, `work_party`.
 - `hsm`: `brotherhood_event`, `party`, `formal`, `hsm_event`.
 - `membered`: `new_member_meeting`, `new_member_event`.
 - `philo-chair`: `philanthropy`.
-- `professional-dev`: `professional_development`.
+- `prof-dev`: `professional_development`.
+- `rush-chair`: `rush`.
 - `scholarship`: `scholarship`.
 
 The dedicated Party and Formal tool routes are exposed under both `/app/tools/social-chair/*` and `/app/tools/hsm/*`. Both roles read and update the same `events` rows by event type, so Social Chair can edit Party/Formal events created by HSM and HSM can edit Party/Formal events created by Social Chair when hosted RLS includes the matching `can_manage_event_type` behavior.
 
 The dedicated Alumni Event tool route is `/app/tools/alumni-chair/alumni-events`. It creates `alumni_event` rows, forces alumni visibility, and stores the public-facing `location` field in `events.details`. Frontend helpers also treat `alumni_event` rows as alumni-visible by event type.
 
-The dedicated Professional Development tool route is `/app/tools/professional-dev/professional-development-events`. It creates `professional_development` events and stores the optional public-facing `speaker` field in `events.details`.
+The dedicated Professional Development tool route is `/app/tools/prof-dev/professional-development-events`. It creates `professional_development` events and stores the optional public-facing `speaker` field in `events.details`.
 
-The scoped chair event tool routes reuse the general event manager with a fixed event-type set:
+Every event type now has an event creation tool route. Simple event tools reuse the general event manager with a single fixed event type:
 
+- `/app/tools/social-events/sorority-fraternity-events`: `sorority_fraternity`.
+- `/app/tools/dei-chair/dei-events`: `dei`.
 - `/app/tools/chapter-dev/brotherhood-events`: `brotherhood_event`.
+- `/app/tools/hsm/hsm-events`: `hsm_event`.
 - `/app/tools/philo-chair/philanthropy-events`: `philanthropy`.
 - `/app/tools/scholarship/scholarship-events`: `scholarship`.
-- `/app/tools/membered/new-member-events`: `new_member_meeting`, `new_member_event`.
-- `/app/tools/hm/house-events`: `house_meeting`, `work_party`.
-- `/app/tools/rec/events`: all event types.
+- `/app/tools/membered/new-member-meetings`: `new_member_meeting`.
+- `/app/tools/membered/new-member-events`: `new_member_event`.
+- `/app/tools/hm/house-meetings`: `house_meeting`.
+- `/app/tools/hm/work-parties`: `work_party`.
+- `/app/tools/rush-chair/rush-events`: `rush`.
+- `/app/tools/rec/<event-tool-path>`: Recorder per-event-type creator routes for all event types.
 
 The old permissive `events_insert_own`, `events_update_allowed`, and `events_delete_allowed` policies were removed because permissive RLS policies are OR'd together and those legacy policies undermined the scoped role policies.
 
@@ -1277,7 +1287,7 @@ Purpose:
 
 - Adds `events.event_type`.
 - Adds `events.details`.
-- Inserts missing role rows for `alumni-chair`, `chapter-dev`, and `professional-dev`.
+- Inserts missing role rows for `alumni-chair`, `chapter-dev`, `dei-chair`, `prof-dev`, `rush-chair`, and `social-events`, and removes the duplicate `professional-dev` role after migrating references to `prof-dev`.
 - Backfills existing events to `brotherhood_event`.
 - Backfills missing event details to `{}`.
 - Adds the current allowed event type check constraint, including `hsm_event`.

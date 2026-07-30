@@ -45,10 +45,7 @@ const budgetAccountRoleSlugs = new Set([
   "community-service-chair",
   "philo-chair",
   "philanthropy-chair",
-  "professional-dev",
-  "professional-dev-chair",
-  "professional-development",
-  "professional-development-chair",
+  "prof-dev",
   "scholarship",
   "membered",
   "member-educator",
@@ -57,6 +54,9 @@ const budgetAccountRoleSlugs = new Set([
   "house-manager",
   "hsm",
   "health-safety-manager",
+  "dei-chair",
+  "rush-chair",
+  "social-events",
   "stew",
   "steward",
   "treasurer",
@@ -93,14 +93,17 @@ const canonicalChairToolRoleSlugs = [
   "alumni-chair",
   "chapter-dev",
   "social-chair",
+  "social-events",
   "cs-chair",
+  "dei-chair",
   "philo-chair",
-  "professional-dev",
+  "prof-dev",
   "scholarship",
   "membered",
   "hm",
   "hsm",
   "rec",
+  "rush-chair",
   "stew",
   "treasurer",
 ];
@@ -116,11 +119,11 @@ const chairRoleSlugs = new Set([
   "member-educator",
   "house-manager",
   "health-safety-manager",
-  "professional-dev-chair",
-  "professional-development",
-  "professional-development-chair",
+  "prof-dev",
+  "dei-chair",
   "preceptor",
   "recorder",
+  "rush-chair",
   "stew",
   "steward",
   "treasurer",
@@ -166,13 +169,7 @@ const announcementAuthorAccentPriority = [
   },
   {
     accent: "professional",
-    roles: [
-      "prof-dev",
-      "professional-dev",
-      "professional-dev-chair",
-      "professional-development",
-      "professional-development-chair",
-    ],
+    roles: ["prof-dev"],
   },
   {
     accent: "chapter",
@@ -225,15 +222,6 @@ const announcementAuthorAccentPriority = [
   },
 ] as const;
 
-const alumniEventToolRoleSlugs = new Set(["alumni-chair", "alumni-chairman"]);
-const partyFormalEventToolRoleSlugs = new Set(["social-chair", "hsm", "health-safety-manager"]);
-const communityServiceEventToolRoleSlugs = new Set(["cs-chair", "community-service-chair"]);
-const professionalDevelopmentEventToolRoleSlugs = new Set([
-  "professional-dev",
-  "professional-dev-chair",
-  "professional-development",
-  "professional-development-chair",
-]);
 const waitOnToolRoleSlugs = new Set(["stew", "steward"]);
 const emergencyContactReaderRoleSlugs = new Set([
   "admin",
@@ -246,20 +234,15 @@ const emergencyContactReaderRoleSlugs = new Set([
 const eventTypeManagerRoleSlugs: Record<EventTypeSlug, string[]> = {
   party: ["social-chair", "hsm", "health-safety-manager"],
   formal: ["social-chair", "hsm", "health-safety-manager"],
-  sorority_fraternity: [],
-  dei: [],
+  sorority_fraternity: ["social-events"],
+  dei: ["dei-chair"],
   community_service: ["cs-chair", "community-service-chair"],
   philanthropy: ["philo-chair", "philanthropy-chair"],
   house_meeting: ["hm", "house-manager"],
   alumni_event: ["alumni-chair", "alumni-chairman"],
-  rush: [],
+  rush: ["rush-chair"],
   scholarship: ["scholarship"],
-  professional_development: [
-    "professional-dev",
-    "professional-dev-chair",
-    "professional-development",
-    "professional-development-chair",
-  ],
+  professional_development: ["prof-dev"],
   brotherhood_event: [
     "chapter-dev",
     "chapter-dev-chair",
@@ -492,28 +475,23 @@ export function canManageEvent(
 }
 
 export function canManagePartyEvents(roles: string[]) {
-  const roleSet = normalizeRoleSet(roles);
-  return canAccessAllChairTools(roles) || hasAnyRole(roleSet, partyFormalEventToolRoleSlugs);
+  return canManageEventType(roles, "party");
 }
 
 export function canManageFormalEvents(roles: string[]) {
-  const roleSet = normalizeRoleSet(roles);
-  return canAccessAllChairTools(roles) || hasAnyRole(roleSet, partyFormalEventToolRoleSlugs);
+  return canManageEventType(roles, "formal");
 }
 
 export function canManageCommunityServiceEvents(roles: string[]) {
-  const roleSet = normalizeRoleSet(roles);
-  return canAccessAllChairTools(roles) || hasAnyRole(roleSet, communityServiceEventToolRoleSlugs);
+  return canManageEventType(roles, "community_service");
 }
 
 export function canManageAlumniEvents(roles: string[]) {
-  const roleSet = normalizeRoleSet(roles);
-  return canAccessAllChairTools(roles) || hasAnyRole(roleSet, alumniEventToolRoleSlugs);
+  return canManageEventType(roles, "alumni_event");
 }
 
 export function canManageProfessionalDevelopmentEvents(roles: string[]) {
-  const roleSet = normalizeRoleSet(roles);
-  return canAccessAllChairTools(roles) || hasAnyRole(roleSet, professionalDevelopmentEventToolRoleSlugs);
+  return canManageEventType(roles, "professional_development");
 }
 
 export function canManageWaitOns(roles: string[]) {

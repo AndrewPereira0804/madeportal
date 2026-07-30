@@ -5,12 +5,7 @@ import {
   canAccessBudgetAccount,
   canAccessBudgets,
   canAccessChairTool,
-  canManageAlumniEvents,
-  canManageCommunityServiceEvents,
-  canManageFormalEvents,
   canManageEventType,
-  canManagePartyEvents,
-  canManageProfessionalDevelopmentEvents,
   canManageBudgets,
   canManageWaitOns,
   getChairRoleSlugs,
@@ -22,7 +17,12 @@ import { getRoleLabel, normalizeRoleSlugForDisplay } from "../../../auth/roleDis
 import { ActionCard, Badge, Button, Card, EmptyState, MetricCard, PageHeader, SectionHeader } from "../../../components/ui";
 import { calculateBudgetSummary, formatMoney, type BudgetAccount, type BudgetCycle, type BudgetTransaction } from "../../../lib/budget";
 import { getActiveBudgetCycle, getBudgetAccountsForCycle, getTransactionsForAccount } from "../../../lib/budgetQueries";
-import { eventTypeOptions, type EventTypeSlug } from "../../../lib/eventTypes";
+import {
+  getEventToolDefinitionForRolePath,
+  getEventToolDefinitionsForRole,
+  getEventToolPath,
+  type EventToolDefinition,
+} from "../../../lib/eventTools";
 import AlumniEventsTool from "./AlumniEventsTool";
 import CommunityServiceEventsTool from "./CommunityServiceEventsTool";
 import FormalEventsTool from "./FormalEventsTool";
@@ -32,119 +32,9 @@ import ProfessionalDevelopmentEventsTool from "./ProfessionalDevelopmentEventsTo
 import StewardWaitOnTool from "./StewardWaitOnTool";
 import TreasurerBudgetTools from "./TreasurerBudgetTools";
 
-const socialChairRoleSlug = "social-chair";
-const alumniChairRoleSlugs = new Set(["alumni-chair", "alumni-chairman"]);
-const partyFormalToolRoleSlugs = new Set([socialChairRoleSlug, "hsm", "health-safety-manager"]);
-const communityServiceChairRoleSlugs = new Set(["cs-chair", "community-service-chair"]);
-const professionalDevelopmentRoleSlugs = new Set([
-  "professional-dev",
-  "professional-dev-chair",
-  "professional-development",
-  "professional-development-chair",
-]);
 const stewardRoleSlugs = new Set(["stew", "steward"]);
 const recorderRoleSlugs = new Set(["rec", "recorder"]);
 const treasurerRoleSlug = "treasurer";
-
-type ScopedChairEventToolConfig = {
-  path: string;
-  sectionTitle: string;
-  sectionDescription: string;
-  cardTitle: string;
-  cardDescription: string;
-  cardMeta: string;
-  pageTitle: string;
-  pageSubtitle: string;
-  eventTypes: EventTypeSlug[];
-};
-
-const chapterDevelopmentEventTool: ScopedChairEventToolConfig = {
-  path: "brotherhood-events",
-  sectionTitle: "Chapter Development tools",
-  sectionDescription: "Brotherhood event creation and calendar management.",
-  cardTitle: "Brotherhood events",
-  cardDescription: "Create brotherhood events and manage calendar details.",
-  cardMeta: "Brotherhood",
-  pageTitle: "Brotherhood Events",
-  pageSubtitle: "Create, edit, and delete brotherhood events you are permitted to manage.",
-  eventTypes: ["brotherhood_event"],
-};
-
-const philanthropyEventTool: ScopedChairEventToolConfig = {
-  path: "philanthropy-events",
-  sectionTitle: "Philanthropy tools",
-  sectionDescription: "Philanthropy event creation and calendar management.",
-  cardTitle: "Philanthropy events",
-  cardDescription: "Create philanthropy events and manage calendar details.",
-  cardMeta: "Philanthropy",
-  pageTitle: "Philanthropy Events",
-  pageSubtitle: "Create, edit, and delete philanthropy events you are permitted to manage.",
-  eventTypes: ["philanthropy"],
-};
-
-const scholarshipEventTool: ScopedChairEventToolConfig = {
-  path: "scholarship-events",
-  sectionTitle: "Scholarship tools",
-  sectionDescription: "Scholarship event creation and calendar management.",
-  cardTitle: "Scholarship events",
-  cardDescription: "Create scholarship events and manage calendar details.",
-  cardMeta: "Scholarship",
-  pageTitle: "Scholarship Events",
-  pageSubtitle: "Create, edit, and delete scholarship events you are permitted to manage.",
-  eventTypes: ["scholarship"],
-};
-
-const newMemberEventTool: ScopedChairEventToolConfig = {
-  path: "new-member-events",
-  sectionTitle: "Member Educator tools",
-  sectionDescription: "New member meeting and event creation.",
-  cardTitle: "New member events",
-  cardDescription: "Create new member meetings and events for the chapter calendar.",
-  cardMeta: "New Members",
-  pageTitle: "New Member Events",
-  pageSubtitle: "Create, edit, and delete new member meetings and events you are permitted to manage.",
-  eventTypes: ["new_member_meeting", "new_member_event"],
-};
-
-const houseManagerEventTool: ScopedChairEventToolConfig = {
-  path: "house-events",
-  sectionTitle: "House Manager tools",
-  sectionDescription: "House Manager event creation.",
-  cardTitle: "House events",
-  cardDescription: "Create work party events for the chapter calendar.",
-  cardMeta: "House",
-  pageTitle: "House Events",
-  pageSubtitle: "Create, edit, and delete events you are permitted to manage.",
-  eventTypes: ["work_party"],
-};
-
-const recorderEventTool: ScopedChairEventToolConfig = {
-  path: "events",
-  sectionTitle: "Recorder tools",
-  sectionDescription: "Create and manage events for every chair event type.",
-  cardTitle: "All events",
-  cardDescription: "Create any event type and manage calendar details.",
-  cardMeta: "All Event Types",
-  pageTitle: "Recorder Events",
-  pageSubtitle: "Create, edit, and delete events across every chair event type.",
-  eventTypes: eventTypeOptions.map((eventType) => eventType.slug),
-};
-
-const scopedChairEventToolsByRoleSlug: Record<string, ScopedChairEventToolConfig> = {
-  "chapter-dev": chapterDevelopmentEventTool,
-  "chapter-dev-chair": chapterDevelopmentEventTool,
-  "chapter-development": chapterDevelopmentEventTool,
-  "chapter-development-chair": chapterDevelopmentEventTool,
-  "philo-chair": philanthropyEventTool,
-  "philanthropy-chair": philanthropyEventTool,
-  scholarship: scholarshipEventTool,
-  membered: newMemberEventTool,
-  "member-educator": newMemberEventTool,
-  hm: houseManagerEventTool,
-  "house-manager": houseManagerEventTool,
-  rec: recorderEventTool,
-  recorder: recorderEventTool,
-};
 
 function uniqueRoleSlugs(roleSlugs: string[]) {
   const seen = new Set<string>();
@@ -188,24 +78,21 @@ function getChairToolDescription(roleSlug: string) {
     return "Budget requests, reimbursements, cycles, and allocations.";
   }
 
-  if (alumniChairRoleSlugs.has(roleSlug)) {
-    return "Alumni event creation and location details.";
-  }
-
   if (stewardRoleSlugs.has(roleSlug)) {
     return "Weekly wait-on schedules and published forms.";
   }
 
-  if (professionalDevelopmentRoleSlugs.has(roleSlug)) {
-    return "Professional development event creation and speaker details.";
-  }
-
   if (recorderRoleSlugs.has(roleSlug)) {
-    return "Create and manage every chair event type.";
+    return "Create and manage every event type.";
   }
 
-  if (scopedChairEventToolsByRoleSlug[roleSlug]) {
-    return scopedChairEventToolsByRoleSlug[roleSlug].cardDescription;
+  const eventTools = getEventToolDefinitionsForRole(roleSlug);
+  if (eventTools.length === 1) {
+    return eventTools[0].description;
+  }
+
+  if (eventTools.length > 1) {
+    return `Create and manage ${eventTools.length} event tools.`;
   }
 
   return "Budget allocation and spending request access.";
@@ -217,14 +104,56 @@ function getChairWorkspaceSubtitle(roleSlug: string) {
   }
 
   if (recorderRoleSlugs.has(roleSlug)) {
-    return "All event creation and budget access for this chair role.";
+    return "Event creation and budget access for this chair role.";
   }
 
-  if (scopedChairEventToolsByRoleSlug[roleSlug]) {
+  if (getEventToolDefinitionsForRole(roleSlug).length > 0) {
     return "Event creation and budget access for this chair role.";
   }
 
   return "Budget allocation and requests for this chair role.";
+}
+
+function EventToolPage({
+  definition,
+  ownerLabel,
+  returnPath,
+  returnLabel,
+}: {
+  definition: EventToolDefinition;
+  ownerLabel: string;
+  returnPath: string;
+  returnLabel: string;
+}) {
+  if (definition.eventType === "party") {
+    return <PartyEventsTool ownerLabel={ownerLabel} returnPath={returnPath} />;
+  }
+
+  if (definition.eventType === "formal") {
+    return <FormalEventsTool ownerLabel={ownerLabel} returnPath={returnPath} />;
+  }
+
+  if (definition.eventType === "community_service") {
+    return <CommunityServiceEventsTool ownerLabel={ownerLabel} returnPath={returnPath} />;
+  }
+
+  if (definition.eventType === "alumni_event") {
+    return <AlumniEventsTool ownerLabel={ownerLabel} returnPath={returnPath} />;
+  }
+
+  if (definition.eventType === "professional_development") {
+    return <ProfessionalDevelopmentEventsTool ownerLabel={ownerLabel} returnPath={returnPath} />;
+  }
+
+  return (
+    <ManageEvents
+      title={definition.pageTitle}
+      subtitle={definition.pageSubtitle}
+      returnPath={returnPath}
+      returnLabel={returnLabel}
+      scopedEventTypes={[definition.eventType]}
+    />
+  );
 }
 
 export function ChairToolsIndex() {
@@ -288,26 +217,28 @@ export function ChairToolPage() {
   const { roles, loading: rolesLoading } = useRoles();
   const normalizedRoleSlug = normalizeRoleSlugForDisplay(roleSlug ?? "");
   const nestedToolPath = (toolPathParam ?? "").replace(/^\/+|\/+$/g, "");
+  const nestedEventToolDefinition = getEventToolDefinitionForRolePath(normalizedRoleSlug, nestedToolPath);
   const isTreasurerWorkspace = normalizedRoleSlug === treasurerRoleSlug;
   const canViewBudgetAccountTool =
     isTreasurerWorkspace && /^accounts\/[^/]+$/.test(nestedToolPath) && canAccessBudgets(roles);
+  const canViewEventTool = Boolean(
+    nestedEventToolDefinition && canManageEventType(roles, nestedEventToolDefinition.eventType)
+  );
   const canViewTool = Boolean(
-    normalizedRoleSlug && (canAccessChairTool(roles, normalizedRoleSlug) || canViewBudgetAccountTool)
+    normalizedRoleSlug && (canAccessChairTool(roles, normalizedRoleSlug) || canViewBudgetAccountTool || canViewEventTool)
   );
   const canUseBudgetAdminAccess = canManageBudgets(roles);
-  const canUseAlumniTool = alumniChairRoleSlugs.has(normalizedRoleSlug) && canManageAlumniEvents(roles);
-  const canUsePartyTool = partyFormalToolRoleSlugs.has(normalizedRoleSlug) && canManagePartyEvents(roles);
-  const canUseFormalTool = partyFormalToolRoleSlugs.has(normalizedRoleSlug) && canManageFormalEvents(roles);
-  const canUseCommunityServiceTool =
-    communityServiceChairRoleSlugs.has(normalizedRoleSlug) && canManageCommunityServiceEvents(roles);
-  const canUseProfessionalDevelopmentTool =
-    professionalDevelopmentRoleSlugs.has(normalizedRoleSlug) && canManageProfessionalDevelopmentEvents(roles);
   const canUseWaitOnTool = stewardRoleSlugs.has(normalizedRoleSlug) && canManageWaitOns(roles);
-  const scopedChairEventToolConfig = scopedChairEventToolsByRoleSlug[normalizedRoleSlug];
-  const canUseScopedChairEventTool = Boolean(
-    scopedChairEventToolConfig &&
-      (canAccessAllChairTools(roles) ||
-        scopedChairEventToolConfig.eventTypes.some((eventType) => canManageEventType(roles, eventType)))
+  const eventToolDefinitionsForRole = useMemo(
+    () => getEventToolDefinitionsForRole(normalizedRoleSlug),
+    [normalizedRoleSlug]
+  );
+  const accessibleEventToolDefinitions = useMemo(
+    () =>
+      eventToolDefinitionsForRole.filter((definition) =>
+        canManageEventType(roles, definition.eventType)
+      ),
+    [eventToolDefinitionsForRole, roles]
   );
   const currentChairToolPath = `/app/tools/${normalizedRoleSlug}`;
 
@@ -368,7 +299,6 @@ export function ChairToolPage() {
     }
 
     if (!canViewTool) {
-      setLoading(false);
       return () => {
         ignore = true;
       };
@@ -413,46 +343,6 @@ export function ChairToolPage() {
     return <TreasurerBudgetTools toolPath={nestedToolPath} />;
   }
 
-  if (nestedToolPath === "party-events" && partyFormalToolRoleSlugs.has(normalizedRoleSlug)) {
-    return (
-      <PartyEventsTool
-        ownerLabel={getRoleLabel(normalizedRoleSlug)}
-        returnPath={currentChairToolPath}
-      />
-    );
-  }
-
-  if (nestedToolPath === "formal-events" && partyFormalToolRoleSlugs.has(normalizedRoleSlug)) {
-    return (
-      <FormalEventsTool
-        ownerLabel={getRoleLabel(normalizedRoleSlug)}
-        returnPath={currentChairToolPath}
-      />
-    );
-  }
-
-  if (nestedToolPath === "community-service-events" && communityServiceChairRoleSlugs.has(normalizedRoleSlug)) {
-    return <CommunityServiceEventsTool />;
-  }
-
-  if (nestedToolPath === "alumni-events" && alumniChairRoleSlugs.has(normalizedRoleSlug)) {
-    return (
-      <AlumniEventsTool
-        ownerLabel={getRoleLabel(normalizedRoleSlug)}
-        returnPath={currentChairToolPath}
-      />
-    );
-  }
-
-  if (nestedToolPath === "professional-development-events" && professionalDevelopmentRoleSlugs.has(normalizedRoleSlug)) {
-    return (
-      <ProfessionalDevelopmentEventsTool
-        ownerLabel={getRoleLabel(normalizedRoleSlug)}
-        returnPath={currentChairToolPath}
-      />
-    );
-  }
-
   if (nestedToolPath === "wait-ons" && stewardRoleSlugs.has(normalizedRoleSlug)) {
     return (
       <StewardWaitOnTool
@@ -462,14 +352,25 @@ export function ChairToolPage() {
     );
   }
 
-  if (scopedChairEventToolConfig && nestedToolPath === scopedChairEventToolConfig.path) {
+  if (nestedToolPath === "house-events" && (normalizedRoleSlug === "hm" || normalizedRoleSlug === "house-manager")) {
+    return <Navigate to={`${currentChairToolPath}/work-parties`} replace />;
+  }
+
+  if (nestedToolPath === "events" && recorderRoleSlugs.has(normalizedRoleSlug)) {
+    return <Navigate to="/app/events/manage" replace />;
+  }
+
+  if (nestedEventToolDefinition) {
+    const canReturnToWorkspace = canAccessChairTool(roles, normalizedRoleSlug);
+    const returnPath = canReturnToWorkspace ? currentChairToolPath : "/app/events/manage";
+    const returnLabel = canReturnToWorkspace ? `${getRoleLabel(normalizedRoleSlug)} Tools` : "Manage Events";
+
     return (
-      <ManageEvents
-        title={scopedChairEventToolConfig.pageTitle}
-        subtitle={scopedChairEventToolConfig.pageSubtitle}
-        returnPath={currentChairToolPath}
-        returnLabel={`${getRoleLabel(normalizedRoleSlug)} Tools`}
-        scopedEventTypes={scopedChairEventToolConfig.eventTypes}
+      <EventToolPage
+        definition={nestedEventToolDefinition}
+        ownerLabel={getRoleLabel(normalizedRoleSlug)}
+        returnPath={returnPath}
+        returnLabel={returnLabel}
       />
     );
   }
@@ -510,85 +411,23 @@ export function ChairToolPage() {
 
       {!loading && !errorMessage && (
         <>
-          {canUseAlumniTool && (
+          {accessibleEventToolDefinitions.length > 0 && (
             <>
               <SectionHeader
-                title="Alumni Chairman tools"
-                description="Alumni event creation with public location details."
+                title="Event creation tools"
+                description="Create calendar events one type at a time."
               />
               <div className="action-card-grid tools-grid">
-                <ActionCard
-                  to={`${currentChairToolPath}/alumni-events`}
-                  eyebrow="Events"
-                  title="Alumni events"
-                  description="Create alumni events and publish location details for alumni accounts."
-                  meta="Alumni"
-                />
-              </div>
-            </>
-          )}
-
-          {(canUsePartyTool || canUseFormalTool) && (
-            <>
-              <SectionHeader
-                title={normalizedRoleSlug === socialChairRoleSlug ? "Social chair tools" : "Party and formal tools"}
-                description="Party and formal event creation, guest lists, payment tracking, and checklist work."
-              />
-              <div className="action-card-grid tools-grid">
-                {canUsePartyTool && (
+                {accessibleEventToolDefinitions.map((definition) => (
                   <ActionCard
-                    to={`${currentChairToolPath}/party-events`}
+                    key={definition.eventType}
+                    to={getEventToolPath(definition, normalizedRoleSlug)}
                     eyebrow="Events"
-                    title="Party events"
-                    description="Create party events and manage pre/post party checklists."
-                    meta="Party"
+                    title={definition.title}
+                    description={definition.description}
+                    meta={definition.meta}
                   />
-                )}
-                {canUseFormalTool && (
-                  <ActionCard
-                    to={`${currentChairToolPath}/formal-events`}
-                    eyebrow="Events"
-                    title="Formal events"
-                    description="Create formal events, calculate brother payments, and manage setup work."
-                    meta="Formal"
-                  />
-                )}
-              </div>
-            </>
-          )}
-
-          {canUseCommunityServiceTool && (
-            <>
-              <SectionHeader
-                title="Community Service tools"
-                description="Service event creation, attendance tracking, hours, and Nationals logging status."
-              />
-              <div className="action-card-grid tools-grid">
-                <ActionCard
-                  to={`/app/tools/${normalizedRoleSlug}/community-service-events`}
-                  eyebrow="Events"
-                  title="Community service events"
-                  description="Create service events and track brother hours logged with Nationals."
-                  meta="Community Service"
-                />
-              </div>
-            </>
-          )}
-
-          {canUseProfessionalDevelopmentTool && (
-            <>
-              <SectionHeader
-                title="Professional Development tools"
-                description="Professional development event creation with optional speaker details."
-              />
-              <div className="action-card-grid tools-grid">
-                <ActionCard
-                  to={`${currentChairToolPath}/professional-development-events`}
-                  eyebrow="Events"
-                  title="Professional development events"
-                  description="Create professional development events and publish speaker details."
-                  meta="Professional Development"
-                />
+                ))}
               </div>
             </>
           )}
@@ -606,24 +445,6 @@ export function ChairToolPage() {
                   title="Wait-on scheduler"
                   description="Assign brothers to weekly meal, mop, and Sunday wait-on slots."
                   meta="Weekly"
-                />
-              </div>
-            </>
-          )}
-
-          {scopedChairEventToolConfig && canUseScopedChairEventTool && (
-            <>
-              <SectionHeader
-                title={scopedChairEventToolConfig.sectionTitle}
-                description={scopedChairEventToolConfig.sectionDescription}
-              />
-              <div className="action-card-grid tools-grid">
-                <ActionCard
-                  to={`${currentChairToolPath}/${scopedChairEventToolConfig.path}`}
-                  eyebrow="Events"
-                  title={scopedChairEventToolConfig.cardTitle}
-                  description={scopedChairEventToolConfig.cardDescription}
-                  meta={scopedChairEventToolConfig.cardMeta}
                 />
               </div>
             </>

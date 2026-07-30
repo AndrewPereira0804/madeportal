@@ -66,6 +66,11 @@ type AttendeeDraft = {
   hours: string;
 };
 
+type CommunityServiceEventsToolProps = {
+  ownerLabel?: string;
+  returnPath?: string;
+};
+
 const communityServiceEventSelect =
   "id, created_at, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte, details";
 
@@ -157,7 +162,10 @@ function CommunityServiceAttendeeTable({
   );
 }
 
-export default function CommunityServiceEventsTool() {
+export default function CommunityServiceEventsTool({
+  ownerLabel = "Community Service Chairman",
+  returnPath = "/app/tools/cs-chair",
+}: CommunityServiceEventsToolProps = {}) {
   const { session } = useAuth();
   const { roles, loading: rolesLoading } = useRoles();
   const canManage = useMemo(() => canManageCommunityServiceEvents(roles), [roles]);
@@ -385,17 +393,17 @@ export default function CommunityServiceEventsTool() {
   }
 
   if (!rolesLoading && !canManage) {
-    return <Navigate to="/app/tools/cs-chair" replace />;
+    return <Navigate to={returnPath} replace />;
   }
 
   return (
     <Card className="tools-page">
       <PageHeader
-        eyebrow="Community Service Chairman"
+        eyebrow={ownerLabel}
         title="Community Service Events"
         subtitle="Create community service events, track awarded hours, and mark Nationals logging status."
         bordered
-        actions={<Button to="/app/tools/cs-chair" variant="outline-secondary">Community Service Tools</Button>}
+        actions={<Button to={returnPath} variant="outline-secondary">{ownerLabel} Tools</Button>}
       />
 
       <form className="party-tool-form" onSubmit={handleCreateEvent}>

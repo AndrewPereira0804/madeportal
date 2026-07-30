@@ -8,9 +8,28 @@ insert into public.roles (slug, name)
 values
   ('alumni-chair', 'Alumni Chairman'),
   ('chapter-dev', 'Chapter Development'),
-  ('professional-dev', 'Professional Development')
+  ('dei-chair', 'DEI Chairman'),
+  ('prof-dev', 'Professional Development Chairman'),
+  ('rush-chair', 'Rush Chairman'),
+  ('social-events', 'Social Events Chairman')
 on conflict (slug) do update
 set name = excluded.name;
+
+insert into public.user_roles (user_id, role_slug)
+select user_id, 'prof-dev'
+from public.user_roles
+where role_slug = 'professional-dev'
+on conflict (user_id, role_slug) do nothing;
+
+delete from public.user_roles
+where role_slug = 'professional-dev';
+
+update public.budget_accounts
+set role_slug = 'prof-dev'
+where role_slug = 'professional-dev';
+
+delete from public.roles
+where slug = 'professional-dev';
 
 update public.events
 set event_type = 'brotherhood_event'

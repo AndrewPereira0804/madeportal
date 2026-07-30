@@ -1,20 +1,25 @@
 Protected app routes:
 - `/app`: dashboard
 - `/app/scheduling`: agenda-first chapter calendar with a full calendar display
-- `/app/events/manage`: event management for permitted chapter operators
+- `/app/events/manage`: event management for permitted chapter operators, with event creation routed through per-type tools
 - `/app/tools`: chair tool index for assigned chair roles
 - `/app/tools/:roleSlug/*`: role-specific chair tool surface
-- `/app/tools/social-chair/party-events` and `/app/tools/hsm/party-events`: party event creator and checklist tool for `social-chair` and `hsm`
-- `/app/tools/social-chair/formal-events` and `/app/tools/hsm/formal-events`: formal event creator, payment calculator, attendee table, and setup checklist tool for `social-chair` and `hsm`
-- `/app/tools/cs-chair/community-service-events`: community service event creator, attendance hours table, and Nationals logging tracker for `cs-chair`
-- `/app/tools/alumni-chair/alumni-events`: alumni event creator with required public location details for `alumni-chair`
-- `/app/tools/professional-dev/professional-development-events`: professional development event creator with optional public speaker details for `professional-dev`
-- `/app/tools/chapter-dev/brotherhood-events`: scoped event creator for `chapter-dev`
-- `/app/tools/philo-chair/philanthropy-events`: scoped event creator for `philo-chair`
-- `/app/tools/scholarship/scholarship-events`: scoped event creator for `scholarship`
-- `/app/tools/membered/new-member-events`: scoped event creator for `membered`
-- `/app/tools/hm/house-events`: scoped event creator for `hm`
-- `/app/tools/rec/events`: all-type event creator for `rec`
+- `/app/tools/social-chair/party-events`, `/app/tools/hsm/party-events`, and `/app/tools/rec/party-events`: party event creator and checklist tool
+- `/app/tools/social-chair/formal-events`, `/app/tools/hsm/formal-events`, and `/app/tools/rec/formal-events`: formal event creator, payment calculator, attendee table, and setup checklist tool
+- `/app/tools/social-events/sorority-fraternity-events` and `/app/tools/rec/sorority-fraternity-events`: sorority/fraternity event creator
+- `/app/tools/dei-chair/dei-events` and `/app/tools/rec/dei-events`: DEI event creator
+- `/app/tools/cs-chair/community-service-events` and `/app/tools/rec/community-service-events`: community service event creator, attendance hours table, and Nationals logging tracker
+- `/app/tools/philo-chair/philanthropy-events` and `/app/tools/rec/philanthropy-events`: philanthropy event creator
+- `/app/tools/hm/house-meetings` and `/app/tools/rec/house-meetings`: house meeting event creator
+- `/app/tools/alumni-chair/alumni-events` and `/app/tools/rec/alumni-events`: alumni event creator with required public location details
+- `/app/tools/rush-chair/rush-events` and `/app/tools/rec/rush-events`: rush event creator
+- `/app/tools/scholarship/scholarship-events` and `/app/tools/rec/scholarship-events`: scholarship event creator
+- `/app/tools/prof-dev/professional-development-events` and `/app/tools/rec/professional-development-events`: professional development event creator with optional public speaker details
+- `/app/tools/chapter-dev/brotherhood-events`, `/app/tools/hsm/brotherhood-events`, and `/app/tools/rec/brotherhood-events`: brotherhood event creator
+- `/app/tools/hsm/hsm-events` and `/app/tools/rec/hsm-events`: HSM event creator
+- `/app/tools/hm/work-parties` and `/app/tools/rec/work-parties`: work party event creator
+- `/app/tools/membered/new-member-meetings` and `/app/tools/rec/new-member-meetings`: new member meeting creator
+- `/app/tools/membered/new-member-events` and `/app/tools/rec/new-member-events`: new member event creator
 - `/app/tools/treasurer`: Treasurer budget tool index
 - `/app/tools/treasurer/overview`: active-cycle budget overview
 - `/app/tools/treasurer/requests`: submitted expense request review
@@ -78,13 +83,14 @@ Role slugs:
 - `ea` and `eda` are used with `admin` for chapter/member status-management access and all chair tool access through `/app/tools`
 - `admin`, `ea`, `eda`, and `rec`/`recorder` can manage all event types
 - Announcement creation is allowed for active `admin`, President/VP role variants, and configured chair roles. Authors can update/delete their own announcements; `admin` can update any announcement; `admin` plus President/VP role variants can delete any announcement.
-- Event-type chair access is mapped in `src/auth/roleAccess.ts`; the current rollout adds role rows for `alumni-chair`, `chapter-dev`, and `professional-dev` if missing.
+- Event-type chair access is mapped in `src/auth/roleAccess.ts`; the current rollout adds role rows for `alumni-chair`, `chapter-dev`, `dei-chair`, `prof-dev`, `rush-chair`, and `social-events` if missing.
 - `treasurer` has a chair tool workspace for separated budget workflows under `/app/tools/treasurer`
 - `stew` has a chair tool workspace for weekly wait-on schedules under `/app/tools/stew/wait-ons`
 - `alumni-chair` has a chair tool workspace for alumni events under `/app/tools/alumni-chair/alumni-events`
-- `professional-dev` has a chair tool workspace for professional development events under `/app/tools/professional-dev/professional-development-events`
-- `chapter-dev`, `philo-chair`, `scholarship`, `membered`, and `hm` have scoped chair event workspaces that reuse `/app/events/manage`
-- `rec` has a chair event workspace that reuses `/app/events/manage` with every event type available
+- `prof-dev` has a chair tool workspace for professional development events under `/app/tools/prof-dev/professional-development-events`
+- Simple event tools reuse `/app/events/manage` with one scoped event type; specialized party, formal, community service, alumni, and professional development tools keep their richer details workflows.
+- `social-events` manages `sorority_fraternity`, `dei-chair` manages `dei`, and `rush-chair` manages `rush`.
+- `rec` has per-event-type creator tools for every event type instead of a single all-type creator.
 - Budget workflows are no longer a top-level sidebar item; they live under Tools and Treasurer tools.
 - Budget-account-capable roles are currently a frontend helper list; replace this with an admin-managed source if role budget eligibility needs to change without code edits.
 
