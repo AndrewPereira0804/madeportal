@@ -96,7 +96,7 @@ export const eventToolDefinitions: EventToolDefinition[] = [
   ),
   eventTool(
     "alumni_event",
-    ["alumni-chair", "alumni-chairman", "rec", "recorder"],
+    ["alumni-chair", "rec", "recorder"],
     "alumni-events",
     "Create alumni events and publish location details for alumni accounts.",
   ),

@@ -6,10 +6,8 @@ type RoleLabelRow = {
 const roleLabelFallbacks: Record<string, string> = {
   admin: "Admin",
   alum: "Alumni",
-  "alum-chair": "Alumni Chairman",
   alumni: "Alumni",
   "alumni-chair": "Alumni Chairman",
-  "alumni-chairman": "Alumni Chairman",
   brother: "Brother",
   "chapter-dev": "Chapter Development",
   "chapter-dev-chair": "Chapter Development",

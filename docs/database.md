@@ -1,10 +1,10 @@
 # Database Contract
 
-Last updated: 2026-07-29
+Last updated: 2026-07-30
 
 ## Source Of Truth
 
-Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28, and the chair-authoring/admin-update announcement policy revision was applied and verified through the Supabase plugin on 2026-07-29. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The user-role assignment policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The active-status role guard was applied and verified through the Supabase plugin on 2026-07-29. The internal helper hardening was applied and verified through the Supabase plugin on 2026-07-29. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
+Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28, and the chair-authoring/admin-update announcement policy revision was applied and verified through the Supabase plugin on 2026-07-29. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The user-role assignment policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The active-status role guard was applied and verified through the Supabase plugin on 2026-07-29. The internal helper hardening was applied and verified through the Supabase plugin on 2026-07-29. The DEI/Professional Development role cleanup and alumni chair alias cleanup were applied and verified through the Supabase plugin on 2026-07-30. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
 
 Schema exports in this document are for context only. Do not run them directly as migrations because export order, enum placeholders, constraints, policies, and triggers may be incomplete.
 
@@ -435,7 +435,6 @@ Current hosted `public.roles` rows plus repo rollout additions:
 | --- | --- |
 | `admin` | Admin |
 | `alum` | Alumni |
-| `alum-chair` | Alumni Chairman |
 | `alumni-chair` | Alumni Chairman |
 | `brother` | Brother |
 | `chapter-dev` | Chapter Development |
@@ -458,7 +457,7 @@ Current hosted `public.roles` rows plus repo rollout additions:
 | `stew` | Steward |
 | `treasurer` | Treasurer |
 
-Rows marked by this repo rollout (`alumni-chair`, `chapter-dev`, `dei-chair`, `prof-dev`, `rush-chair`, `social-events`) may not exist in older hosted exports; `supabase/event_types.sql` inserts them idempotently. Do not infer new permissions from role names alone. Check the permission sections and hosted RLS policies before changing behavior.
+Rows marked by this repo rollout (`alumni-chair`, `chapter-dev`, `dei-chair`, `prof-dev`, `rush-chair`, `social-events`) may not exist in older hosted exports; `supabase/event_types.sql` inserts them idempotently and removes duplicate chair aliases after migrating references to their canonical role slugs. Do not infer new permissions from role names alone. Check the permission sections and hosted RLS policies before changing behavior.
 
 ## Permission Intent
 
@@ -1287,7 +1286,7 @@ Purpose:
 
 - Adds `events.event_type`.
 - Adds `events.details`.
-- Inserts missing role rows for `alumni-chair`, `chapter-dev`, `dei-chair`, `prof-dev`, `rush-chair`, and `social-events`, and removes the duplicate `professional-dev` role after migrating references to `prof-dev`.
+- Inserts missing role rows for `alumni-chair`, `chapter-dev`, `dei-chair`, `prof-dev`, `rush-chair`, and `social-events`, removes duplicate alumni-chair aliases after migrating references to `alumni-chair`, and removes the duplicate `professional-dev` role after migrating references to `prof-dev`.
 - Backfills existing events to `brotherhood_event`.
 - Backfills missing event details to `{}`.
 - Adds the current allowed event type check constraint, including `hsm_event`.

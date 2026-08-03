@@ -16,6 +16,22 @@ on conflict (slug) do update
 set name = excluded.name;
 
 insert into public.user_roles (user_id, role_slug)
+select user_id, 'alumni-chair'
+from public.user_roles
+where role_slug in ('alum-chair', 'alumni-chairman')
+on conflict (user_id, role_slug) do nothing;
+
+delete from public.user_roles
+where role_slug in ('alum-chair', 'alumni-chairman');
+
+update public.budget_accounts
+set role_slug = 'alumni-chair'
+where role_slug in ('alum-chair', 'alumni-chairman');
+
+delete from public.roles
+where slug in ('alum-chair', 'alumni-chairman');
+
+insert into public.user_roles (user_id, role_slug)
 select user_id, 'prof-dev'
 from public.user_roles
 where role_slug = 'professional-dev'

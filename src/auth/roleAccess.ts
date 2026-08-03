@@ -35,7 +35,6 @@ const budgetManagerRoleSlugs = new Set([
 
 const budgetAccountRoleSlugs = new Set([
   "alumni-chair",
-  "alumni-chairman",
   "chapter-dev",
   "chapter-dev-chair",
   "chapter-development",
@@ -110,7 +109,6 @@ const canonicalChairToolRoleSlugs = [
 
 const chairRoleSlugs = new Set([
   ...canonicalChairToolRoleSlugs,
-  "alumni-chairman",
   "chapter-dev-chair",
   "chapter-development",
   "chapter-development-chair",
@@ -131,7 +129,6 @@ const chairRoleSlugs = new Set([
 
 const announcementChairRoleSlugs = new Set([
   ...chairRoleSlugs,
-  "alum-chair",
   "prof-dev",
   "rush-chair",
   "social-events",
@@ -165,7 +162,7 @@ const announcementAuthorAccentPriority = [
   },
   {
     accent: "alumni",
-    roles: ["alum-chair", "alumni-chair", "alumni-chairman"],
+    roles: ["alumni-chair"],
   },
   {
     accent: "professional",
@@ -239,7 +236,7 @@ const eventTypeManagerRoleSlugs: Record<EventTypeSlug, string[]> = {
   community_service: ["cs-chair", "community-service-chair"],
   philanthropy: ["philo-chair", "philanthropy-chair"],
   house_meeting: ["hm", "house-manager"],
-  alumni_event: ["alumni-chair", "alumni-chairman"],
+  alumni_event: ["alumni-chair"],
   rush: ["rush-chair"],
   scholarship: ["scholarship"],
   professional_development: ["prof-dev"],
