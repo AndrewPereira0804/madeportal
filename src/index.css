@@ -113,6 +113,34 @@ body::before {
   position: relative;
 }
 
+.environment-chrome {
+  --demo-banner-height: 0px;
+  min-height: 100vh;
+}
+
+.environment-chrome--demo {
+  --demo-banner-height: 2.5rem;
+}
+
+.demo-environment-banner {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  min-width: 320px;
+  height: var(--demo-banner-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid rgba(255, 250, 242, 0.2);
+  background: linear-gradient(90deg, #7e2525, #a33a3a);
+  color: #fffaf2;
+  padding: 0 1rem;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-align: center;
+}
+
 a {
   color: inherit;
   font-weight: 650;
@@ -487,6 +515,10 @@ textarea {
   align-items: center;
 }
 
+.environment-chrome--demo .theme-shell {
+  min-height: calc(100vh - var(--demo-banner-height));
+}
+
 .theme-shell > .theme-card,
 .theme-shell > section {
   width: 100%;
@@ -556,14 +588,18 @@ textarea {
   transition: grid-template-columns 180ms ease;
 }
 
+.environment-chrome--demo .app-shell {
+  min-height: calc(100vh - var(--demo-banner-height));
+}
+
 .app-shell--collapsed {
   --sidebar-width: 0px;
 }
 
 .app-shell__sidebar {
   position: sticky;
-  top: 0;
-  height: 100vh;
+  top: var(--demo-banner-height);
+  height: calc(100vh - var(--demo-banner-height));
   padding: 1.1rem;
   display: flex;
   flex-direction: column;
@@ -4009,7 +4045,7 @@ button:disabled {
 
   .app-shell__mobile-bar {
     position: fixed;
-    top: 0;
+    top: var(--demo-banner-height);
     right: 0;
     left: 0;
     z-index: 40;
@@ -4066,11 +4102,11 @@ button:disabled {
 
   .app-shell__sidebar {
     position: fixed;
-    top: 0;
+    top: var(--demo-banner-height);
     bottom: 0;
     left: 0;
     width: min(88vw, 320px);
-    height: 100vh;
+    height: calc(100vh - var(--demo-banner-height));
     transform: translateX(-104%);
     transition: transform 180ms ease;
   }

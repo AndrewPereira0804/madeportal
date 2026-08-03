@@ -25,6 +25,7 @@ import EditAnnouncement from "./pages/app/EditAnnouncement";
 import ManageEvents from "./pages/app/ManageEvents";
 import SplashScreen from "./components/ui/SplashScreen";
 import { ChairToolPage, ChairToolsIndex } from "./pages/app/tools/ChairTools";
+import EnvironmentChrome from "./components/EnvironmentChrome";
 
 function LegacyBudgetAccountRedirect() {
   const { accountId } = useParams<{ accountId: string }>();
@@ -53,14 +54,16 @@ export default function App() {
 
   if (authLoading || statusLoading) {
     return (
-      <div className="theme-shell">
-        <div className="theme-card p-4">
-          <div className="d-flex align-items-center gap-2">
-            <div className="spinner-border spinner-border-sm text-primary" role="status" />
-            <span>Loading...</span>
+      <EnvironmentChrome>
+        <div className="theme-shell">
+          <div className="theme-card p-4">
+            <div className="d-flex align-items-center gap-2">
+              <div className="spinner-border spinner-border-sm text-primary" role="status" />
+              <span>Loading...</span>
+            </div>
           </div>
         </div>
-      </div>
+      </EnvironmentChrome>
     );
   }
 
@@ -70,48 +73,50 @@ export default function App() {
   }
 
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/pending" element={<Pending />} />
-      <Route path="/suspended" element={<Suspended />} />
-      <Route path="/admin" element={<Navigate to="/app/manage" replace />} />
-      <Route path="/admin/accounts" element={<Navigate to="/app/manage/members" replace />} />
-      <Route path="/admin/events" element={<Navigate to="/app/events/manage" replace />} />
-      <Route path="/budget" element={<Navigate to="/app/tools/treasurer/overview" replace />} />
-      <Route path="/budget/admin" element={<Navigate to="/app/tools/treasurer" replace />} />
-      <Route path="/budget/:accountId" element={<LegacyBudgetAccountRedirect />} />
+    <EnvironmentChrome>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/pending" element={<Pending />} />
+        <Route path="/suspended" element={<Suspended />} />
+        <Route path="/admin" element={<Navigate to="/app/manage" replace />} />
+        <Route path="/admin/accounts" element={<Navigate to="/app/manage/members" replace />} />
+        <Route path="/admin/events" element={<Navigate to="/app/events/manage" replace />} />
+        <Route path="/budget" element={<Navigate to="/app/tools/treasurer/overview" replace />} />
+        <Route path="/budget/admin" element={<Navigate to="/app/tools/treasurer" replace />} />
+        <Route path="/budget/:accountId" element={<LegacyBudgetAccountRedirect />} />
 
-      <Route element={<RequireAuth />}>
-        <Route path="/app" element={<AppLayout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="scheduling" element={<Scheduling />} />
-          <Route path="wait-ons" element={<WaitOnSchedule />} />
-          <Route path="events/manage" element={<ManageEvents />} />
-          <Route path="tools" element={<ChairToolsIndex />} />
-          <Route path="tools/:roleSlug/*" element={<ChairToolPage />} />
-          <Route path="directory" element={<MemberDirectory />} />
-          <Route path="manage" element={<Management />}>
-            <Route index element={null} />
-            <Route path="members" element={<ManageMembers />} />
-            <Route path="events" element={<Navigate to="/app/events/manage" replace />} />
+        <Route element={<RequireAuth />}>
+          <Route path="/app" element={<AppLayout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="scheduling" element={<Scheduling />} />
+            <Route path="wait-ons" element={<WaitOnSchedule />} />
+            <Route path="events/manage" element={<ManageEvents />} />
+            <Route path="tools" element={<ChairToolsIndex />} />
+            <Route path="tools/:roleSlug/*" element={<ChairToolPage />} />
+            <Route path="directory" element={<MemberDirectory />} />
+            <Route path="manage" element={<Management />}>
+              <Route index element={null} />
+              <Route path="members" element={<ManageMembers />} />
+              <Route path="events" element={<Navigate to="/app/events/manage" replace />} />
+            </Route>
+            <Route path="members" element={<Navigate to="/app/manage/members" replace />} />
+            <Route path="budget" element={<Navigate to="/app/tools/treasurer/overview" replace />} />
+            <Route path="budget/admin" element={<Navigate to="/app/tools/treasurer" replace />} />
+            <Route path="budget/:accountId" element={<LegacyBudgetAccountRedirect />} />
+            <Route path="budgets" element={<Navigate to="/app/tools/treasurer/overview" replace />} />
+            <Route path="admin" element={<Navigate to="/app/system-admin" replace />} />
+            <Route path="system-admin" element={<SystemAdmin />} />
+            <Route path="announcements" element={<Announcements />} />
+            <Route path="announcements/create" element={<CreateAnnouncement />} />
+            <Route path="announcements/:announcementId/edit" element={<EditAnnouncement />} />
+            <Route path="account" element={<Account />} />
           </Route>
-          <Route path="members" element={<Navigate to="/app/manage/members" replace />} />
-          <Route path="budget" element={<Navigate to="/app/tools/treasurer/overview" replace />} />
-          <Route path="budget/admin" element={<Navigate to="/app/tools/treasurer" replace />} />
-          <Route path="budget/:accountId" element={<LegacyBudgetAccountRedirect />} />
-          <Route path="budgets" element={<Navigate to="/app/tools/treasurer/overview" replace />} />
-          <Route path="admin" element={<Navigate to="/app/system-admin" replace />} />
-          <Route path="system-admin" element={<SystemAdmin />} />
-          <Route path="announcements" element={<Announcements />} />
-          <Route path="announcements/create" element={<CreateAnnouncement />} />
-          <Route path="announcements/:announcementId/edit" element={<EditAnnouncement />} />
-          <Route path="account" element={<Account />} />
         </Route>
-      </Route>
 
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </EnvironmentChrome>
   );
 }
