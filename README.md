@@ -313,3 +313,30 @@ Purpose:
 Environment requirements:
 - `SUPABASE_URL` or `VITE_SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
+
+## Demo Environment Reset
+
+When `VITE_APP_ENV=demo`, the React app calls `POST /api/demo/reset` once per browser session before auth and app data load. The endpoint deletes and reseeds public application tables only. It does not create, update, or delete Supabase Auth users.
+
+Required Vercel environment variables for the demo deployment:
+- `VITE_APP_ENV=demo`
+- `APP_ENV=demo`
+- `DEMO_RESET_ENABLED=true`
+- `SUPABASE_URL` or `VITE_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY` or a server-only Supabase secret key
+- `DEMO_AUTH_USERS_JSON`
+
+`DEMO_AUTH_USERS_JSON` must reference Auth users that already exist in the demo Supabase project:
+
+```json
+[
+  {
+    "userId": "00000000-0000-0000-0000-000000000000",
+    "name": "Demo Admin",
+    "email": "demo-admin@example.com",
+    "roles": ["admin", "brother", "treasurer"]
+  }
+]
+```
+
+Use real demo Auth user IDs and emails in Vercel. Keep service-role or secret keys out of browser-exposed `VITE_` variables.
