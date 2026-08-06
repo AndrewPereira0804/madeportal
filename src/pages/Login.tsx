@@ -3,6 +3,7 @@ import { useState } from "react";
 import supabase from "../config/supabaseClient";
 import { useAuth } from "../auth/authContext";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { isDemoEnvironment } from "../config/appEnvironment";
 import { Button, Input } from "../components/ui";
 
 type LoginLocationState = {
@@ -36,6 +37,13 @@ export default function Login() {
     }
     };
     if (session) return <Navigate to={from} replace />;
+
+    function handleDemoLogin() {
+      if (isDemoEnvironment) {
+        return <p> There are 3 demo users. admin@example.com, treasurer@example.com, member@example.com. The password is 'password' for all three.</p>
+      }
+    }
+
   return (
     <div className="theme-shell d-flex justify-content-center">
       <section className="theme-card auth-wrap p-4 p-md-5 w-100">
@@ -60,7 +68,7 @@ export default function Login() {
             {...register("password", { required: true })}
             placeholder="Password"
           />
-
+          {handleDemoLogin()}
           <Button type="submit">
             Login
           </Button>
