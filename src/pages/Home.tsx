@@ -4,6 +4,15 @@ import { Navigate } from "react-router-dom";
 import useRoles from "../auth/useRoles";
 import { useStatus } from "../auth/useStatus";
 import { Button } from "../components/ui";
+import { isDemoEnvironment } from "../config/appEnvironment";
+
+function registerDisplay() {
+  if (!isDemoEnvironment) {
+    return <Button to="/register" variant="outline-secondary">Register</Button>
+  }else{
+    return null
+  }
+}
 
 export default function Home() {
   const { session, signOut } = useAuth();
@@ -32,12 +41,9 @@ export default function Home() {
           <Button to="/login">
             Login
           </Button>
-          <Button to="/register" variant="outline-secondary">
-            Register
-          </Button>
-          <Button to="/app" variant="outline-secondary">
-            App
-          </Button>
+          {
+          registerDisplay()
+          }
           {hasManagementAccess && (
             <Button to="/app/manage" variant="outline-gold">
               Management
