@@ -668,11 +668,23 @@ export default function Scheduling() {
 
         <div className="schedule-view-actions">
           {displayMode === "agenda" ? (
-            <Button type="button" variant="outline" size="sm" onClick={() => setDisplayMode("calendar")}>
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              className="schedule-view-toggle"
+              onClick={() => setDisplayMode("calendar")}
+            >
               Month View
             </Button>
           ) : (
-            <Button type="button" variant="outline" size="sm" onClick={() => setDisplayMode("agenda")}>
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              className="schedule-view-toggle"
+              onClick={() => setDisplayMode("agenda")}
+            >
               Agenda
             </Button>
           )}

@@ -41,6 +41,14 @@ const sizeClass: Record<ButtonSize, string> = {
   lg: "btn-lg",
 };
 
+const sharedButtonPropKeys: Array<keyof SharedButtonProps> = [
+  "children",
+  "variant",
+  "size",
+  "loading",
+  "className",
+];
+
 type NativeButtonProps = SharedButtonProps &
   ButtonHTMLAttributes<HTMLButtonElement> & {
     to?: undefined;
@@ -70,6 +78,16 @@ function buttonClasses(
   return cx(variantClass[variant], sizeClass[size], loading && "ui-btn--loading", className);
 }
 
+function omitSharedButtonProps<T extends SharedButtonProps>(props: T): Omit<T, keyof SharedButtonProps> {
+  const forwardedProps = { ...props } as T & Partial<Record<keyof SharedButtonProps, unknown>>;
+
+  for (const key of sharedButtonPropKeys) {
+    delete forwardedProps[key];
+  }
+
+  return forwardedProps;
+}
+
 export default function Button(props: ButtonProps) {
   const {
     children,
@@ -82,32 +100,32 @@ export default function Button(props: ButtonProps) {
   const classes = buttonClasses(variant, size, loading, className);
 
   if ("to" in props && props.to !== undefined) {
-    const { to, ...linkProps } = props as LinkButtonProps;
+    const { to, ...linkProps } = omitSharedButtonProps(props as LinkButtonProps);
     return (
-      <Link to={to} className={classes} aria-busy={loading || undefined} {...linkProps}>
+      <Link {...linkProps} to={to} className={classes} aria-busy={loading || undefined}>
         {children}
       </Link>
     );
   }
 
   if ("href" in props && props.href !== undefined) {
-    const { href, ...anchorProps } = props as AnchorButtonProps;
+    const { href, ...anchorProps } = omitSharedButtonProps(props as AnchorButtonProps);
     return (
-      <a href={href} className={classes} aria-busy={loading || undefined} {...anchorProps}>
+      <a {...anchorProps} href={href} className={classes} aria-busy={loading || undefined}>
         {children}
       </a>
     );
   }
 
-  const { disabled, type = "button", ...buttonProps } = props as NativeButtonProps;
+  const { disabled, type = "button", ...buttonProps } = omitSharedButtonProps(props as NativeButtonProps);
 
   return (
     <button
+      {...buttonProps}
       type={type}
       className={classes}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      {...buttonProps}
     >
       {children}
     </button>

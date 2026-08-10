@@ -3525,11 +3525,10 @@ button:disabled {
 
 .schedule-control-bar {
   margin-top: 1rem;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr;
   align-items: end;
-  justify-content: space-between;
   gap: 0.85rem;
-  flex-wrap: wrap;
   padding: 0.82rem;
   border: 1px solid rgba(43, 32, 20, 0.1);
   border-radius: var(--radius-md);
@@ -3537,7 +3536,6 @@ button:disabled {
 }
 
 .schedule-filter-row {
-  flex: 1 1 520px;
   display: grid;
   grid-template-columns: minmax(220px, 1.4fr) minmax(180px, 0.8fr);
   gap: 0.72rem;
@@ -3561,7 +3559,14 @@ button:disabled {
 
 .schedule-view-actions {
   display: flex;
-  justify-content: flex-end;
+}
+
+.schedule-view-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 2.75rem;
 }
 
 .next-up-section {

@@ -72,11 +72,19 @@ type EventPreview = {
   visible_to_neophyte: boolean;
 };
 
+const RECENT_ANNOUNCEMENT_WINDOW_DAYS = 14;
+
 function formatShortDate(value: string) {
   return new Date(value).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });
+}
+
+function getRecentAnnouncementCutoff() {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - RECENT_ANNOUNCEMENT_WINDOW_DAYS);
+  return cutoff.toISOString();
 }
 
 function formatChapterStatus(status: ChapterStatus | null) {
@@ -119,6 +127,10 @@ function canShowAnnouncementForChapter(announcement: AnnouncementPreview, chapte
 
   const visibility = normalizeRoleSlugForDisplay(announcement.visibility ?? "");
   return visibility === "" || visibility === "active" || visibility === "general" || visibility === "all" || visibility === "alum" || visibility === "alumni";
+}
+
+function isRecentAnnouncement(announcement: AnnouncementPreview, cutoffTimestamp: number) {
+  return new Date(announcement.created_at).getTime() >= cutoffTimestamp;
 }
 
 function getErrorMessage(error: unknown) {
@@ -177,6 +189,7 @@ export default function Dashboard() {
 
       const nextErrors: string[] = [];
       const now = toCurrentEventTimestamp();
+      const recentAnnouncementCutoff = getRecentAnnouncementCutoff();
 
       const [profileResult, roleResult, announcementResult, eventResult] = await Promise.all([
         supabase
@@ -188,8 +201,8 @@ export default function Dashboard() {
         supabase
           .from("announcements")
           .select("id, title, body, created_at, visibility")
-          .order("created_at", { ascending: false })
-          .limit(10),
+          .gte("created_at", recentAnnouncementCutoff)
+          .order("created_at", { ascending: false }),
         supabase
           .from("events")
           .select("id, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte")
@@ -312,9 +325,10 @@ export default function Dashboard() {
   }, [events, roles]);
 
   const visibleAnnouncements = useMemo(() => {
+    const cutoffTimestamp = new Date(getRecentAnnouncementCutoff()).getTime();
     return announcements
       .filter((announcement) => canShowAnnouncementForChapter(announcement, chapterStatus))
-      .slice(0, 4);
+      .filter((announcement) => isRecentAnnouncement(announcement, cutoffTimestamp));
   }, [announcements, chapterStatus]);
 
   const positionRoleSlugs = useMemo(
@@ -377,7 +391,7 @@ export default function Dashboard() {
           <MetricCard
             label="Latest posts"
             value={rolesLoading || loading ? "..." : visibleAnnouncements.length}
-            detail={isAlumni ? "general announcements" : "recent announcements"}
+            detail={isAlumni ? "general posts, last 14 days" : "last 14 days"}
             tone="info"
           />
           <MetricCard
@@ -497,7 +511,7 @@ export default function Dashboard() {
         <Card className="dashboard-panel" padding="lg">
           <SectionHeader
             title="Recent announcements"
-            description={isAlumni ? "General and alumni-visible posts." : "Latest chapter posts."}
+            description={isAlumni ? "General and alumni-visible posts from the last 14 days." : "Chapter posts from the last 14 days."}
             actions={<Button to="/app/announcements" variant="outline-secondary" size="sm">View all</Button>}
           />
 
@@ -506,8 +520,8 @@ export default function Dashboard() {
           ) : visibleAnnouncements.length === 0 ? (
             <EmptyState
               compact
-              title="No announcements yet"
-              description={isAlumni ? "There are no alumni-visible announcements." : "New chapter updates will appear here."}
+              title="No recent announcements"
+              description={isAlumni ? "There are no alumni-visible announcements from the last 14 days." : "There are no chapter posts from the last 14 days."}
             />
           ) : (
             <div className="announcement-preview-list">
@@ -518,7 +532,6 @@ export default function Dashboard() {
                     <p>{announcement.body || "No announcement body provided."}</p>
                   </div>
                   <div className="announcement-preview-meta">
-                    <Badge variant="info">{announcement.visibility ?? "general"}</Badge>
                     <span>{formatShortDate(announcement.created_at)}</span>
                   </div>
                 </article>
@@ -527,14 +540,7 @@ export default function Dashboard() {
           )}
         </Card>
       </div>
-
-      <section className="dashboard-section" aria-label="Quick actions">
-        <SectionHeader
-          title="Quick actions"
-          description={isAlumni ? "Alumni-visible Portal areas." : "Common routes for your current access."}
-          className="mt-0"
-        />
-
+        <section>
         <div className="action-card-grid dashboard-quick-actions">
           <ActionCard
             to="/app/scheduling"
