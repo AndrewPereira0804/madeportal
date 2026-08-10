@@ -26,11 +26,21 @@ type AnnouncementRow = {
     authorName: AnnouncementData["authorName"];
     authorRoleSlugs: AnnouncementData["authorRoleSlugs"];
     replies: AnnouncementData["replies"];
+    reply_count: AnnouncementData["replyCount"];
+    repliesLoaded: AnnouncementData["repliesLoaded"];
+    repliesLoading: AnnouncementData["repliesLoading"];
+    repliesError: AnnouncementData["repliesError"];
 };
 
 type AnnouncementRecord = Omit<
     AnnouncementRow,
-    "likedByCurrentUser" | "authorName" | "authorRoleSlugs" | "replies"
+    | "likedByCurrentUser"
+    | "authorName"
+    | "authorRoleSlugs"
+    | "replies"
+    | "repliesLoaded"
+    | "repliesLoading"
+    | "repliesError"
 >;
 
 type AnnouncementLikeRow = {
@@ -72,10 +82,6 @@ function getUniqueReplyAuthorIds(replies: AnnouncementReplyRecord[]) {
                 .filter((authorId): authorId is string => Boolean(authorId))
         ),
     ];
-}
-
-function mergeUniqueIds(firstIds: string[], secondIds: string[]) {
-    return [...new Set([...firstIds, ...secondIds])];
 }
 
 async function getAuthorMetadata(authorIds: string[]) {
@@ -142,30 +148,10 @@ function applyReplyMetadata(
     };
 }
 
-function groupRepliesByAnnouncement(
-    replies: AnnouncementReplyRecord[],
-    authorMetadataById: Map<string, AuthorMetadata>
-) {
-    const repliesByAnnouncementId = new Map<string, AnnouncementReplyData[]>();
-
-    replies.forEach((reply) => {
-        const announcementId = String(reply.announcement_id);
-        const currentReplies = repliesByAnnouncementId.get(announcementId) ?? [];
-
-        repliesByAnnouncementId.set(announcementId, [
-            ...currentReplies,
-            applyReplyMetadata(reply, authorMetadataById),
-        ]);
-    });
-
-    return repliesByAnnouncementId;
-}
-
 function applyAnnouncementMetadata(
     announcements: AnnouncementRecord[],
     likedAnnouncementIds: Set<string>,
-    authorMetadataById: Map<string, AuthorMetadata>,
-    repliesByAnnouncementId: Map<string, AnnouncementReplyData[]>
+    authorMetadataById: Map<string, AuthorMetadata>
 ) {
     return announcements.map((announcement) => {
         const authorMetadata = announcement.author_id
@@ -177,7 +163,10 @@ function applyAnnouncementMetadata(
             likedByCurrentUser: likedAnnouncementIds.has(String(announcement.id)),
             authorName: authorMetadata?.name ?? "Unknown",
             authorRoleSlugs: authorMetadata?.roleSlugs ?? [],
-            replies: repliesByAnnouncementId.get(String(announcement.id)) ?? [],
+            replies: [],
+            repliesLoaded: false,
+            repliesLoading: false,
+            repliesError: null,
         };
     });
 }
@@ -205,7 +194,7 @@ export default function Announcements() {
             try {
                 const { data, error } = await supabase
                     .from("announcements")
-                    .select("id, created_at, title, body, visibility, author_id, likes")
+                    .select("id, created_at, title, body, visibility, author_id, likes, reply_count")
                     .order("created_at", { ascending: false });
 
                 if (error) {
@@ -214,30 +203,9 @@ export default function Announcements() {
 
                 const announcementRows = (data ?? []) as AnnouncementRecord[];
                 const announcementIds = announcementRows.map((announcement) => announcement.id);
-                const replies: AnnouncementReplyRecord[] = [];
                 const likedAnnouncementIds = new Set<string>();
 
-                if (announcementRows.length > 0) {
-                    const { data: replyData, error: replyError } = await supabase
-                        .from("announcement_replies")
-                        .select("id, announcement_id, author_id, body, created_at")
-                        .in("announcement_id", announcementIds)
-                        .order("created_at", { ascending: false });
-
-                    if (replyError) {
-                        throw replyError;
-                    }
-
-                    replies.push(...((replyData ?? []) as AnnouncementReplyRecord[]));
-                }
-
-                const authorMetadataById = await getAuthorMetadata(
-                    mergeUniqueIds(getUniqueAuthorIds(announcementRows), getUniqueReplyAuthorIds(replies))
-                );
-                const repliesByAnnouncementId = groupRepliesByAnnouncement(
-                    replies,
-                    authorMetadataById
-                );
+                const authorMetadataById = await getAuthorMetadata(getUniqueAuthorIds(announcementRows));
 
                 if (announcementRows.length > 0 && userId) {
                     const { data: likeData, error: likeError } = await supabase
@@ -260,8 +228,7 @@ export default function Announcements() {
                         applyAnnouncementMetadata(
                             announcementRows,
                             likedAnnouncementIds,
-                            authorMetadataById,
-                            repliesByAnnouncementId
+                            authorMetadataById
                         )
                     );
                 }
@@ -319,6 +286,75 @@ export default function Announcements() {
         }
     }
 
+    async function handleLoadReplies(announcementId: AnnouncementRow["id"]) {
+        const announcement = announcements.find(
+            (currentAnnouncement) => String(currentAnnouncement.id) === String(announcementId)
+        );
+
+        if (!announcement || announcement.repliesLoaded || announcement.repliesLoading) {
+            return;
+        }
+
+        setAnnouncements((currentAnnouncements) =>
+            currentAnnouncements.map((currentAnnouncement) =>
+                String(currentAnnouncement.id) === String(announcementId)
+                    ? {
+                        ...currentAnnouncement,
+                        repliesLoading: true,
+                        repliesError: null,
+                    }
+                    : currentAnnouncement
+            )
+        );
+
+        try {
+            const { data, error } = await supabase
+                .from("announcement_replies")
+                .select("id, announcement_id, author_id, body, created_at")
+                .eq("announcement_id", announcementId)
+                .order("created_at", { ascending: false });
+
+            if (error) {
+                throw error;
+            }
+
+            const replyRows = (data ?? []) as AnnouncementReplyRecord[];
+            const authorMetadataById = await getAuthorMetadata(getUniqueReplyAuthorIds(replyRows));
+            const replies = replyRows.map((reply) =>
+                applyReplyMetadata(reply, authorMetadataById)
+            );
+
+            setAnnouncements((currentAnnouncements) =>
+                currentAnnouncements.map((currentAnnouncement) =>
+                    String(currentAnnouncement.id) === String(announcementId)
+                        ? {
+                            ...currentAnnouncement,
+                            replies,
+                            repliesLoaded: true,
+                            repliesLoading: false,
+                            repliesError: null,
+                        }
+                        : currentAnnouncement
+                )
+            );
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : "An unexpected error occurred.";
+            setAnnouncements((currentAnnouncements) =>
+                currentAnnouncements.map((currentAnnouncement) =>
+                    String(currentAnnouncement.id) === String(announcementId)
+                        ? {
+                            ...currentAnnouncement,
+                            repliesLoading: false,
+                            repliesError: `Could not load replies: ${message}`,
+                        }
+                        : currentAnnouncement
+                )
+            );
+            console.error("Error loading announcement replies:", error);
+        }
+    }
+
     async function handleCreateReply(
         announcementId: AnnouncementRow["id"],
         body: string
@@ -355,7 +391,14 @@ export default function Announcements() {
         setAnnouncements((currentAnnouncements) =>
             currentAnnouncements.map((announcement) =>
                 String(announcement.id) === String(announcementId)
-                    ? { ...announcement, replies: [reply, ...announcement.replies] }
+                    ? {
+                        ...announcement,
+                        reply_count: announcement.reply_count + 1,
+                        replies: announcement.repliesLoaded
+                            ? [reply, ...announcement.replies]
+                            : announcement.replies,
+                        repliesError: null,
+                    }
                     : announcement
             )
         );
@@ -414,6 +457,7 @@ export default function Announcements() {
                 String(announcement.id) === String(announcementId)
                     ? {
                         ...announcement,
+                        reply_count: Math.max(0, announcement.reply_count - 1),
                         replies: announcement.replies.filter((reply) => reply.id !== replyId),
                     }
                     : announcement
@@ -468,7 +512,12 @@ export default function Announcements() {
                             authorName={announcement.authorName}
                             authorRoleSlugs={announcement.authorRoleSlugs}
                             replies={announcement.replies}
+                            replyCount={announcement.reply_count}
+                            repliesLoaded={announcement.repliesLoaded}
+                            repliesLoading={announcement.repliesLoading}
+                            repliesError={announcement.repliesError}
                             onDelete={handleDelete}
+                            onLoadReplies={handleLoadReplies}
                             onCreateReply={handleCreateReply}
                             onUpdateReply={handleUpdateReply}
                             onDeleteReply={handleDeleteReply}

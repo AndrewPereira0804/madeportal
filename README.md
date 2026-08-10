@@ -57,7 +57,7 @@ Tables used by the frontend:
 - `profiles`: `user_id`, `name`, `email`, `status`, `created_at`
 - `roles`: `slug`, `name`
 - `user_roles`: `user_id`, `role_slug`
-- `announcements`: `id`, `created_at`, `title`, `body`, `author_id`, `visibility`, `likes`
+- `announcements`: `id`, `created_at`, `title`, `body`, `author_id`, `visibility`, `likes`, `reply_count`
 - `announcement_likes`: `announcement_id`, `user_id`, `created_at`
 - `announcement_replies`: `id`, `announcement_id`, `author_id`, `body`, `created_at`
 - `events`: `id`, `created_at`, `title`, `description`, `event_type`, `details`, `start`, `end`, `created_by`, `visible_to_alum`, `visible_to_neophyte`
@@ -152,7 +152,7 @@ Important expectations:
 - Purpose: user-authored announcement feed.
 - Primary key: `id` (`uuid`, default `gen_random_uuid()`).
 - Foreign key: `author_id` -> `public.profiles.user_id`.
-- Key columns: `title`, `body`, `visibility` (`user_status`), `likes` (`int`, non-negative), `created_at`.
+- Key columns: `title`, `body`, `visibility` (`user_status`), `likes` (`int`, non-negative), `reply_count` (`int`, non-negative), `created_at`.
 
 #### `public.events`
 - Purpose: scheduled events.

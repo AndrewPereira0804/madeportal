@@ -25,10 +25,15 @@ export type AnnouncementData = {
     authorName: string;
     authorRoleSlugs: string[];
     replies: AnnouncementReplyData[];
+    replyCount: number;
+    repliesLoaded: boolean;
+    repliesLoading: boolean;
+    repliesError: string | null;
 };
 
 type AnnouncementProps = AnnouncementData & {
     onDelete: (announcementId: AnnouncementData["id"]) => Promise<void>;
+    onLoadReplies: (announcementId: AnnouncementData["id"]) => Promise<void>;
     onCreateReply: (announcementId: AnnouncementData["id"], body: string) => Promise<void>;
     onUpdateReply: (replyId: AnnouncementReplyData["id"], body: string) => Promise<void>;
     onDeleteReply: (
@@ -63,7 +68,12 @@ export default function Announcement({
     authorName,
     authorRoleSlugs,
     replies,
+    replyCount,
+    repliesLoaded,
+    repliesLoading,
+    repliesError,
     onDelete,
+    onLoadReplies,
     onCreateReply,
     onUpdateReply,
     onDeleteReply,
@@ -77,6 +87,7 @@ export default function Announcement({
     const navigate = useNavigate();
     const [replyBody, setReplyBody] = useState("");
     const [replyFormOpen, setReplyFormOpen] = useState(false);
+    const [replyListOpen, setReplyListOpen] = useState(false);
     const [replyError, setReplyError] = useState<string | null>(null);
     const [submittingReply, setSubmittingReply] = useState(false);
     const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
@@ -85,8 +96,10 @@ export default function Announcement({
     const [deletingReplyId, setDeletingReplyId] = useState<string | null>(null);
     const showActions = canDelete || canEdit;
     const accent = getAnnouncementAuthorAccent(authorRoleSlugs);
-    const replyCountLabel = `${replies.length} ${replies.length === 1 ? "reply" : "replies"}`;
+    const replyCountLabel = `${replyCount} ${replyCount === 1 ? "reply" : "replies"}`;
     const replyFormId = `announcement-reply-form-${id}`;
+    const replyListId = `announcement-reply-list-${id}`;
+    const canToggleReplies = replyCount > 0 || replyListOpen;
 
     function toggleReplyForm() {
         if (replyFormOpen) {
@@ -94,6 +107,19 @@ export default function Announcement({
         }
 
         setReplyFormOpen(!replyFormOpen);
+    }
+
+    async function toggleReplyList() {
+        if (replyListOpen) {
+            setReplyListOpen(false);
+            return;
+        }
+
+        setReplyListOpen(true);
+
+        if (!repliesLoaded) {
+            await onLoadReplies(id);
+        }
     }
 
     async function handleReplySubmit(event: FormEvent<HTMLFormElement>) {
@@ -221,6 +247,21 @@ export default function Announcement({
                     <h3>Replies</h3>
                     <div className="announcement-replies__controls">
                         <span>{replyCountLabel}</span>
+                        {canToggleReplies && (
+                            <Button
+                                type="button"
+                                variant="outline-secondary"
+                                size="sm"
+                                aria-expanded={replyListOpen}
+                                aria-controls={replyListId}
+                                loading={repliesLoading}
+                                onClick={() => {
+                                    void toggleReplyList();
+                                }}
+                            >
+                                {replyListOpen ? "Hide replies" : "View replies"}
+                            </Button>
+                        )}
                         {canReply && (
                             <Button
                                 type="button"
@@ -269,94 +310,110 @@ export default function Announcement({
                     </form>
                 )}
 
-                {replies.length === 0 ? (
-                    <p className="announcement-replies__empty">No replies yet.</p>
-                ) : (
-                    <div className="announcement-reply-list">
-                        {replies.map((reply) => {
-                            const isReplyAuthor = reply.author_id === currentUserId;
-                            const canEditReply = isReplyAuthor;
-                            const canDeleteReply = isReplyAuthor || canModerateReplies;
-                            const isEditing = editingReplyId === reply.id;
+                {replyListOpen && (
+                    <div id={replyListId}>
+                        {repliesLoading && (
+                            <p className="announcement-replies__empty">Loading replies...</p>
+                        )}
 
-                            return (
-                                <article className="announcement-reply" key={reply.id}>
-                                    <div className="announcement-reply__meta">
-                                        <span>{reply.authorName}</span>
-                                        <time dateTime={reply.created_at}>
-                                            {formatReplyDate(reply.created_at)}
-                                        </time>
-                                    </div>
+                        {repliesError && (
+                            <p className="announcement-reply-error" role="status">
+                                {repliesError}
+                            </p>
+                        )}
 
-                                    {isEditing ? (
-                                        <form
-                                            className="announcement-reply-edit-form"
-                                            onSubmit={handleReplyUpdate}
-                                        >
-                                            <Textarea
-                                                label="Edit reply"
-                                                value={editingReplyBody}
-                                                rows={3}
-                                                maxLength={1200}
-                                                onChange={(event) => setEditingReplyBody(event.target.value)}
-                                                disabled={savingReplyId === reply.id}
-                                            />
-                                            <div className="announcement-reply__actions">
-                                                <Button
-                                                    type="submit"
-                                                    size="sm"
-                                                    loading={savingReplyId === reply.id}
-                                                    disabled={!editingReplyBody.trim()}
-                                                >
-                                                    Save
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="outline-secondary"
-                                                    size="sm"
-                                                    onClick={cancelEditingReply}
-                                                    disabled={savingReplyId === reply.id}
-                                                >
-                                                    Cancel
-                                                </Button>
+                        {!repliesLoading && !repliesError && repliesLoaded && replies.length === 0 && (
+                            <p className="announcement-replies__empty">No replies yet.</p>
+                        )}
+
+                        {!repliesLoading && !repliesError && replies.length > 0 && (
+                            <div className="announcement-reply-list">
+                                {replies.map((reply) => {
+                                    const isReplyAuthor = reply.author_id === currentUserId;
+                                    const canEditReply = isReplyAuthor;
+                                    const canDeleteReply = isReplyAuthor || canModerateReplies;
+                                    const isEditing = editingReplyId === reply.id;
+
+                                    return (
+                                        <article className="announcement-reply" key={reply.id}>
+                                            <div className="announcement-reply__meta">
+                                                <span>{reply.authorName}</span>
+                                                <time dateTime={reply.created_at}>
+                                                    {formatReplyDate(reply.created_at)}
+                                                </time>
                                             </div>
-                                        </form>
-                                    ) : (
-                                        <>
-                                            <p className="announcement-reply__body">{reply.body}</p>
-                                            {(canEditReply || canDeleteReply) && (
-                                                <div className="announcement-reply__actions">
-                                                    {canEditReply && (
+
+                                            {isEditing ? (
+                                                <form
+                                                    className="announcement-reply-edit-form"
+                                                    onSubmit={handleReplyUpdate}
+                                                >
+                                                    <Textarea
+                                                        label="Edit reply"
+                                                        value={editingReplyBody}
+                                                        rows={3}
+                                                        maxLength={1200}
+                                                        onChange={(event) => setEditingReplyBody(event.target.value)}
+                                                        disabled={savingReplyId === reply.id}
+                                                    />
+                                                    <div className="announcement-reply__actions">
+                                                        <Button
+                                                            type="submit"
+                                                            size="sm"
+                                                            loading={savingReplyId === reply.id}
+                                                            disabled={!editingReplyBody.trim()}
+                                                        >
+                                                            Save
+                                                        </Button>
                                                         <Button
                                                             type="button"
                                                             variant="outline-secondary"
                                                             size="sm"
-                                                            onClick={() => startEditingReply(reply)}
-                                                            disabled={deletingReplyId === reply.id}
+                                                            onClick={cancelEditingReply}
+                                                            disabled={savingReplyId === reply.id}
                                                         >
-                                                            Edit
+                                                            Cancel
                                                         </Button>
+                                                    </div>
+                                                </form>
+                                            ) : (
+                                                <>
+                                                    <p className="announcement-reply__body">{reply.body}</p>
+                                                    {(canEditReply || canDeleteReply) && (
+                                                        <div className="announcement-reply__actions">
+                                                            {canEditReply && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline-secondary"
+                                                                    size="sm"
+                                                                    onClick={() => startEditingReply(reply)}
+                                                                    disabled={deletingReplyId === reply.id}
+                                                                >
+                                                                    Edit
+                                                                </Button>
+                                                            )}
+                                                            {canDeleteReply && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="danger"
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        void handleReplyDelete(reply.id);
+                                                                    }}
+                                                                    loading={deletingReplyId === reply.id}
+                                                                >
+                                                                    Delete
+                                                                </Button>
+                                                            )}
+                                                        </div>
                                                     )}
-                                                    {canDeleteReply && (
-                                                        <Button
-                                                            type="button"
-                                                            variant="danger"
-                                                            size="sm"
-                                                            onClick={() => {
-                                                                void handleReplyDelete(reply.id);
-                                                            }}
-                                                            loading={deletingReplyId === reply.id}
-                                                        >
-                                                            Delete
-                                                        </Button>
-                                                    )}
-                                                </div>
+                                                </>
                                             )}
-                                        </>
-                                    )}
-                                </article>
-                            );
-                        })}
+                                        </article>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 )}
             </section>
