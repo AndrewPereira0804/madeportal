@@ -1,4 +1,7 @@
-import Announcement, { type AnnouncementData } from "./Announcement";
+import Announcement, {
+    type AnnouncementData,
+    type AnnouncementReplyData,
+} from "./Announcement";
 import { useEffect, useState } from "react";
 import supabase from "../../config/supabaseClient";
 import { useNavigate } from "react-router-dom";
@@ -22,13 +25,19 @@ type AnnouncementRow = {
     likedByCurrentUser: boolean;
     authorName: AnnouncementData["authorName"];
     authorRoleSlugs: AnnouncementData["authorRoleSlugs"];
+    replies: AnnouncementData["replies"];
 };
 
-type AnnouncementRecord = Omit<AnnouncementRow, "likedByCurrentUser" | "authorName" | "authorRoleSlugs">;
+type AnnouncementRecord = Omit<
+    AnnouncementRow,
+    "likedByCurrentUser" | "authorName" | "authorRoleSlugs" | "replies"
+>;
 
 type AnnouncementLikeRow = {
     announcement_id: AnnouncementRow["id"];
 };
+
+type AnnouncementReplyRecord = Omit<AnnouncementReplyData, "authorName">;
 
 type AuthorProfileRow = {
     user_id: string;
@@ -53,6 +62,20 @@ function getUniqueAuthorIds(announcements: AnnouncementRecord[]) {
                 .filter((authorId): authorId is string => Boolean(authorId))
         ),
     ];
+}
+
+function getUniqueReplyAuthorIds(replies: AnnouncementReplyRecord[]) {
+    return [
+        ...new Set(
+            replies
+                .map((reply) => reply.author_id)
+                .filter((authorId): authorId is string => Boolean(authorId))
+        ),
+    ];
+}
+
+function mergeUniqueIds(firstIds: string[], secondIds: string[]) {
+    return [...new Set([...firstIds, ...secondIds])];
 }
 
 async function getAuthorMetadata(authorIds: string[]) {
@@ -109,10 +132,40 @@ async function getAuthorMetadata(authorIds: string[]) {
     return authorMetadataById;
 }
 
+function applyReplyMetadata(
+    reply: AnnouncementReplyRecord,
+    authorMetadataById: Map<string, AuthorMetadata>
+) {
+    return {
+        ...reply,
+        authorName: authorMetadataById.get(reply.author_id)?.name ?? "Unknown",
+    };
+}
+
+function groupRepliesByAnnouncement(
+    replies: AnnouncementReplyRecord[],
+    authorMetadataById: Map<string, AuthorMetadata>
+) {
+    const repliesByAnnouncementId = new Map<string, AnnouncementReplyData[]>();
+
+    replies.forEach((reply) => {
+        const announcementId = String(reply.announcement_id);
+        const currentReplies = repliesByAnnouncementId.get(announcementId) ?? [];
+
+        repliesByAnnouncementId.set(announcementId, [
+            ...currentReplies,
+            applyReplyMetadata(reply, authorMetadataById),
+        ]);
+    });
+
+    return repliesByAnnouncementId;
+}
+
 function applyAnnouncementMetadata(
     announcements: AnnouncementRecord[],
     likedAnnouncementIds: Set<string>,
-    authorMetadataById: Map<string, AuthorMetadata>
+    authorMetadataById: Map<string, AuthorMetadata>,
+    repliesByAnnouncementId: Map<string, AnnouncementReplyData[]>
 ) {
     return announcements.map((announcement) => {
         const authorMetadata = announcement.author_id
@@ -124,6 +177,7 @@ function applyAnnouncementMetadata(
             likedByCurrentUser: likedAnnouncementIds.has(String(announcement.id)),
             authorName: authorMetadata?.name ?? "Unknown",
             authorRoleSlugs: authorMetadata?.roleSlugs ?? [],
+            replies: repliesByAnnouncementId.get(String(announcement.id)) ?? [],
         };
     });
 }
@@ -159,11 +213,33 @@ export default function Announcements() {
                 }
 
                 const announcementRows = (data ?? []) as AnnouncementRecord[];
-                const authorMetadataById = await getAuthorMetadata(getUniqueAuthorIds(announcementRows));
+                const announcementIds = announcementRows.map((announcement) => announcement.id);
+                const replies: AnnouncementReplyRecord[] = [];
                 const likedAnnouncementIds = new Set<string>();
 
+                if (announcementRows.length > 0) {
+                    const { data: replyData, error: replyError } = await supabase
+                        .from("announcement_replies")
+                        .select("id, announcement_id, author_id, body, created_at")
+                        .in("announcement_id", announcementIds)
+                        .order("created_at", { ascending: false });
+
+                    if (replyError) {
+                        throw replyError;
+                    }
+
+                    replies.push(...((replyData ?? []) as AnnouncementReplyRecord[]));
+                }
+
+                const authorMetadataById = await getAuthorMetadata(
+                    mergeUniqueIds(getUniqueAuthorIds(announcementRows), getUniqueReplyAuthorIds(replies))
+                );
+                const repliesByAnnouncementId = groupRepliesByAnnouncement(
+                    replies,
+                    authorMetadataById
+                );
+
                 if (announcementRows.length > 0 && userId) {
-                    const announcementIds = announcementRows.map((announcement) => announcement.id);
                     const { data: likeData, error: likeError } = await supabase
                         .from("announcement_likes")
                         .select("announcement_id")
@@ -184,7 +260,8 @@ export default function Announcements() {
                         applyAnnouncementMetadata(
                             announcementRows,
                             likedAnnouncementIds,
-                            authorMetadataById
+                            authorMetadataById,
+                            repliesByAnnouncementId
                         )
                     );
                 }
@@ -242,6 +319,108 @@ export default function Announcements() {
         }
     }
 
+    async function handleCreateReply(
+        announcementId: AnnouncementRow["id"],
+        body: string
+    ) {
+        if (!userId) {
+            throw new Error("You must be logged in to reply.");
+        }
+
+        const replyBody = body.trim();
+        if (!replyBody) {
+            throw new Error("Reply cannot be blank.");
+        }
+
+        const { data, error } = await supabase
+            .from("announcement_replies")
+            .insert({
+                announcement_id: announcementId,
+                author_id: userId,
+                body: replyBody,
+            })
+            .select("id, announcement_id, author_id, body, created_at")
+            .single();
+
+        if (error) {
+            throw error;
+        }
+
+        const authorMetadataById = await getAuthorMetadata([userId]);
+        const reply = applyReplyMetadata(
+            data as AnnouncementReplyRecord,
+            authorMetadataById
+        );
+
+        setAnnouncements((currentAnnouncements) =>
+            currentAnnouncements.map((announcement) =>
+                String(announcement.id) === String(announcementId)
+                    ? { ...announcement, replies: [reply, ...announcement.replies] }
+                    : announcement
+            )
+        );
+    }
+
+    async function handleUpdateReply(replyId: AnnouncementReplyData["id"], body: string) {
+        const replyBody = body.trim();
+        if (!replyBody) {
+            throw new Error("Reply cannot be blank.");
+        }
+
+        const { data, error } = await supabase
+            .from("announcement_replies")
+            .update({ body: replyBody })
+            .eq("id", replyId)
+            .select("id, announcement_id, author_id, body, created_at")
+            .single();
+
+        if (error) {
+            throw error;
+        }
+
+        const updatedReply = data as AnnouncementReplyRecord;
+
+        setAnnouncements((currentAnnouncements) =>
+            currentAnnouncements.map((announcement) => ({
+                ...announcement,
+                replies: announcement.replies.map((reply) =>
+                    reply.id === replyId
+                        ? { ...reply, body: updatedReply.body }
+                        : reply
+                ),
+            }))
+        );
+    }
+
+    async function handleDeleteReply(
+        announcementId: AnnouncementRow["id"],
+        replyId: AnnouncementReplyData["id"]
+    ) {
+        const { count, error } = await supabase
+            .from("announcement_replies")
+            .delete({ count: "exact" })
+            .eq("id", replyId);
+
+        if (error) {
+            throw error;
+        }
+
+        if (count === 0) {
+            throw new Error("Delete was blocked or no matching reply was found.");
+        }
+
+        setAnnouncements((currentAnnouncements) =>
+            currentAnnouncements.map((announcement) =>
+                String(announcement.id) === String(announcementId)
+                    ? {
+                        ...announcement,
+                        replies: announcement.replies.filter((reply) => reply.id !== replyId),
+                    }
+                    : announcement
+            )
+        );
+    }
+
     return (
         <Card className="announcements-page">
             <PageHeader
@@ -288,10 +467,17 @@ export default function Announcements() {
                             likedByCurrentUser={announcement.likedByCurrentUser}
                             authorName={announcement.authorName}
                             authorRoleSlugs={announcement.authorRoleSlugs}
+                            replies={announcement.replies}
                             onDelete={handleDelete}
+                            onCreateReply={handleCreateReply}
+                            onUpdateReply={handleUpdateReply}
+                            onDeleteReply={handleDeleteReply}
                             isDeleting={deletingId === announcement.id}
                             canDelete={announcement.author_id === userId || canDeleteAny}
                             canEdit={announcement.author_id === userId || canUpdateAny}
+                            canReply={Boolean(userId)}
+                            canModerateReplies={canDeleteAny}
+                            currentUserId={userId ?? null}
                         />
                     ))}
                 </div>

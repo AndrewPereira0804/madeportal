@@ -1,10 +1,10 @@
 # Database Contract
 
-Last updated: 2026-07-30
+Last updated: 2026-08-10
 
 ## Source Of Truth
 
-Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28, and the chair-authoring/admin-update announcement policy revision was applied and verified through the Supabase plugin on 2026-07-29. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The user-role assignment policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The active-status role guard was applied and verified through the Supabase plugin on 2026-07-29. The internal helper hardening was applied and verified through the Supabase plugin on 2026-07-29. The DEI/Professional Development role cleanup and alumni chair alias cleanup were applied and verified through the Supabase plugin on 2026-07-30. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
+Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28, and the chair-authoring/admin-update announcement policy revision was applied and verified through the Supabase plugin on 2026-07-29. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The user-role assignment policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The active-status role guard was applied and verified through the Supabase plugin on 2026-07-29. The internal helper hardening was applied and verified through the Supabase plugin on 2026-07-29. The DEI/Professional Development role cleanup and alumni chair alias cleanup were applied and verified through the Supabase plugin on 2026-07-30. Announcement replies and the narrowed reply insert grant were applied and verified through the Supabase plugin on 2026-08-10. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
 
 Schema exports in this document are for context only. Do not run them directly as migrations because export order, enum placeholders, constraints, policies, and triggers may be incomplete.
 
@@ -91,6 +91,7 @@ Referenced by:
 - `user_roles.user_id`
 - `announcements.author_id`
 - `announcement_likes.user_id`
+- `announcement_replies.author_id`
 - `events.created_by`
 - `transactions.created_by`
 - `budget_accounts.created_by`
@@ -186,10 +187,11 @@ Columns:
 Referenced by:
 
 - `announcement_likes.announcement_id`
+- `announcement_replies.announcement_id`
 
 Frontend usage:
 
-- `src/pages/app/Announcements.tsx` reads and deletes announcements.
+- `src/pages/app/Announcements.tsx` reads and deletes announcements, and loads one-level replies.
 - `src/pages/app/CreateAnnouncement.tsx` inserts announcements.
 - `src/pages/app/EditAnnouncement.tsx` updates announcements.
 - `src/pages/app/Likes.tsx` reads the aggregate `likes` count and toggles the current user's row in `announcement_likes`.
@@ -211,6 +213,34 @@ Frontend usage:
 - `src/pages/app/Likes.tsx` inserts a row to like and deletes the current user's row to unlike.
 
 Important: the provided hosted schema export shows foreign keys without `on delete cascade`. If announcement deletion should also delete like rows automatically, verify hosted constraints before relying on that behavior.
+
+### public.announcement_replies
+
+Purpose: one-level replies on announcement feed items.
+
+Columns:
+
+- `id uuid primary key default gen_random_uuid()`
+- `announcement_id uuid not null references public.announcements(id) on delete cascade`
+- `author_id uuid not null references public.profiles(user_id) on delete cascade`
+- `body text not null`
+- `created_at timestamptz not null default now()`
+
+Constraints and indexes:
+
+- `announcement_replies_body_not_blank` requires nonblank `body`.
+- `(announcement_id, created_at desc)` index supports newest-first feed rendering per announcement.
+- `author_id` index supports author-owned mutation checks.
+
+Frontend usage:
+
+- `src/pages/app/Announcements.tsx` reads replies for visible announcements, inserts new replies, updates own reply bodies, and deletes own or moderator-removable replies.
+- `src/pages/app/Announcement.tsx` renders one-level replies newest-first and provides inline create/edit/delete controls.
+
+Hosted status:
+
+- Added in repo migration `supabase/migrations/20260810135152_add_announcement_replies.sql`.
+- Applied and verified against hosted Supabase on 2026-08-10. Client insert access is narrowed to `announcement_id`, `author_id`, and `body` by `supabase/migrations/20260810140607_narrow_announcement_reply_insert_grants.sql`.
 
 ### public.events
 
@@ -543,10 +573,13 @@ Hosted policy intent after the 2026-07-29 announcement chair-authoring revision:
 - Clients are granted `UPDATE` only on `title`, `body`, and `visibility`; direct client updates to `author_id`, `likes`, and timestamps are not part of the announcement edit workflow.
 - Per-user like state should live in `announcement_likes` with one row per `(announcement_id, user_id)`.
 - The aggregate `announcements.likes` count should stay aligned with `announcement_likes`.
+- One-level replies should live in `announcement_replies`; active users can reply to visible announcements, authors can update and delete their own replies, and announcement delete managers can delete any reply.
 
 Repo SQL in `supabase/announcements_policies.sql` is the rollout/reference script for this policy set.
 
 Important: the 2026-06-25 RLS policy export includes current-user read, insert, and delete policies for `announcement_likes`. Trigger state for keeping `announcements.likes` synchronized remains external/unverified until a fresh function/trigger export is provided.
+
+Announcement replies are introduced by `supabase/migrations/20260810135152_add_announcement_replies.sql`; insert grants are narrowed by `supabase/migrations/20260810140607_narrow_announcement_reply_insert_grants.sql`. Both were applied and verified against hosted Supabase on 2026-08-10.
 
 ### Events
 
@@ -964,6 +997,26 @@ Note: the old direct `announcements.likes` update policy was removed. Current fr
 
 Hosted trigger state was verified on 2026-07-29: `announcement_likes_apply_delta` executes `private.apply_announcement_like_delta()`.
 
+### public.announcement_replies
+
+- `Active users can read announcement replies`
+  - SELECT to authenticated.
+  - Allows active users to read replies whose parent announcement is active-visible.
+- `Active users can reply to announcements`
+  - INSERT to authenticated.
+  - Requires `author_id = auth.uid()`, an active current profile, a nonblank reply body, and an active-visible parent announcement.
+- `Authors can update own announcement replies`
+  - UPDATE to authenticated.
+  - Allows active authors to update their own replies on active-visible announcements.
+  - Includes both `USING` and `WITH CHECK`.
+  - Clients are granted `UPDATE` only on `body`.
+- `Authors and announcement managers can delete replies`
+  - DELETE to authenticated.
+  - Allows active authors to delete their own replies.
+  - Allows active `admin`, President, and VP role variants to delete replies.
+
+Hosted status: applied and verified against hosted Supabase on 2026-08-10.
+
 ### public.budget_cycles
 
 - `Active users can view budget cycles`
@@ -1236,6 +1289,31 @@ Purpose:
 Current mismatch:
 
 - The hosted project was later hardened by `supabase/helper_hardening.sql`, which moves the aggregate trigger helper to `private.apply_announcement_like_delta()` and requires active status for like reads/inserts/deletes.
+
+### supabase/migrations/20260810135152_add_announcement_replies.sql
+
+Purpose:
+
+- Creates `announcement_replies` for one-level announcement replies.
+- Enables RLS, grants authenticated Data API access, and revokes anonymous/public table privileges.
+- Adds active-user read/insert, author update/delete, and announcement-manager delete policies.
+- Notifies PostgREST to reload the schema cache.
+
+Hosted status:
+
+- Applied and verified against hosted Supabase on 2026-08-10.
+
+### supabase/migrations/20260810140607_narrow_announcement_reply_insert_grants.sql
+
+Purpose:
+
+- Narrows `authenticated` INSERT privileges on `announcement_replies` to `announcement_id`, `author_id`, and `body`.
+- Leaves `id` and `created_at` database-generated for client writes.
+- Notifies PostgREST to reload the schema cache.
+
+Hosted status:
+
+- Applied and verified against hosted Supabase on 2026-08-10.
 
 ### supabase/helper_hardening.sql
 

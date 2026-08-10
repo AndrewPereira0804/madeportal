@@ -59,6 +59,7 @@ Tables used by the frontend:
 - `user_roles`: `user_id`, `role_slug`
 - `announcements`: `id`, `created_at`, `title`, `body`, `author_id`, `visibility`, `likes`
 - `announcement_likes`: `announcement_id`, `user_id`, `created_at`
+- `announcement_replies`: `id`, `announcement_id`, `author_id`, `body`, `created_at`
 - `events`: `id`, `created_at`, `title`, `description`, `event_type`, `details`, `start`, `end`, `created_by`, `visible_to_alum`, `visible_to_neophyte`
 - `calendars`: `id`, `start`, `end`, `name`
 - `majors`: `id`, `major`, `slug`
@@ -186,6 +187,14 @@ Important expectations:
   - `user_id` -> `public.profiles.user_id`
 - Key columns: `created_at`.
 
+#### `public.announcement_replies`
+- Purpose: one-level replies on announcement feed items.
+- Primary key: `id` (`uuid`, default `gen_random_uuid()`).
+- Foreign keys:
+  - `announcement_id` -> `public.announcements.id`
+  - `author_id` -> `public.profiles.user_id`
+- Key columns: `body`, `created_at`.
+
 #### `public.budget_cycles`
 - Purpose: budget periods/cycles.
 - Primary key: `id` (`uuid`, default `gen_random_uuid()`).
@@ -218,6 +227,7 @@ Important expectations:
   - `user_roles.user_id`
   - `announcements.author_id`
   - `announcement_likes.user_id`
+  - `announcement_replies.author_id`
   - `events.created_by`
   - `transactions.created_by`
   - `budget_accounts.created_by`
@@ -228,6 +238,7 @@ Important expectations:
   - `budget_accounts.role_slug`
 - `announcements.id` is referenced by:
   - `announcement_likes.announcement_id`
+  - `announcement_replies.announcement_id`
 - `budget_cycles.id` is referenced by:
   - `budget_accounts.cycle_id`
 - `budget_accounts.id` is referenced by:
