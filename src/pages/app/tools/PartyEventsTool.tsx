@@ -4,6 +4,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../../../auth/authContext";
 import { canManagePartyEvents } from "../../../auth/roleAccess";
 import useRoles from "../../../auth/useRoles";
+import EventTagBadges from "../../../components/events/EventTagBadges";
 import { Badge, Button, Card, EmptyState, Input, PageHeader, SectionHeader } from "../../../components/ui";
 import supabase from "../../../config/supabaseClient";
 import {
@@ -12,7 +13,6 @@ import {
   isEventEndAfterStart,
   toEventTimestamp,
 } from "../../../lib/eventDateTime";
-import { getEventTypeClassName, getEventTypeLabel } from "../../../lib/eventTypes";
 import {
   createPartyChecklistItem,
   createPartyEventDetails,
@@ -33,6 +33,7 @@ type PartyEventRow = {
   created_by: string;
   visible_to_alum: boolean;
   visible_to_neophyte: boolean;
+  event_tags: string[] | null;
   details: unknown;
 };
 
@@ -49,7 +50,7 @@ type PartyEventsToolProps = {
 };
 
 const partyEventSelect =
-  "id, created_at, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte, details";
+  "id, created_at, title, description, event_type, event_tags, start, end, created_by, visible_to_alum, visible_to_neophyte, details";
 
 const emptyDraft: PartyDraft = {
   theme: "",
@@ -259,6 +260,7 @@ export default function PartyEventsTool({
         title: `Party: ${theme}`,
         description: `Theme: ${theme}`,
         event_type: "party",
+        event_tags: ["party"],
         start: toEventTimestamp(draft.start),
         end: toEventTimestamp(draft.end),
         created_by: userId,
@@ -441,9 +443,7 @@ export default function PartyEventsTool({
               <article key={partyEvent.id} className="party-event-card">
                 <div className="party-event-summary">
                   <div>
-                    <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName("party")}`}>
-                      {getEventTypeLabel("party")}
-                    </Badge>
+                    <EventTagBadges eventTags={partyEvent.event_tags} eventType="party" />
                     <h3>{details.theme || partyEvent.title}</h3>
                     <p>{formatEventDateTime(partyEvent.start)} to {formatEventDateTime(partyEvent.end)}</p>
                   </div>

@@ -1,4 +1,4 @@
-import { eventTypeOptions, type EventTypeSlug } from "../lib/eventTypes";
+import { eventHasTag, eventTypeOptions, type EventTypeSlug } from "../lib/eventTypes";
 
 export type AccountStatus = "pending" | "active" | "suspended";
 export type ChapterStatus = "neophyte" | "brother" | "alumni";
@@ -6,6 +6,7 @@ export type ChapterStatus = "neophyte" | "brother" | "alumni";
 export type EventVisibility = {
   created_by?: string | null;
   event_type?: string | null;
+  event_tags?: string[] | null;
   visible_to_alum?: boolean | null;
   visible_to_neophyte?: boolean | null;
 };
@@ -523,7 +524,7 @@ export function canViewEvent(roles: string[], event: EventVisibility) {
   }
 
   if (chapterStatus === "alumni") {
-    return event.event_type === "alumni_event" || Boolean(event.visible_to_alum);
+    return eventHasTag(event.event_tags, "alumni_event", event.event_type) || Boolean(event.visible_to_alum);
   }
 
   return false;

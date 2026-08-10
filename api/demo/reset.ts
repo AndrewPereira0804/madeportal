@@ -510,6 +510,7 @@ async function seedDemoData(client: SupabaseClient, users: DemoUser[]): Promise<
       title: "Demo Chapter Meeting",
       description: "Weekly business meeting with reports from each chair.",
       event_type: "house_meeting",
+      event_tags: ["house_meeting"],
       details: { agenda: ["Officer reports", "Budget review", "Upcoming events"] },
       start: isoTimestamp(chapterEventStart),
       end: isoTimestamp(addHours(chapterEventStart, 1)),
@@ -523,6 +524,7 @@ async function seedDemoData(client: SupabaseClient, users: DemoUser[]): Promise<
       title: "Food Bank Volunteer Shift",
       description: "Sort donations and log service hours for the chapter.",
       event_type: "community_service",
+      event_tags: ["community_service", "philanthropy"],
       details: {
         organization: "City Food Bank",
         location: "123 Market Street",
@@ -540,6 +542,7 @@ async function seedDemoData(client: SupabaseClient, users: DemoUser[]): Promise<
       title: "Demo Formal",
       description: "Formal event planning sample with attendee and budget details.",
       event_type: "formal",
+      event_tags: ["formal"],
       details: {
         venue: "Union Hall",
         estimatedAttendees: 84,
@@ -557,6 +560,7 @@ async function seedDemoData(client: SupabaseClient, users: DemoUser[]): Promise<
       title: "Alumni Lunch",
       description: "Open alumni lunch with chapter updates and networking.",
       event_type: "alumni_event",
+      event_tags: ["alumni_event"],
       details: {
         location: "Downtown Grill",
         publicNote: "Guests can meet near the private dining room.",

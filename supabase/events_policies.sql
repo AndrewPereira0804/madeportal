@@ -8,7 +8,10 @@ alter table public.events
 alter table public.events
   drop constraint if exists events_title_not_blank_check,
   drop constraint if exists events_end_after_start_check,
-  drop constraint if exists events_alumni_event_visible_check;
+  drop constraint if exists events_alumni_event_visible_check,
+  drop constraint if exists events_event_tags_allowed_check,
+  drop constraint if exists events_event_tags_include_primary_check,
+  drop constraint if exists events_alumni_event_tag_visible_check;
 
 alter table public.events
   add constraint events_title_not_blank_check
@@ -16,7 +19,33 @@ alter table public.events
   add constraint events_end_after_start_check
   check ("end" > "start"),
   add constraint events_alumni_event_visible_check
-  check (event_type <> 'alumni_event' or visible_to_alum is true);
+  check (event_type <> 'alumni_event' or visible_to_alum is true),
+  add constraint events_event_tags_allowed_check
+  check (
+    array_position(event_tags, null) is null
+    and event_tags <@ array[
+      'party',
+      'formal',
+      'sorority_fraternity',
+      'dei',
+      'community_service',
+      'philanthropy',
+      'house_meeting',
+      'alumni_event',
+      'rush',
+      'scholarship',
+      'professional_development',
+      'brotherhood_event',
+      'hsm_event',
+      'work_party',
+      'new_member_meeting',
+      'new_member_event'
+    ]::text[]
+  ),
+  add constraint events_event_tags_include_primary_check
+  check (event_type = any(event_tags)),
+  add constraint events_alumni_event_tag_visible_check
+  check (not ('alumni_event' = any(event_tags)) or visible_to_alum is true);
 
 revoke all on public.events from anon;
 revoke all on public.events from public;
@@ -32,6 +61,7 @@ grant insert (
   visible_to_alum,
   visible_to_neophyte,
   event_type,
+  event_tags,
   details
 ) on public.events to authenticated;
 grant update (
@@ -42,6 +72,7 @@ grant update (
   visible_to_alum,
   visible_to_neophyte,
   event_type,
+  event_tags,
   details
 ) on public.events to authenticated;
 grant delete on public.events to authenticated;

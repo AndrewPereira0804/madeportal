@@ -4,8 +4,8 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../../../auth/authContext";
 import { canManageCommunityServiceEvents } from "../../../auth/roleAccess";
 import useRoles from "../../../auth/useRoles";
+import EventTagBadges from "../../../components/events/EventTagBadges";
 import {
-  Badge,
   Button,
   Card,
   EmptyState,
@@ -36,7 +36,6 @@ import {
   isEventEndAfterStart,
   toEventTimestamp,
 } from "../../../lib/eventDateTime";
-import { getEventTypeClassName, getEventTypeLabel } from "../../../lib/eventTypes";
 
 type CommunityServiceEventRow = {
   id: string;
@@ -49,6 +48,7 @@ type CommunityServiceEventRow = {
   created_by: string;
   visible_to_alum: boolean;
   visible_to_neophyte: boolean;
+  event_tags: string[] | null;
   details: unknown;
 };
 
@@ -72,7 +72,7 @@ type CommunityServiceEventsToolProps = {
 };
 
 const communityServiceEventSelect =
-  "id, created_at, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte, details";
+  "id, created_at, title, description, event_type, event_tags, start, end, created_by, visible_to_alum, visible_to_neophyte, details";
 
 const emptyDraft: CommunityServiceDraft = {
   name: "",
@@ -258,6 +258,7 @@ export default function CommunityServiceEventsTool({
         title: name,
         description,
         event_type: "community_service",
+        event_tags: ["community_service"],
         start: toEventTimestamp(draft.start),
         end: toEventTimestamp(draft.end),
         created_by: userId,
@@ -484,9 +485,7 @@ export default function CommunityServiceEventsTool({
               <article key={serviceEvent.id} className="party-event-card service-event-card">
                 <div className="party-event-summary">
                   <div>
-                    <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName("community_service")}`}>
-                      {getEventTypeLabel("community_service")}
-                    </Badge>
+                    <EventTagBadges eventTags={serviceEvent.event_tags} eventType="community_service" />
                     <h3>{serviceEvent.title}</h3>
                     <p>{formatEventDateTime(serviceEvent.start)} to {formatEventDateTime(serviceEvent.end)}</p>
                   </div>

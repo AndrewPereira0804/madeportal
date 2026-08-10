@@ -60,7 +60,7 @@ Tables used by the frontend:
 - `announcements`: `id`, `created_at`, `title`, `body`, `author_id`, `visibility`, `likes`, `reply_count`
 - `announcement_likes`: `announcement_id`, `user_id`, `created_at`
 - `announcement_replies`: `id`, `announcement_id`, `author_id`, `body`, `created_at`
-- `events`: `id`, `created_at`, `title`, `description`, `event_type`, `details`, `start`, `end`, `created_by`, `visible_to_alum`, `visible_to_neophyte`
+- `events`: `id`, `created_at`, `title`, `description`, `event_type`, `event_tags`, `details`, `start`, `end`, `created_by`, `visible_to_alum`, `visible_to_neophyte`
 - `calendars`: `id`, `start`, `end`, `name`
 - `majors`: `id`, `major`, `slug`
 - `budget_cycles`: `id`, `name`, `start_date`, `end_date`, `is_active`, `created_at`, `created_by`
@@ -158,8 +158,8 @@ Important expectations:
 - Purpose: scheduled events.
 - Primary key: `id` (`uuid`, default `gen_random_uuid()`).
 - Foreign key: `created_by` -> `public.profiles.user_id`.
-- Key columns: `title`, `description`, `event_type`, `details`, `start`, `end`, `created_at`.
-- Schema note: `event_type` and `details` are present in the canonical 2026-06-25 hosted schema export. `supabase/event_types.sql` remains the repo reconciliation/reference script for environments that do not match.
+- Key columns: `title`, `description`, `event_type`, `event_tags`, `details`, `start`, `end`, `created_at`.
+- Schema note: `event_type` and `details` are present in the canonical 2026-06-25 hosted schema export. `event_tags` is added by `supabase/migrations/20260810145111_add_event_tags.sql`. `supabase/event_types.sql` remains the repo reconciliation/reference script for environments that do not match.
 
 #### `public.transactions`
 - Purpose: legacy budget-linked financial records from the older budget model.
