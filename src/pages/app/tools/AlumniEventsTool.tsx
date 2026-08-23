@@ -4,8 +4,8 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../../../auth/authContext";
 import { canManageAlumniEvents } from "../../../auth/roleAccess";
 import useRoles from "../../../auth/useRoles";
+import EventTagBadges from "../../../components/events/EventTagBadges";
 import {
-  Badge,
   Button,
   Card,
   EmptyState,
@@ -27,7 +27,6 @@ import {
   isEventEndAfterStart,
   toEventTimestamp,
 } from "../../../lib/eventDateTime";
-import { getEventTypeClassName, getEventTypeLabel } from "../../../lib/eventTypes";
 
 type AlumniEventRow = {
   id: string;
@@ -40,6 +39,7 @@ type AlumniEventRow = {
   created_by: string;
   visible_to_alum: boolean;
   visible_to_neophyte: boolean;
+  event_tags: string[] | null;
   details: unknown;
 };
 
@@ -58,7 +58,7 @@ type AlumniEventsToolProps = {
 };
 
 const alumniEventSelect =
-  "id, created_at, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte, details";
+  "id, created_at, title, description, event_type, event_tags, start, end, created_by, visible_to_alum, visible_to_neophyte, details";
 
 const emptyDraft: AlumniEventDraft = {
   title: "",
@@ -175,6 +175,7 @@ export default function AlumniEventsTool({ ownerLabel, returnPath }: AlumniEvent
         title,
         description: description || null,
         event_type: "alumni_event",
+        event_tags: ["alumni_event"],
         start: toEventTimestamp(draft.start),
         end: toEventTimestamp(draft.end),
         created_by: userId,
@@ -342,9 +343,7 @@ export default function AlumniEventsTool({ ownerLabel, returnPath }: AlumniEvent
               <article key={alumniEvent.id} className="party-event-card service-event-card">
                 <div className="party-event-summary">
                   <div>
-                    <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName("alumni_event")}`}>
-                      {getEventTypeLabel("alumni_event")}
-                    </Badge>
+                    <EventTagBadges eventTags={alumniEvent.event_tags} eventType="alumni_event" />
                     <h3>{alumniEvent.title}</h3>
                     <p>{formatEventDateTime(alumniEvent.start)} to {formatEventDateTime(alumniEvent.end)}</p>
                   </div>

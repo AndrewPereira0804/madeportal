@@ -3,11 +3,12 @@
 This file gives coding agents a repo-specific playbook based on the current `main` branch state.
 
 ## Read this first for product behavior
-- Start with `README.md` before coding. It is the primary in-repo guide for:
+- Start with `docs/project-state.md` before coding. It is the primary in-repo guide for:
   - how the app currently works,
   - what is finished,
   - what is intentionally unfinished/placeholder.
-- If code behavior and README disagree, do not guess: flag the mismatch and ask the user which source should be treated as canonical for the task.
+- The root `README.md` is the public GitHub-facing overview; do not treat it as the detailed implementation snapshot.
+- If code behavior and `docs/project-state.md` disagree, do not guess: flag the mismatch and ask the user which source should be treated as canonical for the task.
 
 ## Project at a glance
 - Stack: Vite 7 + React 19 + TypeScript + React Router 7 + Bootstrap 5.
@@ -19,14 +20,12 @@ This file gives coding agents a repo-specific playbook based on the current `mai
 - Auth: register/login with Supabase email/password.
 - Status gating: users are routed by `profiles.status` (`pending`, `active`, `suspended`).
 - Roles: role checks are based on `user_roles`, with `admin` guarding admin routes.
-- Admin workflows: `/admin/accounts` supports profile status and role updates.
+- Management workflows: `/app/manage/members` supports profile status and role updates.
 - Announcements: feed exists with optimistic like updates.
 
 ## Known placeholders (do not treat as regressions)
-- `src/pages/admin/CreateEvent.tsx`
-- `src/pages/app/Scheduling.tsx`
 - `src/pages/app/Budgets.tsx`
-- `src/pages/app/Account.tsx`
+- `src/pages/app/SystemAdmin.tsx`
 
 ## Working conventions
 - Use TypeScript for all new frontend logic.

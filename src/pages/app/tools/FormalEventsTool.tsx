@@ -4,6 +4,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../../../auth/authContext";
 import { canManageFormalEvents } from "../../../auth/roleAccess";
 import useRoles from "../../../auth/useRoles";
+import EventTagBadges from "../../../components/events/EventTagBadges";
 import {
   Badge,
   Button,
@@ -27,7 +28,6 @@ import {
   isEventEndAfterStart,
   toEventTimestamp,
 } from "../../../lib/eventDateTime";
-import { getEventTypeClassName, getEventTypeLabel } from "../../../lib/eventTypes";
 import {
   calculateFormalAttendeeOwed,
   calculateFormalTotals,
@@ -51,6 +51,7 @@ type FormalEventRow = {
   created_by: string;
   visible_to_alum: boolean;
   visible_to_neophyte: boolean;
+  event_tags: string[] | null;
   details: unknown;
 };
 
@@ -72,7 +73,7 @@ type FormalEventsToolProps = {
 };
 
 const formalEventSelect =
-  "id, created_at, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte, details";
+  "id, created_at, title, description, event_type, event_tags, start, end, created_by, visible_to_alum, visible_to_neophyte, details";
 
 const emptyDraft: FormalDraft = {
   theme: "",
@@ -355,6 +356,7 @@ export default function FormalEventsTool({
         title: `Formal: ${theme}`,
         description: `Theme: ${theme}`,
         event_type: "formal",
+        event_tags: ["formal"],
         start: toEventTimestamp(draft.start),
         end: toEventTimestamp(draft.end),
         created_by: userId,
@@ -625,9 +627,7 @@ export default function FormalEventsTool({
               <article key={formalEvent.id} className="party-event-card formal-event-card">
                 <div className="party-event-summary">
                   <div>
-                    <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName("formal")}`}>
-                      {getEventTypeLabel("formal")}
-                    </Badge>
+                    <EventTagBadges eventTags={formalEvent.event_tags} eventType="formal" />
                     <h3>{details.theme || formalEvent.title}</h3>
                     <p>{formatEventDateTime(formalEvent.start)} to {formatEventDateTime(formalEvent.end)}</p>
                   </div>

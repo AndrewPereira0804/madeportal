@@ -50,6 +50,51 @@ export function getEventTypeClassName(value: string | null | undefined): string 
   return `event-type--${normalizeEventType(value)}`;
 }
 
+export function normalizeEventTags(
+  value: unknown,
+  primaryEventType?: string | null,
+): EventTypeSlug[] {
+  const tags: EventTypeSlug[] = [];
+  const seen = new Set<EventTypeSlug>();
+  const primary = normalizeEventType(primaryEventType);
+
+  function addTag(tag: unknown) {
+    if (typeof tag !== "string" || !isEventTypeSlug(tag) || seen.has(tag)) {
+      return;
+    }
+
+    seen.add(tag);
+    tags.push(tag);
+  }
+
+  addTag(primary);
+
+  if (Array.isArray(value)) {
+    value.forEach(addTag);
+  }
+
+  return tags;
+}
+
+export function eventHasTag(
+  value: unknown,
+  tag: string | null | undefined,
+  primaryEventType?: string | null,
+) {
+  if (!isEventTypeSlug(tag)) {
+    return false;
+  }
+
+  return normalizeEventTags(value, primaryEventType).includes(tag);
+}
+
+export function getEventTagsLabel(
+  value: unknown,
+  primaryEventType?: string | null,
+) {
+  return normalizeEventTags(value, primaryEventType).map(getEventTypeLabel).join(", ");
+}
+
 export function getEventTypeSqlValues(): EventTypeSlug[] {
   return eventTypeOptions.map((eventType) => eventType.slug);
 }

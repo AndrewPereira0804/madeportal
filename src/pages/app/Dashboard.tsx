@@ -26,6 +26,7 @@ import {
   PageHeader,
   SectionHeader,
 } from "../../components/ui";
+import EventTagBadges from "../../components/events/EventTagBadges";
 import supabase from "../../config/supabaseClient";
 import {
   formatMoney,
@@ -37,7 +38,7 @@ import {
   getBudgetTransactionsByStatus,
 } from "../../lib/budgetQueries";
 import { formatEventDateTime, toCurrentEventTimestamp } from "../../lib/eventDateTime";
-import { getEventTypeClassName, getEventTypeLabel, type EventTypeSlug } from "../../lib/eventTypes";
+import type { EventTypeSlug } from "../../lib/eventTypes";
 import { getPublishedWaitOnsForUserWeek } from "../../lib/waitOnQueries";
 import { formatWaitOnSlotLabel, getCurrentWeekStartValue, type WaitOnAssignment } from "../../lib/waitOns";
 
@@ -65,6 +66,7 @@ type EventPreview = {
   title: string;
   description: string | null;
   event_type: EventTypeSlug | null;
+  event_tags: EventTypeSlug[] | null;
   start: string;
   end: string;
   created_by: string | null;
@@ -205,7 +207,7 @@ export default function Dashboard() {
           .order("created_at", { ascending: false }),
         supabase
           .from("events")
-          .select("id, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte")
+          .select("id, title, description, event_type, event_tags, start, end, created_by, visible_to_alum, visible_to_neophyte")
           .gte("end", now)
           .order("start", { ascending: true })
           .limit(12),
@@ -267,8 +269,8 @@ export default function Dashboard() {
       if (hasAlumniEventAccess) {
         const { data, error } = await supabase
           .from("events")
-          .select("id, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte")
-          .eq("event_type", "alumni_event")
+          .select("id, title, description, event_type, event_tags, start, end, created_by, visible_to_alum, visible_to_neophyte")
+          .overlaps("event_tags", ["alumni_event"])
           .gte("end", now)
           .order("start", { ascending: true })
           .limit(5);
@@ -339,7 +341,7 @@ export default function Dashboard() {
   const roleSummary = positionRoleSlugs.length > 0
     ? positionRoleSlugs.slice(0, 2).map((roleSlug) => getRoleLabel(roleSlug, roleLookup)).join(", ")
     : formatChapterStatus(chapterStatus);
-  const displayName = getDisplayName(profile, session?.user?.email);
+  const displayName = loading || rolesLoading ? null : getDisplayName(profile, session?.user?.email);
   const pendingBudgetTotal = pendingBudgetRequests.reduce((total, request) => total + request.amount, 0);
   const hasChairTools = canOpenAllChairTools || chairRoleSlugs.length > 0;
   const currentWaitOnWeek = getCurrentWeekStartValue();
@@ -349,7 +351,7 @@ export default function Dashboard() {
       <Card className="dashboard-hero" padding="lg">
         <PageHeader
           eyebrow="Mass Delta Portal"
-          title={`Welcome, ${displayName}`}
+          title={displayName ? `Welcome, ${displayName}` : "Welcome"}
           subtitle="Your dashboard changes with your chapter status and active roles."
           actions={
             hasAnnouncementShortcutAccess ? (
@@ -481,9 +483,7 @@ export default function Dashboard() {
                   <div className="event-preview-body">
                     <div className="event-preview-heading">
                       <h3>{event.title}</h3>
-                      <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName(event.event_type)}`}>
-                        {getEventTypeLabel(event.event_type)}
-                      </Badge>
+                      <EventTagBadges eventTags={event.event_tags} eventType={event.event_type} maxTags={2} />
                     </div>
                     <p>{event.description || "No description provided."}</p>
                     <span>

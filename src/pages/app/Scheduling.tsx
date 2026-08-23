@@ -2,15 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import supabase from "../../config/supabaseClient";
 import { canManageEvents as canManageRoleEvents, canViewEvent } from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
-import { Badge, Button, Card, EmptyState, PageHeader, SectionHeader, Select } from "../../components/ui";
+import EventTagBadges from "../../components/events/EventTagBadges";
+import { Button, Card, EmptyState, PageHeader, SectionHeader, Select } from "../../components/ui";
 import { normalizeAlumniEventDetails } from "../../lib/alumniEvents";
 import { normalizeCommunityServiceEventDetails } from "../../lib/communityServiceEvents";
 import { compareEventDateTimes, formatEventDateTime, getEventDateTimeMs } from "../../lib/eventDateTime";
 import {
   eventTypeOptions,
+  eventHasTag,
   getEventTypeClassName,
-  getEventTypeLabel,
-  normalizeEventType,
+  getEventTagsLabel,
   type EventTypeSlug,
 } from "../../lib/eventTypes";
 import { normalizeFormalEventDetails } from "../../lib/formalEvents";
@@ -30,6 +31,7 @@ type EventRow = {
   title: string;
   description: string | null;
   event_type: EventTypeSlug | null;
+  event_tags: EventTypeSlug[] | null;
   details: unknown;
   start: string;
   end: string;
@@ -278,7 +280,7 @@ function isDayWithinWindow(day: Date, window: CalendarWindow) {
 function getAudienceLabels(event: EventRow) {
   const labels = ["Brothers"];
 
-  if (event.event_type === "alumni_event" || event.visible_to_alum) {
+  if (eventHasTag(event.event_tags, "alumni_event", event.event_type) || event.visible_to_alum) {
     labels.push("Alumni");
   }
 
@@ -425,9 +427,7 @@ function AgendaEventCard({
           {isNextUp && <span className="agenda-event-kicker">Next Up</span>}
           <span className="agenda-event-heading">
             <span className="agenda-event-title">{event.title}</span>
-            <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName(event.event_type)}`}>
-              {getEventTypeLabel(event.event_type)}
-            </Badge>
+            <EventTagBadges eventTags={event.event_tags} eventType={event.event_type} />
           </span>
           <span className="agenda-event-date-line">{formatAgendaDate(event)}</span>
           <span className="agenda-event-time">{formatAgendaTimeRange(event)}</span>
@@ -492,7 +492,7 @@ export default function Scheduling() {
         supabase.from("calendars").select("*").order("start", { ascending: true }),
         supabase
           .from("events")
-          .select("id, created_at, title, description, event_type, details, start, end, created_by, visible_to_alum, visible_to_neophyte")
+          .select("id, created_at, title, description, event_type, event_tags, details, start, end, created_by, visible_to_alum, visible_to_neophyte")
           .order("start", { ascending: true }),
       ]);
 
@@ -533,7 +533,7 @@ export default function Scheduling() {
         const matchingWindows = getWindowsForEvent(event, windows);
         return matchingWindows.some((window) => window.id === selectedWindowId);
       })
-      .filter((event) => selectedEventType === "all" || normalizeEventType(event.event_type) === selectedEventType)
+      .filter((event) => selectedEventType === "all" || eventHasTag(event.event_tags, selectedEventType, event.event_type))
       .sort((a, b) => compareEventDateTimes(a.start, b.start));
   }, [selectedEventType, selectedWindowId, visibleEvents, windows]);
 
@@ -878,7 +878,7 @@ export default function Scheduling() {
                         <div
                           key={`${key}-${event.id}`}
                           className={`calendar-event-chip ${getEventTypeClassName(event.event_type)}`}
-                          title={`${getEventTypeLabel(event.event_type)}: ${event.title}`}
+                          title={`${getEventTagsLabel(event.event_tags, event.event_type)}: ${event.title}`}
                         >
                           <strong>{formatEventTime(event, day)}</strong> {event.title}
                         </div>

@@ -4,8 +4,8 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../../../auth/authContext";
 import { canManageProfessionalDevelopmentEvents } from "../../../auth/roleAccess";
 import useRoles from "../../../auth/useRoles";
+import EventTagBadges from "../../../components/events/EventTagBadges";
 import {
-  Badge,
   Button,
   Card,
   EmptyState,
@@ -21,7 +21,6 @@ import {
   isEventEndAfterStart,
   toEventTimestamp,
 } from "../../../lib/eventDateTime";
-import { getEventTypeClassName, getEventTypeLabel } from "../../../lib/eventTypes";
 import {
   createProfessionalDevelopmentEventDetails,
   mergeProfessionalDevelopmentSpeaker,
@@ -40,6 +39,7 @@ type ProfessionalDevelopmentEventRow = {
   created_by: string;
   visible_to_alum: boolean;
   visible_to_neophyte: boolean;
+  event_tags: string[] | null;
   details: unknown;
 };
 
@@ -59,7 +59,7 @@ type ProfessionalDevelopmentEventsToolProps = {
 };
 
 const professionalDevelopmentEventSelect =
-  "id, created_at, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte, details";
+  "id, created_at, title, description, event_type, event_tags, start, end, created_by, visible_to_alum, visible_to_neophyte, details";
 
 const emptyDraft: ProfessionalDevelopmentDraft = {
   title: "",
@@ -179,6 +179,7 @@ export default function ProfessionalDevelopmentEventsTool({
         title,
         description: description || null,
         event_type: "professional_development",
+        event_tags: ["professional_development"],
         start: toEventTimestamp(draft.start),
         end: toEventTimestamp(draft.end),
         created_by: userId,
@@ -358,9 +359,7 @@ export default function ProfessionalDevelopmentEventsTool({
               <article key={professionalEvent.id} className="party-event-card service-event-card">
                 <div className="party-event-summary">
                   <div>
-                    <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName("professional_development")}`}>
-                      {getEventTypeLabel("professional_development")}
-                    </Badge>
+                    <EventTagBadges eventTags={professionalEvent.event_tags} eventType="professional_development" />
                     <h3>{professionalEvent.title}</h3>
                     <p>{formatEventDateTime(professionalEvent.start)} to {formatEventDateTime(professionalEvent.end)}</p>
                   </div>

@@ -3525,6 +3525,14 @@ button:disabled {
   text-transform: none;
 }
 
+.event-tag-list {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
 .event-type--party {
   --event-type-color: #8f3d56;
   --event-type-bg: rgba(143, 61, 86, 0.11);
@@ -4120,6 +4128,57 @@ button:disabled {
   background: rgba(255, 252, 246, 0.56);
 }
 
+.event-tag-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.event-tag-fieldset legend {
+  margin-bottom: 0.48rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.event-tag-option-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.48rem;
+}
+
+.event-tag-option {
+  min-width: 0;
+  min-height: 2.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(43, 32, 20, 0.12);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.event-tag-option input {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.event-tag-option span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.event-tag-option:has(input:checked) {
+  border-color: var(--event-type-border, rgba(75, 0, 110, 0.22));
+  background: rgba(75, 0, 110, 0.06);
+  color: var(--text-primary);
+}
+
 /* Responsive */
 
 @media (max-width: 1180px) {
@@ -4280,6 +4339,10 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .event-tag-option-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .dashboard-role-strip,
   .dashboard-role-grid {
     grid-template-columns: 1fr;
@@ -4373,6 +4436,10 @@ button:disabled {
 
   .calendar-day {
     min-height: 0;
+  }
+
+  .event-tag-option-grid {
+    grid-template-columns: 1fr;
   }
 }
 

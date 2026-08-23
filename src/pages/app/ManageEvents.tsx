@@ -12,11 +12,12 @@ import {
 } from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
 import { ActionCard, Badge, Button, Card, EmptyState, Input, PageHeader, SectionHeader, Select, Textarea } from "../../components/ui";
+import EventTagBadges from "../../components/events/EventTagBadges";
 import {
   defaultEventType,
   eventTypeOptions,
-  getEventTypeClassName,
-  getEventTypeLabel,
+  eventHasTag,
+  normalizeEventTags,
   normalizeEventType,
   type EventTypeSlug,
 } from "../../lib/eventTypes";
@@ -42,6 +43,7 @@ type EventRow = {
   end: string;
   created_by: string;
   event_type: EventTypeSlug | null;
+  event_tags: EventTypeSlug[] | null;
   visible_to_alum: boolean;
   visible_to_neophyte: boolean;
 };
@@ -50,6 +52,7 @@ type EventDraft = {
   title: string;
   description: string;
   event_type: EventTypeSlug;
+  event_tags: EventTypeSlug[];
   start: string;
   end: string;
   visible_to_alum: boolean;
@@ -90,6 +93,7 @@ export default function ManageEvents({
     title: "",
     description: "",
     event_type: defaultEventType,
+    event_tags: [],
     start: "",
     end: "",
     visible_to_alum: false,
@@ -150,7 +154,8 @@ export default function ManageEvents({
     : defaultDraftEventType;
   const eventTypeSelectOptions = editingId ? eventTypeOptions : createEventTypeOptions;
   const selectedFormEventType = editingId ? draft.event_type : selectedCreateEventType;
-  const isAlumniEventSelected = selectedFormEventType === "alumni_event";
+  const selectedFormEventTags = normalizeEventTags(draft.event_tags, selectedFormEventType);
+  const isAlumniEventSelected = selectedFormEventTags.includes("alumni_event");
   const canCreateSelectedEventType =
     canManageEventType(roles, selectedCreateEventType);
 
@@ -173,7 +178,7 @@ export default function ManageEvents({
 
       let query = supabase
         .from("events")
-        .select("id, created_at, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte");
+        .select("id, created_at, title, description, event_type, event_tags, start, end, created_by, visible_to_alum, visible_to_neophyte");
 
       if (scopedEventTypeList) {
         query = query.in("event_type", scopedEventTypeList);
@@ -237,6 +242,7 @@ export default function ManageEvents({
       title: "",
       description: "",
       event_type: defaultDraftEventType,
+      event_tags: [defaultDraftEventType],
       start: "",
       end: "",
       visible_to_alum: defaultDraftEventType === "alumni_event",
@@ -272,13 +278,15 @@ export default function ManageEvents({
     setSaving(true);
     setErrorMessage(null);
 
+    const eventTagsForSave = normalizeEventTags(draft.event_tags, eventTypeForSave);
     const eventPayload = {
       title: draft.title.trim(),
       description: draft.description.trim() || null,
       event_type: eventTypeForSave,
+      event_tags: eventTagsForSave,
       start: toEventTimestamp(draft.start),
       end: toEventTimestamp(draft.end),
-      visible_to_alum: eventTypeForSave === "alumni_event" || draft.visible_to_alum,
+      visible_to_alum: eventTagsForSave.includes("alumni_event") || draft.visible_to_alum,
       visible_to_neophyte: draft.visible_to_neophyte,
     };
 
@@ -294,7 +302,7 @@ export default function ManageEvents({
         .from("events")
         .update(eventPayload)
         .eq("id", editingId)
-        .select("id, created_at, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte")
+        .select("id, created_at, title, description, event_type, event_tags, start, end, created_by, visible_to_alum, visible_to_neophyte")
         .single();
 
       if (error) {
@@ -310,7 +318,7 @@ export default function ManageEvents({
           ...eventPayload,
           created_by: userId,
         })
-        .select("id, created_at, title, description, event_type, start, end, created_by, visible_to_alum, visible_to_neophyte")
+        .select("id, created_at, title, description, event_type, event_tags, start, end, created_by, visible_to_alum, visible_to_neophyte")
         .single();
 
       if (error) {
@@ -330,10 +338,26 @@ export default function ManageEvents({
       title: event.title,
       description: event.description ?? "",
       event_type: normalizeEventType(event.event_type),
+      event_tags: normalizeEventTags(event.event_tags, event.event_type),
       start: toEventDateTimeInputValue(event.start),
       end: toEventDateTimeInputValue(event.end),
-      visible_to_alum: event.event_type === "alumni_event" || event.visible_to_alum,
+      visible_to_alum: eventHasTag(event.event_tags, "alumni_event", event.event_type) || event.visible_to_alum,
       visible_to_neophyte: event.visible_to_neophyte,
+    });
+  }
+
+  function toggleDraftEventTag(eventType: EventTypeSlug, checked: boolean) {
+    setDraft((current) => {
+      const primaryEventType = normalizeEventType(editingId ? current.event_type : selectedCreateEventType);
+      const nextTags = checked
+        ? [...current.event_tags, eventType]
+        : current.event_tags.filter((tag) => tag !== eventType);
+
+      return {
+        ...current,
+        event_tags: normalizeEventTags(nextTags, primaryEventType),
+        visible_to_alum: eventType === "alumni_event" && checked ? true : current.visible_to_alum,
+      };
     });
   }
 
@@ -441,6 +465,7 @@ export default function ManageEvents({
                   return {
                     ...current,
                     event_type: nextEventType,
+                    event_tags: normalizeEventTags(current.event_tags, nextEventType),
                     visible_to_alum: nextEventType === "alumni_event" || current.visible_to_alum,
                   };
                 })
@@ -452,6 +477,27 @@ export default function ManageEvents({
                 </option>
               ))}
             </Select>
+            <fieldset className="budget-form-full event-tag-fieldset">
+              <legend>Tags</legend>
+              <div className="event-tag-option-grid">
+                {eventTypeOptions.map((eventType) => {
+                  const checked = selectedFormEventTags.includes(eventType.slug);
+                  const isPrimaryTag = eventType.slug === selectedFormEventType;
+
+                  return (
+                    <label key={eventType.slug} className="event-tag-option">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={isPrimaryTag}
+                        onChange={(event) => toggleDraftEventTag(eventType.slug, event.target.checked)}
+                      />
+                      <span>{eventType.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
             <Input
               label="Start"
               type="datetime-local"
@@ -547,11 +593,9 @@ export default function ManageEvents({
                 <strong>Ends:</strong> {formatEventDateTime(event.end)}
               </p>
               <div className="d-flex gap-2 flex-wrap mt-2">
-                <Badge variant="neutral" className={`event-type-badge ${getEventTypeClassName(event.event_type)}`}>
-                  {getEventTypeLabel(event.event_type)}
-                </Badge>
+                <EventTagBadges eventTags={event.event_tags} eventType={event.event_type} />
                 <Badge variant="info">brother</Badge>
-                {(event.event_type === "alumni_event" || event.visible_to_alum) && <Badge variant="info">alum</Badge>}
+                {(eventHasTag(event.event_tags, "alumni_event", event.event_type) || event.visible_to_alum) && <Badge variant="info">alum</Badge>}
                 {event.visible_to_neophyte && <Badge variant="info">neophyte</Badge>}
               </div>
             </article>
