@@ -157,6 +157,12 @@ export const eventToolDefinitions: EventToolDefinition[] = [
     "new-member-events",
     "Create new member events for the chapter calendar.",
   ),
+  eventTool(
+    "other",
+    ["rec", "recorder"],
+    "other-events",
+    "Create other events for the chapter calendar.",
+  ),
 ];
 
 const definitionsByEventType = new Map<EventTypeSlug, EventToolDefinition>(

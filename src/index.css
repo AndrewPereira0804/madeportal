@@ -3629,6 +3629,12 @@ button:disabled {
   --event-type-border: rgba(156, 79, 112, 0.26);
 }
 
+.event-type--other {
+  --event-type-color: #5c6570;
+  --event-type-bg: rgba(92, 101, 112, 0.11);
+  --event-type-border: rgba(92, 101, 112, 0.26);
+}
+
 .schedule-control-bar {
   margin-top: 1rem;
   display: grid;
@@ -3673,6 +3679,85 @@ button:disabled {
   justify-content: center;
   width: 100%;
   min-height: 2.75rem;
+}
+
+.calendar-window-management {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.85rem;
+  padding: 0.92rem;
+  border: 1px solid rgba(43, 32, 20, 0.1);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 252, 246, 0.52);
+}
+
+.calendar-window-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.calendar-window-panel {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.calendar-window-header-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.calendar-window-list {
+  display: grid;
+  gap: 0.64rem;
+}
+
+.calendar-window-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.82rem;
+  border: 1px solid rgba(43, 32, 20, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.calendar-window-row h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.98rem;
+  font-weight: 900;
+}
+
+.calendar-window-row p {
+  margin: 0.22rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.calendar-window-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.calendar-window-notice,
+.calendar-window-error {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.calendar-window-notice {
+  color: var(--success);
+}
+
+.calendar-window-error {
+  color: var(--danger);
 }
 
 .next-up-section {
@@ -4335,8 +4420,13 @@ button:disabled {
 
   .budget-form-grid,
   .budget-request-details,
+  .calendar-window-row,
   .chair-tool-row {
     grid-template-columns: 1fr;
+  }
+
+  .calendar-window-actions {
+    justify-content: flex-start;
   }
 
   .event-tag-option-grid {

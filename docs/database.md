@@ -1,10 +1,10 @@
 # Database Contract
 
-Last updated: 2026-08-10
+Last updated: 2026-08-31
 
 ## Source Of Truth
 
-Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28, and the chair-authoring/admin-update announcement policy revision was applied and verified through the Supabase plugin on 2026-07-29. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The user-role assignment policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The active-status role guard was applied and verified through the Supabase plugin on 2026-07-29. The internal helper hardening was applied and verified through the Supabase plugin on 2026-07-29. The DEI/Professional Development role cleanup and alumni chair alias cleanup were applied and verified through the Supabase plugin on 2026-07-30. Announcement replies, the narrowed reply insert grant, and `announcements.reply_count` were applied and verified through the Supabase plugin on 2026-08-10. The `events.event_tags` repo migration was added on 2026-08-10 but has not been verified against hosted Supabase in this repo note. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
+Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28, and the chair-authoring/admin-update announcement policy revision was applied and verified through the Supabase plugin on 2026-07-29. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The user-role assignment policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The active-status role guard was applied and verified through the Supabase plugin on 2026-07-29. The internal helper hardening was applied and verified through the Supabase plugin on 2026-07-29. The DEI/Professional Development role cleanup and alumni chair alias cleanup were applied and verified through the Supabase plugin on 2026-07-30. Announcement replies, the narrowed reply insert grant, and `announcements.reply_count` were applied and verified through the Supabase plugin on 2026-08-10. The `events.event_tags` repo migration was added on 2026-08-10 but has not been verified against hosted Supabase in this repo note. The `other` event-type migration was applied and verified against both production and demo hosted Supabase projects through the Supabase plugin on 2026-08-31. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
 
 Schema exports in this document are for context only. Do not run them directly as migrations because export order, enum placeholders, constraints, policies, and triggers may be incomplete.
 
@@ -265,7 +265,7 @@ Columns:
 Event type constraints:
 
 - The 2026-06-25 hosted schema export allows: `party`, `formal`, `sorority_fraternity`, `dei`, `community_service`, `philanthropy`, `house_meeting`, `alumni_event`, `rush`, `scholarship`, `professional_development`, `brotherhood_event`, `work_party`, `new_member_meeting`, `new_member_event`.
-- The current repo rollout adds `hsm_event`; apply `supabase/event_types.sql` before creating HSM events.
+- The current repo rollout adds `hsm_event` and `other`; apply `supabase/event_types.sql` plus `supabase/migrations/20260831010305_add_other_event_type.sql` before creating those event types in environments that still have older constraints.
 - `event_tags` must contain only known event type slugs and must include the primary `event_type`. Tags are secondary categorization and calendar filtering metadata; create/update/delete permissions still use the primary `event_type`.
 - Any event tagged `alumni_event` must set `visible_to_alum = true`.
 - `details` must be a JSON object.
@@ -297,7 +297,7 @@ Columns:
 
 Frontend usage:
 
-- `src/pages/app/Scheduling.tsx` reads calendar windows.
+- `src/pages/app/Scheduling.tsx` reads calendar windows and lets calendar managers create, update, and delete them as schedule filters.
 
 ### public.transactions
 
@@ -619,6 +619,7 @@ Frontend uses the same role split for event management:
 - `prof-dev`: `professional_development`.
 - `rush-chair`: `rush`.
 - `scholarship`: `scholarship`.
+- `other` has no chair-specific manager role; only full event managers can manage it.
 
 The dedicated Party and Formal tool routes are exposed under both `/app/tools/social-chair/*` and `/app/tools/hsm/*`. Both roles read and update the same `events` rows by event type, so Social Chair can edit Party/Formal events created by HSM and HSM can edit Party/Formal events created by Social Chair when hosted RLS includes the matching `can_manage_event_type` behavior.
 
@@ -639,6 +640,7 @@ Every event type now has an event creation tool route. Simple event tools reuse 
 - `/app/tools/hm/house-meetings`: `house_meeting`.
 - `/app/tools/hm/work-parties`: `work_party`.
 - `/app/tools/rush-chair/rush-events`: `rush`.
+- `/app/tools/rec/other-events`: `other`.
 - `/app/tools/rec/<event-tool-path>`: Recorder per-event-type creator routes for all event types.
 
 The old permissive `events_insert_own`, `events_update_allowed`, and `events_delete_allowed` policies were removed because permissive RLS policies are OR'd together and those legacy policies undermined the scoped role policies.
@@ -1255,7 +1257,7 @@ Purpose:
 
 Hosted status:
 
-- Applied and verified against hosted Supabase on 2026-07-29.
+- Applied and verified against hosted Supabase on 2026-07-29. Production and demo policies/grants for frontend calendar-window CRUD were rechecked through the Supabase plugin on 2026-08-31.
 
 ### supabase/announcements_policies.sql
 
@@ -1402,7 +1404,7 @@ Purpose:
 - Backfills existing events to `brotherhood_event`.
 - Backfills missing event details to `{}`.
 - Backfills missing event tags from the primary event type.
-- Adds the current allowed event type check constraint, including `hsm_event`.
+- Adds the current allowed event type check constraint, including `hsm_event` and `other`.
 - Adds event tag constraints requiring known values, primary-tag inclusion, and alumni visibility for alumni-tagged rows.
 - Adds a JSON object check constraint for event details.
 - Grants authenticated clients INSERT/UPDATE access to `event_tags`.
@@ -1427,6 +1429,19 @@ Purpose:
 Hosted status:
 
 - Not yet verified against hosted Supabase from this repo note.
+
+### supabase/migrations/20260831010305_add_other_event_type.sql
+
+Purpose:
+
+- Adds `other` to the `events.event_type` allowed-value constraint.
+- Adds `other` to the `events.event_tags` known-tag constraint.
+- Leaves event RLS role authorization unchanged, so only full event managers can create, update, or delete `other` events.
+- Notifies PostgREST to reload the schema cache.
+
+Hosted status:
+
+- Applied and verified against both production and demo hosted Supabase projects on 2026-08-31.
 
 ### supabase/events_calendar_policies.sql
 

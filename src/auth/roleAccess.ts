@@ -253,6 +253,7 @@ const eventTypeManagerRoleSlugs: Record<EventTypeSlug, string[]> = {
   work_party: ["hm", "house-manager"],
   new_member_meeting: ["membered", "member-educator"],
   new_member_event: ["membered", "member-educator"],
+  other: [],
 };
 
 function normalizeRoleSlug(roleSlug: string) {
@@ -436,6 +437,11 @@ export function canManageAllEvents(roles: string[]) {
 
 export function canManageEvents(roles: string[]) {
   return canManageAllEvents(roles) || getManageableEventTypes(roles).length > 0;
+}
+
+export function canManageCalendarWindows(roles: string[]) {
+  const roleSet = normalizeRoleSet(roles);
+  return hasAnyRole(roleSet, fullEventManagerRoleSlugs);
 }
 
 export function getManageableEventTypes(roles: string[]) {

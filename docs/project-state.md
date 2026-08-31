@@ -4,7 +4,7 @@ This file preserves the detailed internal project snapshot that previously lived
 
 Protected app routes:
 - `/app`: dashboard
-- `/app/scheduling`: agenda-first chapter calendar with a full calendar display
+- `/app/scheduling`: agenda-first chapter calendar with a full calendar display and calendar-window management for permitted officers
 - `/app/events/manage`: event management for permitted chapter operators, with event creation routed through per-type tools
 - `/app/tools`: chair tool index for assigned chair roles
 - `/app/tools/:roleSlug/*`: role-specific chair tool surface
@@ -24,6 +24,7 @@ Protected app routes:
 - `/app/tools/hm/work-parties` and `/app/tools/rec/work-parties`: work party event creator
 - `/app/tools/membered/new-member-meetings` and `/app/tools/rec/new-member-meetings`: new member meeting creator
 - `/app/tools/membered/new-member-events` and `/app/tools/rec/new-member-events`: new member event creator
+- `/app/tools/rec/other-events`: other event creator
 - `/app/tools/treasurer`: Treasurer budget tool index
 - `/app/tools/treasurer/overview`: active-cycle budget overview
 - `/app/tools/treasurer/requests`: submitted expense request review
@@ -87,6 +88,7 @@ Role slugs:
 - `rec`/`recorder` can assign lower roles, but not Recorder, VP, President, or `admin`
 - `ea` and `eda` are used with `admin` for chapter/member status-management access and all chair tool access through `/app/tools`
 - `admin`, `ea`, `eda`, and `rec`/`recorder` can manage all event types
+- `admin`, `ea`, `eda`, President/VP role variants, and `rec`/`recorder` can create, update, and delete calendar windows used as schedule filters.
 - Announcement creation is allowed for active `admin`, President/VP role variants, and configured chair roles. Authors can update/delete their own announcements; `admin` can update any announcement; `admin` plus President/VP role variants can delete any announcement.
 - Event-type chair access is mapped in `src/auth/roleAccess.ts`; the current rollout adds role rows for `alumni-chair`, `chapter-dev`, `dei-chair`, `prof-dev`, `rush-chair`, and `social-events` if missing.
 - `treasurer` has a chair tool workspace for separated budget workflows under `/app/tools/treasurer`
@@ -98,6 +100,7 @@ Role slugs:
 - `rec` has per-event-type creator tools for every event type instead of a single all-type creator.
 - Budget workflows are no longer a top-level sidebar item; they live under Tools and Treasurer tools.
 - Budget-account-capable roles are currently a frontend helper list; replace this with an admin-managed source if role budget eligibility needs to change without code edits.
+- `other` events are a generic bucket managed by full event managers (`admin`, `ea`, `eda`, and `rec`/`recorder`) through the Recorder event tool.
 
 ## Supabase Relationship & RLS Working Notes
 

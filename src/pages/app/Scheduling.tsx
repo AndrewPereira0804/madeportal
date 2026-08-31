@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import supabase from "../../config/supabaseClient";
-import { canManageEvents as canManageRoleEvents, canViewEvent } from "../../auth/roleAccess";
+import {
+  canManageCalendarWindows as canManageRoleCalendarWindows,
+  canManageEvents as canManageRoleEvents,
+  canViewEvent,
+} from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
 import EventTagBadges from "../../components/events/EventTagBadges";
-import { Button, Card, EmptyState, PageHeader, SectionHeader, Select } from "../../components/ui";
+import { Button, Card, EmptyState, Input, PageHeader, SectionHeader, Select } from "../../components/ui";
 import { normalizeAlumniEventDetails } from "../../lib/alumniEvents";
 import { normalizeCommunityServiceEventDetails } from "../../lib/communityServiceEvents";
 import { compareEventDateTimes, formatEventDateTime, getEventDateTimeMs } from "../../lib/eventDateTime";
@@ -21,6 +26,12 @@ import { normalizeProfessionalDevelopmentEventDetails } from "../../lib/professi
 type CalendarWindow = {
   id: string;
   label: string;
+  start: string;
+  end: string;
+};
+
+type CalendarWindowDraft = {
+  name: string;
   start: string;
   end: string;
 };
@@ -50,6 +61,16 @@ type AgendaGroup = {
   events: EventRow[];
 };
 
+const calendarWindowSelectColumns = "id, start, end, name";
+
+function getEmptyCalendarWindowDraft(): CalendarWindowDraft {
+  return {
+    name: "",
+    start: "",
+    end: "",
+  };
+}
+
 function normalizeCalendarRow(row: Record<string, unknown>): CalendarWindow | null {
   const id = typeof row.id === "string" || typeof row.id === "number" ? String(row.id) : null;
   const start = typeof row.start === "string" ? row.start : null;
@@ -66,6 +87,10 @@ function normalizeCalendarRow(row: Record<string, unknown>): CalendarWindow | nu
     start,
     end,
   };
+}
+
+function sortCalendarWindows(windows: CalendarWindow[]) {
+  return [...windows].sort((a, b) => toWindowTimestamp(a.start, false) - toWindowTimestamp(b.start, false));
 }
 
 function toWindowTimestamp(value: string, endOfDay: boolean) {
@@ -469,6 +494,13 @@ export default function Scheduling() {
   const [agendaNow] = useState(() => new Date());
   const [events, setEvents] = useState<EventRow[]>([]);
   const [windows, setWindows] = useState<CalendarWindow[]>([]);
+  const [windowDraft, setWindowDraft] = useState<CalendarWindowDraft>(() => getEmptyCalendarWindowDraft());
+  const [editingWindowId, setEditingWindowId] = useState<string | null>(null);
+  const [savingWindow, setSavingWindow] = useState(false);
+  const [deletingWindowId, setDeletingWindowId] = useState<string | null>(null);
+  const [windowNotice, setWindowNotice] = useState<string | null>(null);
+  const [windowErrorMessage, setWindowErrorMessage] = useState<string | null>(null);
+  const [calendarWindowsExpanded, setCalendarWindowsExpanded] = useState(false);
   const [selectedWindowId, setSelectedWindowId] = useState<string>("all");
   const [selectedEventType, setSelectedEventType] = useState<EventTypeFilter>("all");
   const [displayMode, setDisplayMode] = useState<CalendarDisplayMode>("agenda");
@@ -482,6 +514,7 @@ export default function Scheduling() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const canManageEvents = useMemo(() => canManageRoleEvents(roles), [roles]);
+  const canManageCalendarWindows = useMemo(() => canManageRoleCalendarWindows(roles), [roles]);
 
   useEffect(() => {
     async function fetchCalendarData() {
@@ -489,7 +522,7 @@ export default function Scheduling() {
       setErrorMessage(null);
 
       const [windowResult, eventResult] = await Promise.all([
-        supabase.from("calendars").select("*").order("start", { ascending: true }),
+        supabase.from("calendars").select(calendarWindowSelectColumns).order("start", { ascending: true }),
         supabase
           .from("events")
           .select("id, created_at, title, description, event_type, event_tags, details, start, end, created_by, visible_to_alum, visible_to_neophyte")
@@ -604,6 +637,150 @@ export default function Scheduling() {
     });
   }
 
+  function focusCalendarWindow(calendarWindow: CalendarWindow) {
+    const firstDay = toDayStart(toCalendarDate(calendarWindow.start));
+    setSelectedWindowId(calendarWindow.id);
+    setCurrentMonth(new Date(firstDay.getFullYear(), firstDay.getMonth(), 1));
+    setSelectedDateKey(toDateKey(firstDay));
+  }
+
+  function resetWindowDraft() {
+    setEditingWindowId(null);
+    setWindowDraft(getEmptyCalendarWindowDraft());
+  }
+
+  function toggleCalendarWindowsExpanded() {
+    if (calendarWindowsExpanded) {
+      resetWindowDraft();
+      setWindowNotice(null);
+      setWindowErrorMessage(null);
+    }
+
+    setCalendarWindowsExpanded((current) => !current);
+  }
+
+  function beginWindowEdit(calendarWindow: CalendarWindow) {
+    setWindowNotice(null);
+    setWindowErrorMessage(null);
+    setCalendarWindowsExpanded(true);
+    setEditingWindowId(calendarWindow.id);
+    setWindowDraft({
+      name: calendarWindow.label,
+      start: calendarWindow.start,
+      end: calendarWindow.end,
+    });
+  }
+
+  async function handleWindowSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!canManageCalendarWindows || rolesLoading) {
+      setWindowErrorMessage("You do not have permission to manage schedule windows.");
+      return;
+    }
+
+    const name = windowDraft.name.trim();
+    const start = windowDraft.start;
+    const end = windowDraft.end;
+
+    if (!name || !start || !end) {
+      setWindowErrorMessage("Window name, start, and end are required.");
+      return;
+    }
+
+    if (end < start) {
+      setWindowErrorMessage("Window end date cannot be before the start date.");
+      return;
+    }
+
+    setSavingWindow(true);
+    setWindowNotice(null);
+    setWindowErrorMessage(null);
+
+    const isEditingWindow = Boolean(editingWindowId);
+    const payload = {
+      name,
+      start,
+      end,
+    };
+
+    const query = editingWindowId
+      ? supabase
+          .from("calendars")
+          .update(payload)
+          .eq("id", editingWindowId)
+          .select(calendarWindowSelectColumns)
+          .single()
+      : supabase
+          .from("calendars")
+          .insert(payload)
+          .select(calendarWindowSelectColumns)
+          .single();
+
+    const { data, error } = await query;
+
+    if (error) {
+      setWindowErrorMessage(`Could not ${isEditingWindow ? "update" : "create"} schedule window: ${error.message}`);
+      setSavingWindow(false);
+      return;
+    }
+
+    const savedWindow = normalizeCalendarRow((data ?? {}) as Record<string, unknown>);
+
+    if (!savedWindow) {
+      setWindowErrorMessage("Saved schedule window could not be read back from the database.");
+      setSavingWindow(false);
+      return;
+    }
+
+    setWindows((current) =>
+      sortCalendarWindows([
+        ...current.filter((calendarWindow) => calendarWindow.id !== savedWindow.id),
+        savedWindow,
+      ])
+    );
+    focusCalendarWindow(savedWindow);
+    resetWindowDraft();
+    setWindowNotice(`Schedule window ${isEditingWindow ? "updated" : "created"}.`);
+    setSavingWindow(false);
+  }
+
+  async function deleteCalendarWindow(calendarWindow: CalendarWindow) {
+    if (!canManageCalendarWindows || rolesLoading) {
+      setWindowErrorMessage("You do not have permission to manage schedule windows.");
+      return;
+    }
+
+    if (!window.confirm(`Delete schedule window "${calendarWindow.label}"?`)) {
+      return;
+    }
+
+    setDeletingWindowId(calendarWindow.id);
+    setWindowNotice(null);
+    setWindowErrorMessage(null);
+
+    const { error } = await supabase.from("calendars").delete().eq("id", calendarWindow.id);
+
+    if (error) {
+      setWindowErrorMessage(`Could not delete schedule window: ${error.message}`);
+      setDeletingWindowId(null);
+      return;
+    }
+
+    setWindows((current) => current.filter((currentWindow) => currentWindow.id !== calendarWindow.id));
+
+    if (selectedWindowId === calendarWindow.id) {
+      setSelectedWindowId("all");
+    }
+
+    if (editingWindowId === calendarWindow.id) {
+      resetWindowDraft();
+    }
+
+    setWindowNotice("Schedule window deleted.");
+    setDeletingWindowId(null);
+  }
+
   return (
     <Card>
       <PageHeader
@@ -690,6 +867,115 @@ export default function Scheduling() {
           )}
         </div>
       </div>
+
+      {!rolesLoading && canManageCalendarWindows && (
+        <section className="calendar-window-management">
+          <SectionHeader
+            className="mt-0"
+            size="sm"
+            title="Schedule windows"
+            description="Date windows used by the schedule filter."
+            actions={
+              <div className="calendar-window-header-actions">
+                {calendarWindowsExpanded && editingWindowId && (
+                  <Button type="button" variant="outline-secondary" size="sm" onClick={resetWindowDraft}>
+                    Cancel edit
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline-secondary"
+                  size="sm"
+                  aria-expanded={calendarWindowsExpanded}
+                  aria-controls="calendar-window-management-panel"
+                  onClick={toggleCalendarWindowsExpanded}
+                >
+                  {calendarWindowsExpanded ? "Hide" : "Manage"}
+                </Button>
+              </div>
+            }
+          />
+
+          {calendarWindowsExpanded && (
+            <div id="calendar-window-management-panel" className="calendar-window-panel">
+              <form className="calendar-window-form" onSubmit={handleWindowSubmit}>
+                <div className="budget-form-grid">
+                  <Input
+                    className="budget-form-full"
+                    label="Window name"
+                    placeholder="Fall semester"
+                    value={windowDraft.name}
+                    onChange={(event) => setWindowDraft((current) => ({ ...current, name: event.target.value }))}
+                  />
+                  <Input
+                    label="Start"
+                    type="date"
+                    value={windowDraft.start}
+                    onChange={(event) => setWindowDraft((current) => ({ ...current, start: event.target.value }))}
+                  />
+                  <Input
+                    label="End"
+                    type="date"
+                    value={windowDraft.end}
+                    onChange={(event) => setWindowDraft((current) => ({ ...current, end: event.target.value }))}
+                  />
+                </div>
+
+                <div className="d-flex gap-2 flex-wrap">
+                  <Button type="submit" loading={savingWindow} disabled={savingWindow}>
+                    {editingWindowId ? "Save window" : "Create window"}
+                  </Button>
+                  {editingWindowId && (
+                    <Button type="button" variant="outline-secondary" onClick={resetWindowDraft}>
+                      Cancel
+                    </Button>
+                  )}
+                </div>
+              </form>
+
+              {windowNotice && <p className="calendar-window-notice">{windowNotice}</p>}
+              {windowErrorMessage && <p className="calendar-window-error">{windowErrorMessage}</p>}
+
+              {windows.length === 0 ? (
+                <EmptyState
+                  compact
+                  title="No schedule windows"
+                  description="Create one to make it available in the schedule filter."
+                />
+              ) : (
+                <div className="calendar-window-list">
+                  {windows.map((calendarWindow) => (
+                    <article key={calendarWindow.id} className="calendar-window-row">
+                      <div>
+                        <h3>{calendarWindow.label}</h3>
+                        <p>{calendarWindow.start} to {calendarWindow.end}</p>
+                      </div>
+                      <div className="calendar-window-actions">
+                        <Button type="button" variant="outline-secondary" size="sm" onClick={() => focusCalendarWindow(calendarWindow)}>
+                          View
+                        </Button>
+                        <Button type="button" variant="outline-secondary" size="sm" onClick={() => beginWindowEdit(calendarWindow)}>
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="sm"
+                          loading={deletingWindowId === calendarWindow.id}
+                          disabled={deletingWindowId === calendarWindow.id}
+                          onClick={() => deleteCalendarWindow(calendarWindow)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       <div className="mt-4 d-flex flex-wrap gap-2 align-items-end justify-content-between">
         <SectionHeader

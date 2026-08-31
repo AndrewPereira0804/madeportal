@@ -17,6 +17,7 @@ export const eventTypeOptions = [
   { slug: "work_party", label: "Work Party" },
   { slug: "new_member_meeting", label: "New Member Meeting" },
   { slug: "new_member_event", label: "New Member Event" },
+  { slug: "other", label: "Other" },
 ] as const;
 
 export const generalEventTypeOptions = eventTypeOptions.filter(

@@ -79,7 +79,8 @@ set event_tags = (
     'hsm_event',
     'work_party',
     'new_member_meeting',
-    'new_member_event'
+    'new_member_event',
+    'other'
   )
 );
 
@@ -117,7 +118,8 @@ alter table public.events
       'hsm_event',
       'work_party',
       'new_member_meeting',
-      'new_member_event'
+      'new_member_event',
+      'other'
     )
   );
 
@@ -153,7 +155,8 @@ alter table public.events
       'hsm_event',
       'work_party',
       'new_member_meeting',
-      'new_member_event'
+      'new_member_event',
+      'other'
     ]::text[]
   ),
   add constraint events_event_tags_include_primary_check

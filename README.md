@@ -15,8 +15,8 @@ madeportal-demo.vercel.app
 - Role-based access for chapter officers, administrators, and members.
 - A dashboard that adapts to a user's chapter status and active roles.
 - Chapter announcements with authoring, editing, replies, and like state.
-- A shared chapter calendar with event visibility rules.
-- Event management tools for officer workflows, including social, formal, alumni, rush, service, philanthropy, scholarship, professional development, house meeting, work party, and new-member events.
+- A shared chapter calendar with event visibility rules and officer-managed schedule windows.
+- Event management tools for officer workflows, including social, formal, alumni, rush, service, philanthropy, scholarship, professional development, house meeting, work party, new-member, and other events.
 - Treasurer workflows for budget cycles, role allocations, expense requests, approvals, reimbursements, and account-level transaction history.
 - Steward wait-on scheduling and member-facing weekly wait-on assignments.
 - Member directory, profile details, emergency contacts, and chapter management surfaces.
