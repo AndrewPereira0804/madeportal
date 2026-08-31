@@ -1,4 +1,4 @@
-import { Link, Navigate, Outlet, useNavigate } from "react-router-dom";
+import { Link, Navigate, Outlet } from "react-router-dom";
 import useRoles from "../../auth/useRoles";
 import { useAuth } from "../../auth/authContext";
 import {
@@ -8,17 +8,11 @@ import {
 } from "../../auth/roleAccess";
 
 export default function Management() {
-  const { session, loading: authLoading, signOut } = useAuth();
+  const { session, loading: authLoading } = useAuth();
   const { roles, loading: rolesLoading } = useRoles();
-  const navigate = useNavigate();
   const hasManagementAccess = canAccessManagement(roles);
   const hasMemberManagementAccess = canManageMembers(roles);
   const hasEventManagementAccess = canManageEvents(roles);
-
-  async function handleLogout() {
-    await signOut();
-    navigate("/login", { replace: true });
-  }
 
   if (authLoading || rolesLoading) {
     return (
