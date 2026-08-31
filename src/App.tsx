@@ -4,6 +4,7 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Pending from "./pages/Pending";
+import AccessNeeded from "./pages/AccessNeeded";
 import Management from "./pages/app/Management";
 import SystemAdmin from "./pages/app/SystemAdmin";
 import NotFound from "./pages/NotFound";
@@ -16,8 +17,9 @@ import MemberDirectory from "./pages/app/MemberDirectory";
 import WaitOnSchedule from "./pages/app/WaitOnSchedule";
 import { useAuth } from "./auth/authContext";
 import RequireAuth from "./auth/requireAuth";
-import { getStatusRedirectPath } from "./auth/roleAccess";
+import { canAccessApp, getStatusRedirectPath } from "./auth/roleAccess";
 import { useStatus } from "./auth/useStatus";
+import useRoles from "./auth/useRoles";
 import Suspended from "./pages/Suspended";
 import ManageMembers from "./pages/app/ManageMembers";
 import CreateAnnouncement from "./pages/app/CreateAnnouncement";
@@ -36,6 +38,7 @@ export default function App() {
   const [splashComplete, setSplashComplete] = useState(false);
   const { session, loading: authLoading } = useAuth();
   const { status, loading: statusLoading } = useStatus();
+  const { roles, loading: rolesLoading } = useRoles();
   const location = useLocation();
 
   useEffect(() => {
@@ -52,7 +55,9 @@ export default function App() {
     return <SplashScreen />;
   }
 
-  if (authLoading || statusLoading) {
+  const appAccessLoading = Boolean(session && status === "active" && rolesLoading);
+
+  if (authLoading || statusLoading || appAccessLoading) {
     return (
       <EnvironmentChrome>
         <div className="theme-shell">
@@ -67,6 +72,16 @@ export default function App() {
     );
   }
 
+  const hasAppAccess = session && status === "active" ? canAccessApp(status, roles) : false;
+
+  if (session && status === "active" && !hasAppAccess && location.pathname !== "/access-needed") {
+    return <Navigate to="/access-needed" replace />;
+  }
+
+  if (session && status === "active" && hasAppAccess && location.pathname === "/access-needed") {
+    return <Navigate to="/app" replace />;
+  }
+
   const statusRedirectPath = session ? getStatusRedirectPath(status, location.pathname) : null;
   if (statusRedirectPath) {
     return <Navigate to={statusRedirectPath} replace />;
@@ -79,6 +94,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/pending" element={<Pending />} />
+        <Route path="/access-needed" element={<AccessNeeded />} />
         <Route path="/suspended" element={<Suspended />} />
         <Route path="/admin" element={<Navigate to="/app/manage" replace />} />
         <Route path="/admin/accounts" element={<Navigate to="/app/manage/members" replace />} />

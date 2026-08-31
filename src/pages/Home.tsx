@@ -1,5 +1,5 @@
 import { useAuth } from "../auth/authContext";
-import { canAccessManagement } from "../auth/roleAccess";
+import { canAccessApp, canAccessManagement } from "../auth/roleAccess";
 import { Navigate } from "react-router-dom";
 import useRoles from "../auth/useRoles";
 import { useStatus } from "../auth/useStatus";
@@ -19,13 +19,18 @@ export default function Home() {
   const { roles, loading: rolesLoading } = useRoles();
   const { status, loading: statusLoading } = useStatus();
   
+  const hasAppAccess = canAccessApp(status, roles);
   const hasManagementAccess = canAccessManagement(roles);
 
-  if (!rolesLoading && hasManagementAccess) {
+  if (!rolesLoading && hasAppAccess && hasManagementAccess) {
     return <Navigate to="/app/manage" replace />;
   }
 
-  if(!statusLoading && status == "active") {
+  if (!statusLoading && !rolesLoading && status === "active" && !hasAppAccess) {
+    return <Navigate to="/access-needed" replace />;
+  }
+
+  if(!statusLoading && !rolesLoading && hasAppAccess) {
     return <Navigate to="/app" replace />;
   }
 

@@ -50,15 +50,6 @@ export default function Management() {
             <h1 className="page-title">Management</h1>
             <p className="page-subtitle mb-0">Manage member access, role assignments, and chapter operations.</p>
           </div>
-
-          <div className="admin-utility-actions">
-            <Link to="/app" className="btn btn-outline-secondary">
-              Return to App
-            </Link>
-            <button type="button" className="btn btn-outline-dark" onClick={handleLogout}>
-              Logout
-            </button>
-          </div>
         </div>
 
         <div className="admin-action-grid" aria-label="Management sections">

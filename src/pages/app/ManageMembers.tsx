@@ -3,6 +3,7 @@ import supabase from "../../config/supabaseClient";
 import useRoles from "../../auth/useRoles";
 import { Navigate } from "react-router-dom";
 import {
+  canAccessApp,
   canAssignRole,
   canManageMembers,
   canManageRoleAssignments,
@@ -10,6 +11,11 @@ import {
   toggleRoleForAssignment,
 } from "../../auth/roleAccess";
 import { Button, Card, PageHeader, Tabs } from "../../components/ui";
+import {
+  approveMemberWithChapterRole,
+  chapterAccessRoleOptions,
+  type ChapterAccessRoleSlug,
+} from "../../lib/memberApproval";
 
 type AccountStatus = "pending" | "active" | "suspended";
 
@@ -34,6 +40,8 @@ type UserRoleRow = {
 type UserVM = ProfileRow & {
   roleSlugs: string[];
 };
+
+type ActivationAction = "approve" | "reinstate";
 
 type RawProfileRow = {
   user_id?: string | null;
@@ -115,6 +123,7 @@ export default function Accounts() {
 
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [draftRoleSlugs, setDraftRoleSlugs] = useState<string[]>([]);
+  const [activationRoleByUserId, setActivationRoleByUserId] = useState<Record<string, ChapterAccessRoleSlug>>({});
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -235,6 +244,17 @@ export default function Accounts() {
     return rolesLookup[slug] ?? slug;
   }
 
+  function activationRoleForUser(userId: string): ChapterAccessRoleSlug {
+    return activationRoleByUserId[userId] ?? "brother";
+  }
+
+  function setActivationRoleForUser(userId: string, roleSlug: ChapterAccessRoleSlug) {
+    setActivationRoleByUserId((current) => ({
+      ...current,
+      [userId]: roleSlug,
+    }));
+  }
+
   async function updateStatus(userId: string, status: AccountStatus) {
     setSaving(true);
     setErrorMsg(null);
@@ -255,6 +275,23 @@ export default function Accounts() {
     setSaving(false);
   }
 
+  async function activateMember(userId: string, action: ActivationAction) {
+    setSaving(true);
+    setErrorMsg(null);
+
+    const chapterRoleSlug = activationRoleForUser(userId);
+
+    try {
+      await approveMemberWithChapterRole(userId, chapterRoleSlug);
+      await loadData();
+    } catch (error) {
+      console.error(error);
+      setErrorMsg(`Failed to ${action} account with ${roleLabel(chapterRoleSlug)} access.`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function saveRoles(userId: string, nextSlugs: string[]) {
     setSaving(true);
     setErrorMsg(null);
@@ -268,10 +305,30 @@ export default function Accounts() {
 
     const current = targetUser.roleSlugs;
     const currentSet = new Set(current);
-    const nextSet = new Set(normalizeRoleSlugsForAssignment(nextSlugs));
+    const normalizedNextSlugs = normalizeRoleSlugsForAssignment(nextSlugs);
+
+    if (!canAccessApp("active", normalizedNextSlugs)) {
+      setErrorMsg("Active accounts need Brother, Neophyte, Alum, or Admin access.");
+      setSaving(false);
+      return;
+    }
+
+    const nextSet = new Set(normalizedNextSlugs);
 
     const toAdd = [...nextSet].filter((r) => !currentSet.has(r) && assignableRoleSlugSet.has(r));
     const toRemove = [...currentSet].filter((r) => !nextSet.has(r) && assignableRoleSlugSet.has(r));
+
+    if (toAdd.length > 0) {
+      const rows = toAdd.map((role_slug) => ({ user_id: userId, role_slug }));
+      const { error: insErr } = await supabase.from("user_roles").insert(rows);
+
+      if (insErr) {
+        console.error(insErr);
+        setErrorMsg("Failed to add some roles.");
+        setSaving(false);
+        return;
+      }
+    }
 
     if (toRemove.length > 0) {
       const { error: delErr } = await supabase
@@ -283,18 +340,6 @@ export default function Accounts() {
       if (delErr) {
         console.error(delErr);
         setErrorMsg("Failed to remove some roles.");
-        setSaving(false);
-        return;
-      }
-    }
-
-    if (toAdd.length > 0) {
-      const rows = toAdd.map((role_slug) => ({ user_id: userId, role_slug }));
-      const { error: insErr } = await supabase.from("user_roles").insert(rows);
-
-      if (insErr) {
-        console.error(insErr);
-        setErrorMsg("Failed to add some roles.");
         setSaving(false);
         return;
       }
@@ -386,6 +431,7 @@ export default function Accounts() {
               {filtered.map((u) => {
                 const isEditing = editingUserId === u.user_id;
                 const canEditRolesForUser = hasRoleAssignmentAccess && u.status === "active";
+                const activationRoleSlug = activationRoleForUser(u.user_id);
 
                 return (
                   <tr key={u.user_id}>
@@ -474,10 +520,25 @@ export default function Accounts() {
 
                           {tab === "pending" && hasStatusManagementAccess && (
                             <>
+                              <select
+                                className="form-select form-select-sm accounts-activation-select"
+                                value={activationRoleSlug}
+                                disabled={saving}
+                                aria-label={`Chapter access role for ${u.name ?? u.email ?? "account"}`}
+                                onChange={(event) =>
+                                  setActivationRoleForUser(u.user_id, event.target.value as ChapterAccessRoleSlug)
+                                }
+                              >
+                                {chapterAccessRoleOptions.map((option) => (
+                                  <option key={option.slug} value={option.slug}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
                               <Button
                                 type="button"
                                 disabled={saving}
-                                onClick={() => updateStatus(u.user_id, "active")}
+                                onClick={() => activateMember(u.user_id, "approve")}
                                 size="sm"
                               >
                                 Approve
@@ -517,14 +578,31 @@ export default function Accounts() {
                           )}
 
                           {tab === "suspended" && hasStatusManagementAccess && (
-                            <Button
-                              type="button"
-                              disabled={saving}
-                              onClick={() => updateStatus(u.user_id, "active")}
-                              size="sm"
-                            >
-                              Reinstate
-                            </Button>
+                            <>
+                              <select
+                                className="form-select form-select-sm accounts-activation-select"
+                                value={activationRoleSlug}
+                                disabled={saving}
+                                aria-label={`Chapter access role for ${u.name ?? u.email ?? "account"}`}
+                                onChange={(event) =>
+                                  setActivationRoleForUser(u.user_id, event.target.value as ChapterAccessRoleSlug)
+                                }
+                              >
+                                {chapterAccessRoleOptions.map((option) => (
+                                  <option key={option.slug} value={option.slug}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <Button
+                                type="button"
+                                disabled={saving}
+                                onClick={() => activateMember(u.user_id, "reinstate")}
+                                size="sm"
+                              >
+                                Reinstate
+                              </Button>
+                            </>
                           )}
                         </div>
                       )}

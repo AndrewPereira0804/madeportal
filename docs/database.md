@@ -4,7 +4,7 @@ Last updated: 2026-08-31
 
 ## Source Of Truth
 
-Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28, and the chair-authoring/admin-update announcement policy revision was applied and verified through the Supabase plugin on 2026-07-29. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The user-role assignment policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The active-status role guard was applied and verified through the Supabase plugin on 2026-07-29. The internal helper hardening was applied and verified through the Supabase plugin on 2026-07-29. The DEI/Professional Development role cleanup and alumni chair alias cleanup were applied and verified through the Supabase plugin on 2026-07-30. Announcement replies, the narrowed reply insert grant, and `announcements.reply_count` were applied and verified through the Supabase plugin on 2026-08-10. The `events.event_tags` repo migration was added on 2026-08-10 but has not been verified against hosted Supabase in this repo note. The `other` event-type migration was applied and verified against both production and demo hosted Supabase projects through the Supabase plugin on 2026-08-31. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
+Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28, and the chair-authoring/admin-update announcement policy revision was applied and verified through the Supabase plugin on 2026-07-29. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The user-role assignment policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The active-status role guard was applied and verified through the Supabase plugin on 2026-07-29. The internal helper hardening was applied and verified through the Supabase plugin on 2026-07-29. The DEI/Professional Development role cleanup and alumni chair alias cleanup were applied and verified through the Supabase plugin on 2026-07-30. Announcement replies, the narrowed reply insert grant, and `announcements.reply_count` were applied and verified through the Supabase plugin on 2026-08-10. The `events.event_tags` repo migration was added on 2026-08-10 but has not been verified against hosted Supabase in this repo note. The `other` event-type migration was applied and verified against both production and demo hosted Supabase projects through the Supabase plugin on 2026-08-31. The active app-access role invariant and `public.approve_member(...)` approval RPC were applied and verified against both production and demo hosted Supabase projects through the Supabase plugin on 2026-08-31. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
 
 Schema exports in this document are for context only. Do not run them directly as migrations because export order, enum placeholders, constraints, policies, and triggers may be incomplete.
 
@@ -37,6 +37,7 @@ Frontend auth and authorization expectations:
 - Role checks read `public.user_roles`, but frontend role helpers should treat non-`active` profiles as having no effective roles.
 - `profiles.status` is the ultimate authorization gate: `pending` and `suspended` accounts must not receive or use role-based permissions.
 - When a profile status changes to `pending` or `suspended`, hosted Supabase deletes that user's `public.user_roles` rows.
+- New active profiles must have an app-access role: `admin`, `brother`, `neophyte`, `alum`, or `alumni`. Use `public.approve_member(target_user_id, chapter_role_slug, extra_role_slugs)` to approve or reinstate users so the status and first chapter role are written atomically.
 
 ## Status Values
 
@@ -1438,6 +1439,31 @@ Purpose:
 - Adds `other` to the `events.event_tags` known-tag constraint.
 - Leaves event RLS role authorization unchanged, so only full event managers can create, update, or delete `other` events.
 - Notifies PostgREST to reload the schema cache.
+
+Hosted status:
+
+- Applied and verified against both production and demo hosted Supabase projects on 2026-08-31.
+
+### supabase/migrations/20260831152236_require_app_access_role_on_activation.sql
+
+Purpose:
+
+- Adds `private.profile_has_app_access_role(uuid)`.
+- Adds deferred trigger guards on `profiles` and `user_roles` so future active profiles cannot be committed without `admin`, `brother`, `neophyte`, `alum`, or `alumni`.
+- Adds the first version of `public.approve_member(...)` for atomic approval.
+- Does not backfill or scan existing active profiles.
+
+Hosted status:
+
+- Applied against both production and demo hosted Supabase projects on 2026-08-31.
+
+### supabase/migrations/20260831153603_make_approve_member_security_definer.sql
+
+Purpose:
+
+- Replaces `public.approve_member(...)` as a pinned-search-path `security definer` function.
+- Explicitly checks that the caller is an active member manager and can assign the requested roles before performing owner-level status and role writes.
+- Keeps authenticated execute access and no anon/public execute access.
 
 Hosted status:
 

@@ -82,6 +82,7 @@ Status values expected by UI:
 
 Role slugs:
 - `profiles.status` is the ultimate access gate: `pending` and `suspended` accounts should have no role-based access, even if stale role rows exist
+- Future active profiles must have app access through `admin` or a chapter status role (`brother`, `neophyte`, `alum`/`alumni`); member approval/reinstatement should use `public.approve_member(...)` instead of status-only updates
 - `admin` is used for admin access checks and can assign any role, including `admin` and President roles
 - `ea`/`president` can assign VP, Recorder, and lower roles, but not `admin` or President roles
 - `eda`/`vp`/`vice-president`/`vice_president` can assign Recorder and lower roles, but not `admin`, President, or VP roles

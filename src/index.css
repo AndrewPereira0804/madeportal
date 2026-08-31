@@ -2562,6 +2562,16 @@ button:disabled {
   align-items: center;
 }
 
+.accounts-activation-select {
+  width: auto;
+  min-width: 8.75rem;
+  min-height: 2.05rem;
+  padding-top: 0.28rem;
+  padding-bottom: 0.28rem;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;
