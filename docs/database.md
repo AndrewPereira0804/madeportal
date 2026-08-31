@@ -4,7 +4,7 @@ Last updated: 2026-08-31
 
 ## Source Of Truth
 
-Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28, and the chair-authoring/admin-update announcement policy revision was applied and verified through the Supabase plugin on 2026-07-29. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The user-role assignment policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The active-status role guard was applied and verified through the Supabase plugin on 2026-07-29. The internal helper hardening was applied and verified through the Supabase plugin on 2026-07-29. The DEI/Professional Development role cleanup and alumni chair alias cleanup were applied and verified through the Supabase plugin on 2026-07-30. Announcement replies, the narrowed reply insert grant, and `announcements.reply_count` were applied and verified through the Supabase plugin on 2026-08-10. The `events.event_tags` repo migration was added on 2026-08-10 but has not been verified against hosted Supabase in this repo note. The `other` event-type migration was applied and verified against both production and demo hosted Supabase projects through the Supabase plugin on 2026-08-31. The active app-access role invariant and `public.approve_member(...)` approval RPC were applied and verified against both production and demo hosted Supabase projects through the Supabase plugin on 2026-08-31. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
+Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28, and the chair-authoring/admin-update announcement policy revision was applied and verified through the Supabase plugin on 2026-07-29. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The user-role assignment policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The active-status role guard was applied and verified through the Supabase plugin on 2026-07-29. The internal helper hardening was applied and verified through the Supabase plugin on 2026-07-29. The DEI/Professional Development role cleanup and alumni chair alias cleanup were applied and verified through the Supabase plugin on 2026-07-30. Announcement replies, the narrowed reply insert grant, and `announcements.reply_count` were applied and verified through the Supabase plugin on 2026-08-10. The `events.event_tags` repo migration was added on 2026-08-10 but has not been verified against hosted Supabase in this repo note. The `other` event-type migration was applied and verified against both production and demo hosted Supabase projects through the Supabase plugin on 2026-08-31. The active app-access role invariant and `public.approve_member(...)` approval RPC were applied and verified against both production and demo hosted Supabase projects through the Supabase plugin on 2026-08-31. The backend-only hard Auth-user delete cascade migration was added on 2026-08-31 for destructive test-account cleanup, but has not been verified against hosted Supabase in this repo note. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
 
 Schema exports in this document are for context only. Do not run them directly as migrations because export order, enum placeholders, constraints, policies, and triggers may be incomplete.
 
@@ -38,6 +38,8 @@ Frontend auth and authorization expectations:
 - `profiles.status` is the ultimate authorization gate: `pending` and `suspended` accounts must not receive or use role-based permissions.
 - When a profile status changes to `pending` or `suspended`, hosted Supabase deletes that user's `public.user_roles` rows.
 - New active profiles must have an app-access role: `admin`, `brother`, `neophyte`, `alum`, or `alumni`. Use `public.approve_member(target_user_id, chapter_role_slug, extra_role_slugs)` to approve or reinstate users so the status and first chapter role are written atomically.
+- Normal member removal should use the existing `suspended` status. Hard-deleting rows from `auth.users` is a backend-only cleanup path for test accounts and must not be exposed as a frontend member-management action.
+- After applying `supabase/migrations/20260831211942_cascade_auth_user_hard_deletes.sql`, hard-deleting a user from `auth.users` is intended to cascade through app-owned profile data and authored/created/approved records. This is deliberately destructive; verify Storage ownership first because Supabase can reject Auth-user deletion when the user owns Storage objects.
 
 ## Status Values
 
@@ -77,7 +79,7 @@ Purpose: canonical app profile row per authenticated user.
 
 Columns:
 
-- `user_id uuid primary key references auth.users(id)`
+- `user_id uuid primary key references auth.users(id) on delete cascade`
 - `name text`
 - `status user_status not null default 'pending'`
 - `created_at timestamptz not null default now()`
@@ -161,7 +163,7 @@ Purpose: user-role join table.
 
 Columns:
 
-- `user_id uuid not null references public.profiles(user_id)`
+- `user_id uuid not null references public.profiles(user_id) on delete cascade`
 - `role_slug text not null references public.roles(slug)`
 - `created_at timestamptz not null default now()`
 - primary key: `(user_id, role_slug)`
@@ -182,7 +184,7 @@ Columns:
 - `title text not null`
 - `body text`
 - `visibility user-defined`
-- `author_id uuid not null references public.profiles(user_id)`
+- `author_id uuid not null references public.profiles(user_id) on delete cascade`
 - `likes integer default 0 check (likes >= 0)`
 - `reply_count integer not null default 0 check (reply_count >= 0)`
 
@@ -204,8 +206,8 @@ Purpose: per-user announcement like state.
 
 Columns:
 
-- `announcement_id uuid not null references public.announcements(id)`
-- `user_id uuid not null references public.profiles(user_id)`
+- `announcement_id uuid not null references public.announcements(id) on delete cascade`
+- `user_id uuid not null references public.profiles(user_id) on delete cascade`
 - `created_at timestamptz not null default now()`
 - primary key: `(announcement_id, user_id)`
 
@@ -214,7 +216,7 @@ Frontend usage:
 - `src/pages/app/Announcements.tsx` reads current-user liked announcement IDs.
 - `src/pages/app/Likes.tsx` inserts a row to like and deletes the current user's row to unlike.
 
-Important: the provided hosted schema export shows foreign keys without `on delete cascade`. If announcement deletion should also delete like rows automatically, verify hosted constraints before relying on that behavior.
+Important: older hosted schema exports showed some foreign keys without `on delete cascade`. Apply and verify `supabase/migrations/20260831211942_cascade_auth_user_hard_deletes.sql` before relying on Auth-user hard deletion for cleanup.
 
 ### public.announcement_replies
 
@@ -256,7 +258,7 @@ Columns:
 - `description text`
 - `start timestamp without time zone not null`
 - `end timestamp without time zone not null`
-- `created_by uuid not null references public.profiles(user_id)`
+- `created_by uuid not null references public.profiles(user_id) on delete cascade`
 - `visible_to_alum boolean not null`
 - `visible_to_neophyte boolean not null`
 - `event_type text not null default 'brotherhood_event'`
@@ -311,7 +313,7 @@ Columns:
 - `amount double precision not null`
 - `vendor text default 'N/A'`
 - `date timestamp without time zone default now()`
-- `created_by uuid default gen_random_uuid() references public.profiles(user_id)`
+- `created_by uuid default gen_random_uuid() references public.profiles(user_id) on delete cascade`
 
 Frontend usage:
 
@@ -335,7 +337,7 @@ Columns:
 - `end_date date not null`
 - `is_active boolean not null default false`
 - `created_at timestamptz not null default now()`
-- `created_by uuid references auth.users(id)`
+- `created_by uuid references auth.users(id) on delete cascade`
 
 Referenced by:
 
@@ -353,12 +355,12 @@ Purpose: role-scoped budget allocations within a cycle.
 Columns:
 
 - `id uuid primary key default gen_random_uuid()`
-- `cycle_id uuid not null references public.budget_cycles(id)`
+- `cycle_id uuid not null references public.budget_cycles(id) on delete cascade`
 - `role_slug text not null references public.roles(slug)`
 - `allocated_amount numeric not null default 0 check (allocated_amount >= 0)`
 - `notes text`
 - `created_at timestamptz not null default now()`
-- `created_by uuid references public.profiles(user_id)`
+- `created_by uuid references public.profiles(user_id) on delete cascade`
 
 Referenced by:
 
@@ -376,8 +378,8 @@ Purpose: expense and reimbursement records for budget accounts.
 Columns:
 
 - `id uuid primary key default gen_random_uuid()`
-- `budget_account_id uuid not null references public.budget_accounts(id)`
-- `submitted_by uuid not null references public.profiles(user_id)`
+- `budget_account_id uuid not null references public.budget_accounts(id) on delete cascade`
+- `submitted_by uuid not null references public.profiles(user_id) on delete cascade`
 - `amount numeric not null check (amount > 0)`
 - `vendor text`
 - `category text`
@@ -385,7 +387,7 @@ Columns:
 - `transaction_date date not null default current_date`
 - `status text not null default 'submitted'`
 - `receipt_url text`
-- `approved_by uuid references public.profiles(user_id)`
+- `approved_by uuid references public.profiles(user_id) on delete cascade`
 - `approved_at timestamptz`
 - `denial_reason text`
 - `created_at timestamptz not null default now()`
@@ -409,7 +411,7 @@ Columns:
 - `id uuid primary key default gen_random_uuid()`
 - `week_start date not null unique`
 - `published boolean not null default false`
-- `created_by uuid references public.profiles(user_id) on delete set null`
+- `created_by uuid references public.profiles(user_id) on delete cascade`
 - `created_at timestamptz not null default now()`
 - `updated_at timestamptz not null default now()`
 
@@ -453,9 +455,9 @@ Purpose: audit trail for sensitive/admin actions.
 Columns:
 
 - `id bigint primary key default nextval('audit_log_id_seq'::regclass)`
-- `actor_id uuid references auth.users(id)`
+- `actor_id uuid references auth.users(id) on delete cascade`
 - `action text not null`
-- `target_user_id uuid references auth.users(id)`
+- `target_user_id uuid references auth.users(id) on delete cascade`
 - `created_at timestamptz not null default now()`
 
 Frontend usage:
@@ -1184,7 +1186,7 @@ Grant and trigger notes:
 - `authenticated` has UPDATE privilege on `profiles.status` so active member managers can use direct PostgREST status updates.
 - The `prevent_profile_self_privilege_escalation` trigger executes `private.prevent_profile_self_privilege_escalation()` and blocks non-member-managers from changing `profiles.status` or `profiles.user_id`, including self-escalation from `pending` to `active`.
 - The `remove_roles_for_inactive_profile` trigger executes `private.remove_roles_for_inactive_profile()` and deletes all `user_roles` rows for a profile when `status` changes to `pending` or `suspended`.
-- Delete permissions are intentionally absent for `authenticated`; profile deletion is not a current frontend workflow.
+- Delete permissions are intentionally absent for `authenticated`; profile deletion is not a current frontend workflow. Hard deletion is done backend-side by deleting the target row from `auth.users` after applying the hard-delete cascade migration.
 
 ### public.roles
 
@@ -1468,6 +1470,19 @@ Purpose:
 Hosted status:
 
 - Applied and verified against both production and demo hosted Supabase projects on 2026-08-31.
+
+### supabase/migrations/20260831211942_cascade_auth_user_hard_deletes.sql
+
+Purpose:
+
+- Recreates user-related foreign keys so backend hard-deleting a row from `auth.users` cascades through `profiles` and dependent app rows.
+- Covers profile-owned data, authored announcements/replies/likes, created events, legacy transactions, budget cycles/accounts/transactions, wait-on schedules/assignments, emergency contacts, and audit rows.
+- Exists for destructive test-account cleanup only. Normal member removal should remain `profiles.status = 'suspended'`.
+- Does not grant frontend delete permissions or add any member-management UI.
+
+Hosted status:
+
+- Not yet verified against hosted Supabase from this repo note.
 
 ### supabase/events_calendar_policies.sql
 
