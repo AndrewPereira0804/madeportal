@@ -25,6 +25,7 @@ Label hosted Supabase policy, function, trigger, or environment assumptions as e
 
 - User impact or reported issue: Recorder needs to take attendance at house meetings because missing a required house meeting can lead to a future fine.
 - What changed: Added Recorder-only house meeting attendance for active brothers and neophytes with `present`, `excused`, and `absent` statuses. Attendance remains editable indefinitely and does not expose member self-viewing yet.
+- Follow-up fix: Vercel preview testing found a 403 when changing an existing attendance row from `present` to `excused` or `absent`. The UI now uses `UPDATE` for existing attendance rows and `INSERT` for new attendance rows instead of using `upsert` for both paths, matching the demo database's narrowed column grants.
 - Files changed: `api/demo/reset.ts`, `docs/database.md`, `docs/project-state.md`, `docs/version-updates.md`, `src/auth/roleAccess.ts`, `src/index.css`, `src/lib/eventTools.ts`, `src/lib/houseMeetingAttendance.ts`, `src/pages/app/tools/ChairTools.tsx`, `src/pages/app/tools/HouseMeetingsTool.tsx`, `supabase/migrations/20260903011436_add_house_meeting_attendance.sql`
 - Validation run: `npm run lint` failed only on the five pre-existing React hook lint errors in budget and wait-on pages; no new lint errors remained after fixing the house-meeting page. `npm run build` passed. Demo Supabase schema/policy/grant verification passed for `event_attendance`.
 - Deployment notes: Local branch `recorder-attendance`; no PR created.

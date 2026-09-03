@@ -635,21 +635,30 @@ export default function HouseMeetingsTool({
     setSavingAttendanceKey(key);
     setErrorMessage(null);
 
-    const { data, error } = await supabase
-      .from("event_attendance")
-      .upsert(
-        {
-          event_id: eventId,
-          member_id: memberId,
-          status,
-          notes: cleanNote(noteDrafts[key] ?? existing?.notes ?? ""),
-          recorded_by: userId,
-          recorded_at: new Date().toISOString(),
-        },
-        { onConflict: "event_id,member_id" },
-      )
-      .select(attendanceSelect)
-      .single();
+    const attendancePayload = {
+      status,
+      notes: cleanNote(noteDrafts[key] ?? existing?.notes ?? ""),
+      recorded_by: userId,
+      recorded_at: new Date().toISOString(),
+    };
+
+    const { data, error } = existing
+      ? await supabase
+          .from("event_attendance")
+          .update(attendancePayload)
+          .eq("event_id", eventId)
+          .eq("member_id", memberId)
+          .select(attendanceSelect)
+          .single()
+      : await supabase
+          .from("event_attendance")
+          .insert({
+            event_id: eventId,
+            member_id: memberId,
+            ...attendancePayload,
+          })
+          .select(attendanceSelect)
+          .single();
 
     if (error) {
       setErrorMessage(dbError("save attendance", error.message));
@@ -728,7 +737,7 @@ export default function HouseMeetingsTool({
 
     const { data, error } = await supabase
       .from("event_attendance")
-      .upsert(
+      .insert(
         unrecordedMembers.map((member) => {
           const key = getAttendanceKey(eventId, member.user_id);
 
@@ -741,7 +750,6 @@ export default function HouseMeetingsTool({
             recorded_at: new Date().toISOString(),
           };
         }),
-        { onConflict: "event_id,member_id" },
       )
       .select(attendanceSelect);
 
