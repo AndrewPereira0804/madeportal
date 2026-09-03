@@ -72,6 +72,7 @@ const ROLE_SEEDS: RoleSeed[] = [
 
 const PUBLIC_TABLE_RESET_ORDER: ResetTable[] = [
   { table: "announcement_likes", column: "announcement_id", sentinel: ZERO_UUID },
+  { table: "event_attendance", column: "id", sentinel: ZERO_UUID },
   { table: "budget_transactions", column: "id", sentinel: ZERO_UUID },
   { table: "wait_on_assignments", column: "id", sentinel: ZERO_UUID },
   { table: "emergency_contacts", column: "id", sentinel: ZERO_UUID },
@@ -413,6 +414,10 @@ async function seedDemoData(client: SupabaseClient, users: DemoUser[]): Promise<
   const stewardUser = userWithRole(users, "stew");
   const serviceUser = userWithRole(users, "cs-chair");
   const alumniUser = userWithRole(users, "alumni-chair");
+  const recorderUser = userWithRole(users, "rec");
+  const requiredHouseMeetingUsers = users.filter((user) =>
+    user.roles.includes("brother") || user.roles.includes("neophyte")
+  );
   const termStart = startOfDay(addDays(now, -21));
   const termEnd = startOfDay(addDays(now, 120));
   const waitOnWeekStart = nextMonday(now);
@@ -573,6 +578,21 @@ async function seedDemoData(client: SupabaseClient, users: DemoUser[]): Promise<
       created_at: isoTimestamp(addDays(now, -2)),
     },
   ]);
+
+  await insertRows(
+    client,
+    "event_attendance",
+    requiredHouseMeetingUsers.slice(0, 4).map((user, index) => ({
+      event_id: ID.eventChapter,
+      member_id: user.userId,
+      status: index === 1 ? "excused" : index === 2 ? "absent" : "present",
+      notes: index === 1 ? "Demo excused absence." : null,
+      recorded_by: recorderUser.userId,
+      recorded_at: isoTimestamp(addHours(now, -1)),
+      created_at: isoTimestamp(addHours(now, -1)),
+      updated_at: isoTimestamp(addHours(now, -1)),
+    })),
+  );
 
   await insertRows(client, "budget_cycles", [
     {

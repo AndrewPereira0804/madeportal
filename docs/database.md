@@ -1,10 +1,10 @@
 # Database Contract
 
-Last updated: 2026-08-31
+Last updated: 2026-09-03
 
 ## Source Of Truth
 
-Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28, and the chair-authoring/admin-update announcement policy revision was applied and verified through the Supabase plugin on 2026-07-29. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The user-role assignment policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The active-status role guard was applied and verified through the Supabase plugin on 2026-07-29. The internal helper hardening was applied and verified through the Supabase plugin on 2026-07-29. The DEI/Professional Development role cleanup and alumni chair alias cleanup were applied and verified through the Supabase plugin on 2026-07-30. Announcement replies, the narrowed reply insert grant, and `announcements.reply_count` were applied and verified through the Supabase plugin on 2026-08-10. The `events.event_tags` repo migration was added on 2026-08-10 but has not been verified against hosted Supabase in this repo note. The `other` event-type migration was applied and verified against both production and demo hosted Supabase projects through the Supabase plugin on 2026-08-31. The active app-access role invariant and `public.approve_member(...)` approval RPC were applied and verified against both production and demo hosted Supabase projects through the Supabase plugin on 2026-08-31. The backend-only hard Auth-user delete cascade migration was added on 2026-08-31 for destructive test-account cleanup, but has not been verified against hosted Supabase in this repo note. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
+Hosted Supabase is currently the canonical database source of truth. The user-provided hosted schema and RLS policy exports from 2026-06-25 supersede older notes in this repo unless the user says they are outdated. The wait-on scheduler tables and RLS policies were applied and verified through the Supabase plugin on 2026-06-29. The emergency contacts table and RLS policies were applied and verified through the Supabase plugin on 2026-07-28. The announcement policy hardening was applied and verified through the Supabase plugin on 2026-07-28, and the chair-authoring/admin-update announcement policy revision was applied and verified through the Supabase plugin on 2026-07-29. The calendar policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The event policy rebuild was applied and verified through the Supabase plugin on 2026-07-29. The profile policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The user-role assignment policy hardening was applied and verified through the Supabase plugin on 2026-07-29. The active-status role guard was applied and verified through the Supabase plugin on 2026-07-29. The internal helper hardening was applied and verified through the Supabase plugin on 2026-07-29. The DEI/Professional Development role cleanup and alumni chair alias cleanup were applied and verified through the Supabase plugin on 2026-07-30. Announcement replies, the narrowed reply insert grant, and `announcements.reply_count` were applied and verified through the Supabase plugin on 2026-08-10. The `events.event_tags` repo migration was added on 2026-08-10 but has not been verified against hosted Supabase in this repo note. The `other` event-type migration was applied and verified against both production and demo hosted Supabase projects through the Supabase plugin on 2026-08-31. The active app-access role invariant and `public.approve_member(...)` approval RPC were applied and verified against both production and demo hosted Supabase projects through the Supabase plugin on 2026-08-31. The backend-only hard Auth-user delete cascade migration was added on 2026-08-31 for destructive test-account cleanup, but has not been verified against hosted Supabase in this repo note. The house meeting attendance migration was applied and verified against the demo hosted Supabase project only on 2026-09-03; production rollout is staged in `supabase/migrations/20260903011436_add_house_meeting_attendance.sql` but has not been applied to production. Function bodies and trigger attachments outside the verified sections still reflect the latest available export or repo SQL noted in each section, and must be treated as external/unverified state when a fresh hosted export is not available.
 
 Schema exports in this document are for context only. Do not run them directly as migrations because export order, enum placeholders, constraints, policies, and triggers may be incomplete.
 
@@ -103,6 +103,8 @@ Referenced by:
 - `wait_on_schedules.created_by`
 - `wait_on_assignments.brother_id`
 - `emergency_contacts.user_id`
+- `event_attendance.member_id`
+- `event_attendance.recorded_by`
 
 Frontend usage:
 
@@ -265,6 +267,10 @@ Columns:
 - `event_tags text[] not null default '{}'::text[]`
 - `details jsonb not null default '{}'::jsonb`
 
+Referenced by:
+
+- `event_attendance.event_id`
+
 Event type constraints:
 
 - The 2026-06-25 hosted schema export allows: `party`, `formal`, `sorority_fraternity`, `dei`, `community_service`, `philanthropy`, `house_meeting`, `alumni_event`, `rush`, `scholarship`, `professional_development`, `brotherhood_event`, `work_party`, `new_member_meeting`, `new_member_event`.
@@ -283,9 +289,45 @@ Frontend usage:
 - `src/pages/app/tools/CommunityServiceEventsTool.tsx` creates community service events and updates event `details` for organization, location, attendance hours, and Nationals logging state.
 - `src/pages/app/tools/AlumniEventsTool.tsx` creates alumni events and stores the required public `location` value in `details`.
 - `src/pages/app/tools/ProfessionalDevelopmentEventsTool.tsx` creates professional development events and stores an optional public `speaker` value in `details`.
+- `src/pages/app/tools/HouseMeetingsTool.tsx` creates house meeting events and lets Recorder role users record required attendance for active brothers and neophytes.
 - `src/pages/app/tools/ChairTools.tsx` routes each event type to a dedicated tool path. Simple event tools reuse `src/pages/app/ManageEvents.tsx` with one scoped event type; specialized tools own their type-specific `details` workflows.
 
 Important: frontend supplies `created_by`. Hosted RLS now requires `created_by = auth.uid()` on insert, and client updates are not granted `created_by` column access.
+
+### public.event_attendance
+
+Purpose: per-member attendance records for house meeting events.
+
+Columns:
+
+- `id uuid primary key default gen_random_uuid()`
+- `event_id uuid not null references public.events(id) on delete cascade`
+- `member_id uuid not null references public.profiles(user_id) on delete cascade`
+- `status text not null`
+- `notes text`
+- `recorded_by uuid default auth.uid() references public.profiles(user_id) on delete set null`
+- `recorded_at timestamptz not null default now()`
+- `created_at timestamptz not null default now()`
+- `updated_at timestamptz not null default now()`
+
+Constraints and indexes:
+
+- `(event_id, member_id)` is unique.
+- `status` must be one of: `present`, `excused`, `absent`.
+- `notes` must be null or nonblank.
+- `event_id` must point to a `house_meeting` event, enforced by `private.require_house_meeting_attendance_event()`.
+- `(member_id)` and `(event_id, status)` indexes support future member balances/fines and current meeting summaries.
+
+Frontend usage:
+
+- `src/pages/app/tools/HouseMeetingsTool.tsx` reads and upserts attendance rows for house meetings.
+- Required roster is computed from active profiles with `brother` or `neophyte` role rows.
+- Only active `rec`/`recorder` users can read or mutate attendance through RLS. Members do not currently have an own-attendance read policy.
+
+Hosted status:
+
+- Applied and verified against the demo hosted Supabase project on 2026-09-03 through migration `20260903011436_add_house_meeting_attendance`.
+- Not applied to production as of 2026-09-03. Production rollout is staged in `supabase/migrations/20260903011436_add_house_meeting_attendance.sql`.
 
 ### public.calendars
 
@@ -1150,6 +1192,20 @@ Verified from the 2026-06-29 Supabase plugin migration:
   - DELETE to authenticated.
   - Allows active full managers or active event-type managers to delete rows whose current `event_type` they can manage.
 
+### public.event_attendance
+
+- `Recorders can read house meeting attendance`
+  - SELECT to authenticated.
+  - Allows active `rec`/`recorder` users to read attendance rows for `house_meeting` events.
+- `Recorders can insert house meeting attendance`
+  - INSERT to authenticated.
+  - Requires active `rec`/`recorder` status, `recorded_by = auth.uid()`, a `house_meeting` event, and an active `brother` or `neophyte` target member.
+- `Recorders can update house meeting attendance`
+  - UPDATE to authenticated.
+  - Allows active `rec`/`recorder` users to update house meeting attendance rows indefinitely.
+  - Includes `WITH CHECK` so the resulting row still targets a house meeting, an active required member, and the current Recorder account as `recorded_by`.
+- No DELETE policy is defined for authenticated clients.
+
 ### public.majors
 
 - `Authenticated users can read majors`
@@ -1483,6 +1539,21 @@ Purpose:
 Hosted status:
 
 - Not yet verified against hosted Supabase from this repo note.
+
+### supabase/migrations/20260903011436_add_house_meeting_attendance.sql
+
+Purpose:
+
+- Creates `event_attendance` for Recorder-managed house meeting attendance.
+- Adds unique per-event/per-member rows, status and notes constraints, event/member indexes, and private trigger helpers for `updated_at` and house-meeting-only event enforcement.
+- Enables RLS, revokes anonymous/default access, and grants authenticated clients only the select/insert/update privileges needed by the frontend.
+- Adds Recorder-only SELECT, INSERT, and UPDATE policies; no member self-read policy and no client DELETE policy are included.
+- Notifies PostgREST to reload the schema cache.
+
+Hosted status:
+
+- Applied and verified against demo hosted Supabase on 2026-09-03.
+- Not applied to production as of 2026-09-03. Apply this migration to production only after explicit greenlight.
 
 ### supabase/events_calendar_policies.sql
 

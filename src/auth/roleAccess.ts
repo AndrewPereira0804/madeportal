@@ -498,6 +498,11 @@ export function canManageProfessionalDevelopmentEvents(roles: string[]) {
   return canManageEventType(roles, "professional_development");
 }
 
+export function canTakeHouseMeetingAttendance(roles: string[]) {
+  const roleSet = normalizeRoleSet(roles);
+  return hasAnyRole(roleSet, recorderRoleSlugs);
+}
+
 export function canManageWaitOns(roles: string[]) {
   const roleSet = normalizeRoleSet(roles);
   return canAccessAllChairTools(roles) || hasAnyRole(roleSet, waitOnToolRoleSlugs);

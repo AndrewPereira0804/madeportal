@@ -2,6 +2,9 @@
 
 This file preserves the detailed internal project snapshot that previously lived in the root `README.md`. Coding agents should read this first for the current route map, data model notes, known placeholders, and rollout caveats.
 
+Related live-user rollout tracking:
+- `docs/version-updates.md`: running internal log for real-user issue fixes, production-facing version updates, validation notes, deployment notes, and Supabase rollout caveats from 2026-09-03 onward.
+
 Protected app routes:
 - `/app`: dashboard
 - `/app/scheduling`: agenda-first chapter calendar with a full calendar display and calendar-window management for permitted officers
@@ -14,7 +17,7 @@ Protected app routes:
 - `/app/tools/dei-chair/dei-events` and `/app/tools/rec/dei-events`: DEI event creator
 - `/app/tools/cs-chair/community-service-events` and `/app/tools/rec/community-service-events`: community service event creator, attendance hours table, and Nationals logging tracker
 - `/app/tools/philo-chair/philanthropy-events` and `/app/tools/rec/philanthropy-events`: philanthropy event creator
-- `/app/tools/hm/house-meetings` and `/app/tools/rec/house-meetings`: house meeting event creator
+- `/app/tools/hm/house-meetings` and `/app/tools/rec/house-meetings`: house meeting event creator, with Recorder-only attendance tracking
 - `/app/tools/alumni-chair/alumni-events` and `/app/tools/rec/alumni-events`: alumni event creator with required public location details
 - `/app/tools/rush-chair/rush-events` and `/app/tools/rec/rush-events`: rush event creator
 - `/app/tools/scholarship/scholarship-events` and `/app/tools/rec/scholarship-events`: scholarship event creator
@@ -66,6 +69,7 @@ Tables used by the frontend:
 - `announcement_likes`: `announcement_id`, `user_id`, `created_at`
 - `announcement_replies`: `id`, `announcement_id`, `author_id`, `body`, `created_at`
 - `events`: `id`, `created_at`, `title`, `description`, `event_type`, `event_tags`, `details`, `start`, `end`, `created_by`, `visible_to_alum`, `visible_to_neophyte`
+- `event_attendance`: `id`, `event_id`, `member_id`, `status`, `notes`, `recorded_by`, `recorded_at`, `created_at`, `updated_at`
 - `calendars`: `id`, `start`, `end`, `name`
 - `majors`: `id`, `major`, `slug`
 - `budget_cycles`: `id`, `name`, `start_date`, `end_date`, `is_active`, `created_at`, `created_by`
@@ -97,6 +101,7 @@ Role slugs:
 - `stew` has a chair tool workspace for weekly wait-on schedules under `/app/tools/stew/wait-ons`
 - `alumni-chair` has a chair tool workspace for alumni events under `/app/tools/alumni-chair/alumni-events`
 - `prof-dev` has a chair tool workspace for professional development events under `/app/tools/prof-dev/professional-development-events`
+- House meeting attendance is recorded under `/app/tools/rec/house-meetings` by active `rec`/`recorder` users only. Required attendance roster is active `brother` and `neophyte` users. Attendance statuses are `present`, `excused`, and `absent`; records remain editable indefinitely.
 - Simple event tools reuse `/app/events/manage` with one scoped event type; specialized party, formal, community service, alumni, and professional development tools keep their richer details workflows.
 - `social-events` manages `sorority_fraternity`, `dei-chair` manages `dei`, and `rush-chair` manages `rush`.
 - `rec` has per-event-type creator tools for every event type instead of a single all-type creator.
@@ -131,8 +136,10 @@ Important expectations:
   - `public.events.created_by`
   - `public.transactions.created_by`
   - `public.budget_accounts.created_by`
-  - `public.budget_transactions.submitted_by`
-  - `public.budget_transactions.approved_by`
+- `public.budget_transactions.submitted_by`
+- `public.budget_transactions.approved_by`
+- `public.event_attendance.member_id`
+- `public.event_attendance.recorded_by`
 
 #### `public.roles`
 - Purpose: role catalog for RBAC (for example `admin`, `member`).

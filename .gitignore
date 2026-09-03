@@ -31,4 +31,4 @@ dist-ssr
 
 # Markdowns
 *.md
-
+!docs/version-updates.md

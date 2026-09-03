@@ -26,6 +26,7 @@ import {
 import AlumniEventsTool from "./AlumniEventsTool";
 import CommunityServiceEventsTool from "./CommunityServiceEventsTool";
 import FormalEventsTool from "./FormalEventsTool";
+import HouseMeetingsTool from "./HouseMeetingsTool";
 import ManageEvents from "../ManageEvents";
 import PartyEventsTool from "./PartyEventsTool";
 import ProfessionalDevelopmentEventsTool from "./ProfessionalDevelopmentEventsTool";
@@ -143,6 +144,10 @@ function EventToolPage({
 
   if (definition.eventType === "professional_development") {
     return <ProfessionalDevelopmentEventsTool ownerLabel={ownerLabel} returnPath={returnPath} />;
+  }
+
+  if (definition.eventType === "house_meeting") {
+    return <HouseMeetingsTool ownerLabel={ownerLabel} returnPath={returnPath} />;
   }
 
   return (

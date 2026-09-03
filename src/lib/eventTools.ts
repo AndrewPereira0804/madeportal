@@ -92,7 +92,7 @@ export const eventToolDefinitions: EventToolDefinition[] = [
     "house_meeting",
     ["hm", "house-manager", "rec", "recorder"],
     "house-meetings",
-    "Create house meeting events for the chapter calendar.",
+    "Create house meeting events; Recorder can record required attendance.",
   ),
   eventTool(
     "alumni_event",
