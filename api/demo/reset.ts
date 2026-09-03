@@ -43,6 +43,8 @@ class DemoResetHttpError extends Error {
 const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
 const DEMO_RESET_HEADER = "portal-demo-reset";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const APP_ACCESS_ROLE_SLUGS = new Set(["admin", "brother", "neophyte", "alum", "alumni"]);
+const DEFAULT_DEMO_APP_ACCESS_ROLE = "brother";
 
 const ROLE_SEEDS: RoleSeed[] = [
   { slug: "admin", name: "Admin" },
@@ -242,6 +244,21 @@ function parseRoles(value: unknown, index: number): string[] {
   return [...new Set(value.map((role) => normalizeRoleSlug(role, index)))];
 }
 
+function hasAppAccessRole(roles: string[]): boolean {
+  return roles.some((roleSlug) => APP_ACCESS_ROLE_SLUGS.has(roleSlug));
+}
+
+function withRequiredDemoAppAccessRole(user: DemoUser): DemoUser {
+  if (hasAppAccessRole(user.roles)) {
+    return user;
+  }
+
+  return {
+    ...user,
+    roles: [...user.roles, DEFAULT_DEMO_APP_ACCESS_ROLE],
+  };
+}
+
 function parseDemoUsers(): DemoUser[] {
   const rawValue = getRequiredEnv("DEMO_AUTH_USERS_JSON");
   const parsed: unknown = JSON.parse(rawValue);
@@ -250,18 +267,20 @@ function parseDemoUsers(): DemoUser[] {
     throw new Error("DEMO_AUTH_USERS_JSON must be a non-empty JSON array");
   }
 
-  const users = parsed.map((user, index) => {
-    if (!isRecord(user)) {
-      throw new Error(`DEMO_AUTH_USERS_JSON user ${index + 1} must be an object`);
-    }
+  const users = parsed
+    .map((user, index) => {
+      if (!isRecord(user)) {
+        throw new Error(`DEMO_AUTH_USERS_JSON user ${index + 1} must be an object`);
+      }
 
-    return {
-      userId: parseStringField(user.userId, "userId", index),
-      name: parseStringField(user.name, "name", index),
-      email: parseStringField(user.email, "email", index),
-      roles: parseRoles(user.roles, index),
-    };
-  });
+      return {
+        userId: parseStringField(user.userId, "userId", index),
+        name: parseStringField(user.name, "name", index),
+        email: parseStringField(user.email, "email", index),
+        roles: parseRoles(user.roles, index),
+      };
+    })
+    .map(withRequiredDemoAppAccessRole);
 
   const userIds = new Set(users.map((user) => user.userId));
   const emails = new Set(users.map((user) => user.email.toLowerCase()));
@@ -356,6 +375,18 @@ async function resetTable(client: SupabaseClient, reset: ResetTable): Promise<vo
   }
 }
 
+async function deactivateProfilesForReset(client: SupabaseClient): Promise<void> {
+  const { error } = await client
+    .from("profiles")
+    .update({ status: "suspended" })
+    .eq("status", "active")
+    .neq("user_id", ZERO_UUID);
+
+  if (error) {
+    throw new Error(`Could not prepare profiles for reset: ${error.message}`);
+  }
+}
+
 async function insertRows(client: SupabaseClient, table: string, rows: Record<string, unknown>[]): Promise<void> {
   if (rows.length === 0) {
     return;
@@ -400,8 +431,24 @@ async function updateRow(
 }
 
 async function resetPublicTables(client: SupabaseClient): Promise<void> {
+  await deactivateProfilesForReset(client);
+
   for (const reset of PUBLIC_TABLE_RESET_ORDER) {
     await resetTable(client, reset);
+  }
+}
+
+async function activateDemoProfiles(client: SupabaseClient, users: DemoUser[]): Promise<void> {
+  const { error } = await client
+    .from("profiles")
+    .update({ status: "active" })
+    .in(
+      "user_id",
+      users.map((user) => user.userId),
+    );
+
+  if (error) {
+    throw new Error(`Could not activate demo profiles: ${error.message}`);
   }
 }
 
@@ -435,7 +482,7 @@ async function seedDemoData(client: SupabaseClient, users: DemoUser[]): Promise<
     users.map((user, index) => ({
       user_id: user.userId,
       name: user.name,
-      status: "active",
+      status: "pending",
       email: user.email,
       phone: `555-010${index}`,
       grad_year: 2027 + (index % 3),
@@ -453,6 +500,8 @@ async function seedDemoData(client: SupabaseClient, users: DemoUser[]): Promise<
       })),
     ),
   );
+
+  await activateDemoProfiles(client, users);
 
   await insertRows(client, "calendars", [
     {
