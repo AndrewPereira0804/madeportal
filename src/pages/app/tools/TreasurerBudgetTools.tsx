@@ -32,6 +32,12 @@ const budgetTools = [
     meta: "Payouts",
   },
   {
+    path: "history",
+    title: "Expense history",
+    description: "View approved expenses, House Card purchases, and reimbursements from every budget cycle.",
+    meta: "Records",
+  },
+  {
     path: "cycles",
     title: "Budget cycles",
     description: "Create budget cycles and set the active budget period.",
@@ -53,6 +59,7 @@ function getAdminMode(toolPath: string): BudgetAdminMode | null {
   switch (toolPath) {
     case "requests":
     case "reimbursements":
+    case "history":
     case "cycles":
       return toolPath;
     case "allocations":

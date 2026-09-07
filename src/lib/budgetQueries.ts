@@ -319,19 +319,30 @@ export async function getBudgetTransactionsByStatus(statuses: BudgetTransactionS
     return [];
   }
 
-  const { data, error } = await supabase
-    .from("budget_transactions")
-    .select(
-      "id, budget_account_id, submitted_by, amount, vendor, category, description, transaction_date, status, is_house_card, receipt_url, approved_by, approved_at, denial_reason, created_at"
-    )
-    .in("status", statuses)
-    .order("created_at", { ascending: false });
+  const transactions: BudgetTransaction[] = [];
+  const pageSize = 500;
 
-  if (error) {
-    throw error;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from("budget_transactions")
+      .select(
+        "id, budget_account_id, submitted_by, amount, vendor, category, description, transaction_date, status, is_house_card, receipt_url, approved_by, approved_at, denial_reason, created_at"
+      )
+      .in("status", statuses)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(offset, offset + pageSize - 1);
+
+    if (error) {
+      throw error;
+    }
+
+    const rows = (data ?? []) as RawRow[];
+    transactions.push(...rows.map(normalizeBudgetTransaction));
+    if (rows.length < pageSize) {
+      return transactions;
+    }
   }
-
-  return ((data ?? []) as RawRow[]).map(normalizeBudgetTransaction);
 }
 
 export async function getBudgetAccountsByIds(accountIds: string[]) {
@@ -476,17 +487,20 @@ export async function approveBudgetTransaction(transactionId: string, approverId
   );
 }
 
-export async function denyBudgetTransaction(transactionId: string, approverId: string, denialReason: string) {
-  await updateBudgetTransactionStatus(
-    transactionId,
-    {
-      status: "denied",
-      denial_reason: denialReason,
-      approved_by: approverId,
-      approved_at: new Date().toISOString(),
-    },
-    "submitted"
-  );
+export async function denyBudgetTransaction(transactionId: string) {
+  const { count, error } = await supabase
+    .from("budget_transactions")
+    .delete({ count: "exact" })
+    .eq("id", transactionId)
+    .eq("status", "submitted");
+
+  if (error) {
+    throw error;
+  }
+
+  if (count === 0) {
+    throw new Error("This request was already changed or is no longer available.");
+  }
 }
 
 export async function markBudgetTransactionReimbursed(transactionId: string) {

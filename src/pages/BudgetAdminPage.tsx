@@ -53,6 +53,7 @@ import {
 type BudgetAdminRow = {
   transaction: BudgetTransaction;
   account: BudgetAccount | null;
+  cycle: BudgetCycle | null;
   submitter: BudgetSubmitterProfile | null;
 };
 
@@ -74,7 +75,7 @@ type AccountEditDraft = {
   notes: string;
 };
 
-export type BudgetAdminMode = "all" | "requests" | "reimbursements" | "cycles" | "allocations";
+export type BudgetAdminMode = "all" | "requests" | "reimbursements" | "history" | "cycles" | "allocations";
 
 type BudgetAdminPageProps = {
   mode?: BudgetAdminMode;
@@ -197,6 +198,11 @@ function getModeHeader(mode: BudgetAdminMode) {
         title: "Reimbursements",
         subtitle: "Mark approved expenses as reimbursed after payout.",
       };
+    case "history":
+      return {
+        title: "Expense History",
+        subtitle: "Review approved expenses from every budget cycle, including House Card purchases and reimbursements.",
+      };
     case "cycles":
       return {
         title: "Budget Cycles",
@@ -223,6 +229,7 @@ export default function BudgetAdminPage({
   const { roles: userRoles, loading: rolesLoading } = useRoles();
   const [pendingRows, setPendingRows] = useState<BudgetAdminRow[]>([]);
   const [approvedRows, setApprovedRows] = useState<BudgetAdminRow[]>([]);
+  const [historyRows, setHistoryRows] = useState<BudgetAdminRow[]>([]);
   const [cycles, setCycles] = useState<BudgetCycle[]>([]);
   const [roles, setRoles] = useState<BudgetRole[]>([]);
   const [activeAccounts, setActiveAccounts] = useState<BudgetAccount[]>([]);
@@ -241,6 +248,7 @@ export default function BudgetAdminPage({
   const modeHeader = getModeHeader(mode);
   const showRequestReview = mode === "all" || mode === "requests";
   const showReimbursements = mode === "all" || mode === "reimbursements";
+  const showHistory = mode === "all" || mode === "history";
   const showCycles = mode === "all" || mode === "cycles";
   const showAllocations = mode === "all" || mode === "allocations";
   const showMetrics = showRequestReview || showReimbursements;
@@ -250,30 +258,39 @@ export default function BudgetAdminPage({
     setErrorMessage(null);
 
     try {
-      const [requestTransactions, nextCycles, nextRoles] = await Promise.all([
+      const [requestTransactions, historyTransactions, nextCycles, nextRoles] = await Promise.all([
         getBudgetTransactionsByStatus(["submitted", "approved"]),
+        showHistory ? getBudgetTransactionsByStatus(["approved", "reimbursed"]) : Promise.resolve([]),
         getAllBudgetCycles(),
         getRoles(),
       ]);
 
+      const visibleTransactions = [...requestTransactions, ...historyTransactions];
       const active = nextCycles.find((cycle) => cycle.is_active) ?? null;
       const nextActiveAccounts = active ? await getBudgetAccountsForCycle(active.id) : [];
       const [requestAccounts, submitters, nextAccountTransactions] = await Promise.all([
-        getBudgetAccountsByIds(uniqueStrings(requestTransactions.map((transaction) => transaction.budget_account_id))),
-        getSubmitterProfilesByIds(uniqueStrings(requestTransactions.map((transaction) => transaction.submitted_by))),
+        getBudgetAccountsByIds(uniqueStrings(visibleTransactions.map((transaction) => transaction.budget_account_id))),
+        getSubmitterProfilesByIds(uniqueStrings(visibleTransactions.map((transaction) => transaction.submitted_by))),
         getTransactionsForAccounts(nextActiveAccounts.map((account) => account.id)),
       ]);
 
       const requestAccountsById = new Map(requestAccounts.map((account) => [account.id, account]));
+      const cyclesById = new Map(nextCycles.map((cycle) => [cycle.id, cycle]));
       const submittersById = new Map(submitters.map((submitter) => [submitter.user_id, submitter]));
-      const rows = requestTransactions.map((transaction) => ({
-        transaction,
-        account: requestAccountsById.get(transaction.budget_account_id) ?? null,
-        submitter: transaction.submitted_by ? submittersById.get(transaction.submitted_by) ?? null : null,
-      }));
+      const toAdminRow = (transaction: BudgetTransaction): BudgetAdminRow => {
+        const account = requestAccountsById.get(transaction.budget_account_id) ?? null;
+        return {
+          transaction,
+          account,
+          cycle: account ? cyclesById.get(account.cycle_id) ?? null : null,
+          submitter: transaction.submitted_by ? submittersById.get(transaction.submitted_by) ?? null : null,
+        };
+      };
+      const rows = requestTransactions.map(toAdminRow);
 
       setPendingRows(rows.filter((row) => row.transaction.status === "submitted"));
       setApprovedRows(rows.filter((row) => row.transaction.status === "approved" && !row.transaction.is_house_card));
+      setHistoryRows(historyTransactions.map(toAdminRow));
       setCycles(nextCycles);
       setRoles(nextRoles);
       setActiveAccounts(nextActiveAccounts);
@@ -282,6 +299,7 @@ export default function BudgetAdminPage({
       const message = error instanceof Error ? error.message : "An unexpected error occurred.";
       setPendingRows([]);
       setApprovedRows([]);
+      setHistoryRows([]);
       setCycles([]);
       setRoles([]);
       setActiveAccounts([]);
@@ -290,7 +308,7 @@ export default function BudgetAdminPage({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showHistory]);
 
   useEffect(() => {
     if (rolesLoading || !hasBudgetAccess) {
@@ -352,22 +370,14 @@ export default function BudgetAdminPage({
       return;
     }
 
-    const reason = window.prompt("Enter a short denial reason:");
-    if (reason === null) {
-      return;
-    }
-
-    const trimmedReason = reason.trim();
-    if (!trimmedReason) {
-      setErrorMessage("Denial reason is required.");
-      setSuccessMessage(null);
+    if (!window.confirm("Deny this pending expense request? The request will be removed from the transaction records.")) {
       return;
     }
 
     void runAction(
       `deny-${transactionId}`,
-      () => denyBudgetTransaction(transactionId, userId, trimmedReason),
-      "Expense request denied."
+      () => denyBudgetTransaction(transactionId),
+      "Expense request denied and removed."
     );
   }
 
@@ -613,6 +623,17 @@ export default function BudgetAdminPage({
         />
       )}
 
+      {showHistory && (
+        <BudgetRequestSection
+          title="Saved Expenses"
+          description="Approved expenses stay in history before and after reimbursement. House Card purchases are included; denied requests are removed."
+          emptyText="No approved expenses yet."
+          rows={historyRows}
+          roles={roles}
+          savingKey={savingKey}
+        />
+      )}
+
       {showCycles && (
         <BudgetCyclesSection
           cycles={cycles}
@@ -682,6 +703,7 @@ function BudgetAdminMetrics({
 
 function BudgetRequestSection({
   title,
+  description,
   emptyText,
   rows,
   roles,
@@ -689,21 +711,22 @@ function BudgetRequestSection({
   actions,
 }: {
   title: string;
+  description?: string;
   emptyText: string;
   rows: BudgetAdminRow[];
   roles: BudgetRole[];
   savingKey: string | null;
-  actions: (transaction: BudgetTransaction) => ReactNode;
+  actions?: (transaction: BudgetTransaction) => ReactNode;
 }) {
   return (
     <section className="budget-admin-section">
-      <SectionHeader title={title} size="md" />
+      <SectionHeader title={title} description={description} size="md" />
 
       {rows.length === 0 ? (
         <EmptyState compact title={emptyText} />
       ) : (
         <div className="budget-admin-list">
-          {rows.map(({ transaction, account, submitter }) => (
+          {rows.map(({ transaction, account, cycle, submitter }) => (
             <Card
               key={transaction.id}
               variant="flat"
@@ -723,7 +746,17 @@ function BudgetRequestSection({
               <dl className="budget-request-details">
                 <div>
                   <dt>Payment</dt>
-                  <dd>{transaction.is_house_card ? "House Card — no reimbursement" : "Personal — reimbursement requested"}</dd>
+                  <dd>
+                    {transaction.is_house_card
+                      ? "House Card — no reimbursement"
+                      : transaction.status === "reimbursed"
+                        ? "Personal — reimbursed"
+                        : "Personal — reimbursement requested"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Budget cycle</dt>
+                  <dd>{cycle?.name ?? account?.cycle_id ?? "Unknown cycle"}</dd>
                 </div>
                 <div>
                   <dt>Submitted by</dt>
@@ -751,10 +784,12 @@ function BudgetRequestSection({
                 </div>
               </dl>
 
-              <div className="budget-request-actions">
-                {savingKey?.endsWith(transaction.id) && <span className="budget-admin-saving">Saving...</span>}
-                {actions(transaction)}
-              </div>
+              {actions && (
+                <div className="budget-request-actions">
+                  {savingKey?.endsWith(transaction.id) && <span className="budget-admin-saving">Saving...</span>}
+                  {actions(transaction)}
+                </div>
+              )}
             </Card>
           ))}
         </div>

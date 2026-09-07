@@ -32,6 +32,7 @@ Protected app routes:
 - `/app/tools/treasurer/overview`: active-cycle budget overview
 - `/app/tools/treasurer/requests`: submitted expense request review
 - `/app/tools/treasurer/reimbursements`: approved expense reimbursement tracker
+- `/app/tools/treasurer/history`: saved approved and reimbursed expenses across all budget cycles
 - `/app/tools/treasurer/cycles`: budget cycle management
 - `/app/tools/treasurer/allocations`: active-cycle budget account allocation management
 - `/app/tools/treasurer/accounts/:accountId`: budget account detail, expense submission, and transaction history
@@ -341,14 +342,17 @@ Environment requirements:
 - `SUPABASE_URL` or `VITE_SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
-## Demo Environment Reset
-
-### House Card expenses (2026-09-06)
+## Expense history and House Card expenses
 
 - Expense submission includes a House Card toggle, off by default. Personal expenses enter the reimbursement queue after approval.
 - House Card expenses still require review and count toward pending/approved budget spending, but do not enter reimbursement counts or queues. Payment labels appear in request review and account history.
 - `budget_transactions.is_house_card` is a non-null boolean defaulting to false; existing records retain their previous reimbursement behavior. A database constraint prevents House Card expenses from becoming `reimbursed`.
 - Migration `supabase/migrations/20260907003144_add_budget_house_card.sql` was applied and verified on Demo only. Production is unchanged. Apply the migration before deploying this frontend to any additional environment, only with explicit production approval.
+- Expense History includes all approved and reimbursed expenses across budget cycles, with payment and cycle labels. Approved personal expenses remain visible while awaiting reimbursement, and approved House Card expenses stay visible without needing reimbursement.
+- Denying a request removes the transaction only while its status is still `submitted`. A stale denial cannot remove an approved or reimbursed expense. Existing approved/reimbursed rows are updated in place and remain in account history and spending totals.
+- The history query fetches additional pages to avoid silently stopping at the hosted response limit. This follow-up required no schema/policy changes; Demo's existing manager-only DELETE policy and grant were verified. Production was not changed.
+
+## Demo Environment Reset
 
 When `VITE_APP_ENV=demo`, the React app calls `POST /api/demo/reset` once per browser session before auth and app data load. The endpoint deletes and reseeds public application tables only. It does not create, update, or delete Supabase Auth users.
 

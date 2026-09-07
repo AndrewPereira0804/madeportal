@@ -21,6 +21,14 @@ Label hosted Supabase policy, function, trigger, or environment assumptions as e
 
 ## Unreleased
 
+### 2026-09-06 — Expense History and Denial Removal
+
+- User impact: approved House Card and reimbursed expenses disappeared from Treasurer action queues, and denied requests were retained as transactions.
+- What changed: added `/app/tools/treasurer/history` for approved/reimbursed expenses across budget cycles, including payment labels and cycle names; status reads load all pages. Denial confirms removal and deletes only a still-submitted request. Approval/reimbursement continue updating and retaining the original row.
+- Files changed: `src/lib/budgetQueries.ts`, `src/pages/BudgetAdminPage.tsx`, `src/pages/app/tools/TreasurerBudgetTools.tsx`, `docs/project-state.md`, `docs/database.md`, `docs/version-updates.md`.
+- Validation: build passed with the existing bundle-size warning. Lint still reports the five existing `react-hooks/set-state-in-effect` errors: `BudgetAdminPage.tsx:318`, `WaitOnSchedule.tsx:45`, `StewardWaitOnTool.tsx:128`, `BudgetAccountPage.tsx:84`, and `BudgetPage.tsx:93`. The denial helper passed checks for submitted-only deletion, stale requests, and permission errors. Authenticated Demo SQL verified approval, reimbursement, House Card retention, stale-denial protection, and pending removal; all fixtures were rolled back. Signed-in browser validation was not performed.
+- Deployment: frontend not deployed. No new migration required; existing Demo policies/grants verified. Production unchanged. The preceding House Card migration is still required before this frontend can be deployed to production, subject to explicit approval. Demo's separate session reset still clears sample records.
+
 ### House Meeting Attendance
 
 - User impact or reported issue: Recorder needs to take attendance at house meetings because missing a required house meeting can lead to a future fine.

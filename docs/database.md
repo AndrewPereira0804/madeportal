@@ -450,6 +450,10 @@ Frontend usage:
 - `src/components/budget/SubmitExpenseForm.tsx` inserts submitted transactions.
 - Treasurer tools, account detail, admin review, and chair tool views display these records.
 
+Expense-retention follow-up (2026-09-06): approval and reimbursement update existing rows; `denyBudgetTransaction` now deletes only the matching `submitted` row, using an exact count to reject stale requests. `/app/tools/treasurer/history` reads approved/reimbursed expenses across cycles, including House Card expenses, with paginated status queries. No migration or persistent database change was needed. Demo's authenticated DELETE grant, manager-only DELETE policy, SELECT/UPDATE policies, and helper bodies were verified. No denied rows existed in Demo to clean up. Production was not queried or changed for this follow-up.
+
+Demo verification used disposable fixtures and authenticated-role SQL with a full rollback. Both approval paths, personal reimbursement, retained spending/history, submitted-only denial removal, and protection from stale denial clicks passed. The existing `private.is_active` helper sets transaction-local `row_security=off`; the multi-action test restored `row_security=on` before each statement to reproduce independent API requests. That helper was not changed. The retention behavior applies to the expense workflow; the existing privileged demo reset and administrative parent-deletion cascades remain unchanged.
+
 ### public.wait_on_schedules
 
 Purpose: weekly wait-on schedule container for Steward assignments.
