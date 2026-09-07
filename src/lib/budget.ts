@@ -32,6 +32,7 @@ export type BudgetTransaction = {
   description: string | null;
   transaction_date: string | null;
   status: BudgetTransactionStatus;
+  is_house_card: boolean;
   receipt_url: string | null;
   approved_by: string | null;
   approved_at: string | null;

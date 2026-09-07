@@ -343,6 +343,13 @@ Environment requirements:
 
 ## Demo Environment Reset
 
+### House Card expenses (2026-09-06)
+
+- Expense submission includes a House Card toggle, off by default. Personal expenses enter the reimbursement queue after approval.
+- House Card expenses still require review and count toward pending/approved budget spending, but do not enter reimbursement counts or queues. Payment labels appear in request review and account history.
+- `budget_transactions.is_house_card` is a non-null boolean defaulting to false; existing records retain their previous reimbursement behavior. A database constraint prevents House Card expenses from becoming `reimbursed`.
+- Migration `supabase/migrations/20260907003144_add_budget_house_card.sql` was applied and verified on Demo only. Production is unchanged. Apply the migration before deploying this frontend to any additional environment, only with explicit production approval.
+
 When `VITE_APP_ENV=demo`, the React app calls `POST /api/demo/reset` once per browser session before auth and app data load. The endpoint deletes and reseeds public application tables only. It does not create, update, or delete Supabase Auth users.
 
 Required Vercel environment variables for the demo deployment:

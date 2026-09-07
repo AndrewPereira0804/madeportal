@@ -72,6 +72,9 @@ export default function BudgetTransactionTable({ transactions }: BudgetTransacti
             <TableCell className="budget-transaction-amount">{formatMoney(transaction.amount)}</TableCell>
             <TableCell>
               <BudgetStatusBadge status={transaction.status} />
+              {transaction.is_house_card && (
+                <div className="budget-table-meta">House Card — no reimbursement</div>
+              )}
             </TableCell>
           </TableRow>
         ))}

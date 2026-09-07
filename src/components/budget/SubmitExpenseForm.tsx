@@ -26,6 +26,7 @@ type ExpenseDraft = {
   category: string;
   description: string;
   transactionDate: string;
+  isHouseCard: boolean;
 };
 
 const emptyDraft: ExpenseDraft = {
@@ -34,6 +35,7 @@ const emptyDraft: ExpenseDraft = {
   category: "",
   description: "",
   transactionDate: "",
+  isHouseCard: false,
 };
 
 function toNullableText(value: string) {
@@ -100,6 +102,7 @@ export default function SubmitExpenseForm({ budgetAccountId, onSubmitted }: Subm
         category: draft.category,
         description: draft.description.trim(),
         transaction_date: draft.transactionDate,
+        is_house_card: draft.isHouseCard,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "An unexpected error occurred.";
@@ -187,6 +190,24 @@ export default function SubmitExpenseForm({ budgetAccountId, onSubmitted }: Subm
             onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
             disabled={saving}
           />
+        </div>
+
+        <div>
+          <Button
+            type="button"
+            variant={draft.isHouseCard ? "primary" : "outline-secondary"}
+            aria-pressed={draft.isHouseCard}
+            aria-describedby="expensePaymentHelp"
+            disabled={saving}
+            onClick={() => setDraft((current) => ({ ...current, isHouseCard: !current.isHouseCard }))}
+          >
+            House Card
+          </Button>
+          <p id="expensePaymentHelp" className="text-muted small mt-2 mb-0">
+            {draft.isHouseCard
+              ? "Paid with the House Card. No reimbursement needed."
+              : "Paid personally. Sent for reimbursement after approval."}
+          </p>
         </div>
 
         <Button type="submit" loading={saving}>

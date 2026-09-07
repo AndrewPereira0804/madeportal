@@ -417,6 +417,12 @@ Frontend usage:
 
 Purpose: expense and reimbursement records for budget accounts.
 
+Demo-only update (2026-09-06): `supabase/migrations/20260907003144_add_budget_house_card.sql` adds `is_house_card boolean not null default false` and `budget_transactions_house_card_not_reimbursed`, which rejects `is_house_card = true` with `status = 'reimbursed'`. Applied to and verified on `DEMO: Mass Delta Portal` only; production has not been updated. Existing insert/select/update policies and the absence of table triggers were checked against Demo before rollout; no policy or grant changes were needed. Apply this migration before the corresponding frontend deployment. Production rollout requires explicit approval.
+
+Demo security advisors after rollout reported existing objects/settings outside this change: [RLS tables without policies](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy) (`audit_log`, legacy `transactions`), [anonymous](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable) and [authenticated](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable) execution of existing public security-definer helpers, and [disabled leaked-password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection). No advisor finding referenced the new column or constraint; these unrelated settings were not changed.
+
+Verification: a temporary table copied Demo's actual defaults and constraints; rolled-back SQL checks passed for the personal default, both approval paths, reimbursement queue filtering, combined spending totals, personal reimbursement, and rejection of House Card reimbursement. This does not replace a signed-in browser check. `npm run build` passed (existing large-bundle warning). `npm run lint` reported five pre-existing `react-hooks/set-state-in-effect` errors, independently reproduced from HEAD: `src/pages/BudgetAdminPage.tsx:300`, `src/pages/app/WaitOnSchedule.tsx:45`, `src/pages/app/tools/StewardWaitOnTool.tsx:128`, `src/pages/budget/BudgetAccountPage.tsx:84`, and `src/pages/budget/BudgetPage.tsx:93`.
+
 Columns:
 
 - `id uuid primary key default gen_random_uuid()`

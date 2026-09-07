@@ -273,7 +273,7 @@ export default function BudgetAdminPage({
       }));
 
       setPendingRows(rows.filter((row) => row.transaction.status === "submitted"));
-      setApprovedRows(rows.filter((row) => row.transaction.status === "approved"));
+      setApprovedRows(rows.filter((row) => row.transaction.status === "approved" && !row.transaction.is_house_card));
       setCycles(nextCycles);
       setRoles(nextRoles);
       setActiveAccounts(nextActiveAccounts);
@@ -721,6 +721,10 @@ function BudgetRequestSection({
               </div>
 
               <dl className="budget-request-details">
+                <div>
+                  <dt>Payment</dt>
+                  <dd>{transaction.is_house_card ? "House Card — no reimbursement" : "Personal — reimbursement requested"}</dd>
+                </div>
                 <div>
                   <dt>Submitted by</dt>
                   <dd>{submitterLabel(submitter, transaction.submitted_by)}</dd>

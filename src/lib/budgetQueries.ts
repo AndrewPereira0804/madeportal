@@ -11,6 +11,7 @@ export type SubmittedBudgetTransactionInput = {
   category: string;
   description: string;
   transaction_date: string;
+  is_house_card: boolean;
 };
 
 export type CreateBudgetCycleInput = {
@@ -153,6 +154,7 @@ function normalizeBudgetTransaction(row: RawRow): BudgetTransaction {
     description: toStringOrNull(row.description),
     transaction_date: toStringOrNull(row.transaction_date),
     status: normalizeTransactionStatus(row.status),
+    is_house_card: row.is_house_card === true,
     receipt_url: toStringOrNull(row.receipt_url),
     approved_by: toStringOrNull(row.approved_by),
     approved_at: toStringOrNull(row.approved_at),
@@ -271,7 +273,7 @@ export async function getTransactionsForAccounts(accountIds: string[]) {
   const { data, error } = await supabase
     .from("budget_transactions")
     .select(
-      "id, budget_account_id, submitted_by, amount, vendor, category, description, transaction_date, status, receipt_url, approved_by, approved_at, denial_reason, created_at"
+      "id, budget_account_id, submitted_by, amount, vendor, category, description, transaction_date, status, is_house_card, receipt_url, approved_by, approved_at, denial_reason, created_at"
     )
     .in("budget_account_id", accountIds)
     .order("transaction_date", { ascending: false })
@@ -320,7 +322,7 @@ export async function getBudgetTransactionsByStatus(statuses: BudgetTransactionS
   const { data, error } = await supabase
     .from("budget_transactions")
     .select(
-      "id, budget_account_id, submitted_by, amount, vendor, category, description, transaction_date, status, receipt_url, approved_by, approved_at, denial_reason, created_at"
+      "id, budget_account_id, submitted_by, amount, vendor, category, description, transaction_date, status, is_house_card, receipt_url, approved_by, approved_at, denial_reason, created_at"
     )
     .in("status", statuses)
     .order("created_at", { ascending: false });
@@ -376,6 +378,7 @@ export async function submitBudgetTransaction(input: SubmittedBudgetTransactionI
     category: input.category,
     description: input.description,
     transaction_date: input.transaction_date,
+    is_house_card: input.is_house_card,
     status: "submitted",
   });
 
