@@ -23,3 +23,7 @@ INSERT INTO public.majors (id, major, slug) VALUES
 ON CONFLICT (id) DO NOTHING;
 SELECT setval(pg_get_serial_sequence('public.majors', 'id'),
   greatest((SELECT coalesce(max(id), 1) FROM public.majors), 1));
+
+-- seed-fixtures.mjs reserves calendar ID 1. Keep default inserts above it.
+SELECT setval(pg_get_serial_sequence('public.calendars', 'id'),
+  greatest((SELECT coalesce(max(id), 1) FROM public.calendars), 1));

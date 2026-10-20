@@ -1,5 +1,5 @@
 {
-  "source": "Reviewed production catalog (2026-10-20) plus the reviewed local 20261020200556 expense lifecycle migration. That migration is not yet deployed to hosted projects. Platform extensions, schema ACLs, and default privileges are excluded.",
+  "source": "Reviewed production catalog (2026-10-20) plus the reviewed 20261020200556 expense lifecycle migration, deployed to demo and production on 2026-10-20. Platform extensions, schema ACLs, and default privileges are excluded.",
   "objects": {
     "column": {
       "count": 121,

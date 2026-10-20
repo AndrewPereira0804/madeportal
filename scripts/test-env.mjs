@@ -17,7 +17,7 @@ const network = 'portal-tests-loopback';
 const apiUrl = 'http://127.0.0.1:55431';
 const cli = path.join(root, 'node_modules/supabase/dist/supabase.js');
 const action = process.argv[2];
-const allowed = ['start', 'reset', 'stop', 'status', 'verify', 'app'];
+const allowed = ['start', 'reset', 'stop', 'status', 'verify', 'app', 'e2e-app'];
 if (!allowed.includes(action) || process.argv.length !== 3) {
   throw new Error(`Usage: node scripts/test-env.mjs ${allowed.join('|')}. Extra flags/URLs are forbidden.`);
 }
@@ -159,7 +159,13 @@ async function verify() {
   const differences = [...new Set([...Object.keys(objects), ...Object.keys(baseline.objects)])].filter(key => JSON.stringify(objects[key]) !== JSON.stringify(baseline.objects[key]));
   if (differences.length) throw new Error(`Schema/grant differences from the reviewed application baseline:\n${differences.join('\n')}`);
   const { admin, client } = await clients();
-  const expectedCounts = { profiles: accounts.length, roles: 24, majors: 5, announcements: 1, announcement_replies: 1, events: 2, budget_cycles: 1, budget_accounts: 2, budget_transactions: 1, emergency_contacts: 1 };
+  const expectedCounts = {
+    profiles: accounts.length, roles: 24, majors: 5, calendars: 1,
+    announcements: 1, announcement_replies: 1, announcement_likes: 0,
+    events: 2, event_attendance: 0, budget_cycles: 1, budget_accounts: 2,
+    budget_transactions: 1, emergency_contacts: 1, wait_on_schedules: 0,
+    wait_on_assignments: 0, audit_log: 0, transactions: 0,
+  };
   for (const [table, expected] of Object.entries(expectedCounts)) {
     const { count, error } = await admin.from(table).select('*', { count: 'exact', head: true });
     if (error || count !== expected) throw new Error(`Unexpected fixture count for ${table}; reset the test environment.`);
@@ -209,10 +215,11 @@ try {
   else if (action === 'status') {
     await clients();
     console.log('portal-tests is running. API: ' + apiUrl + '; Studio: http://127.0.0.1:55433; mail: http://127.0.0.1:55434');
-  } else if (action === 'app') {
+  } else if (action === 'app' || action === 'e2e-app') {
     const { publicKey } = await clients();
-    console.log('Starting the app against portal-tests at http://127.0.0.1:5174');
-    await run(process.execPath, [path.join(root, 'node_modules/vite/bin/vite.js'), '--mode', 'test', '--host', '127.0.0.1', '--port', '5174', '--strictPort'], {
+    const port = action === 'e2e-app' ? '5175' : '5174';
+    console.log(`Starting the app against portal-tests at http://127.0.0.1:${port}`);
+    await run(process.execPath, [path.join(root, 'node_modules/vite/bin/vite.js'), '--mode', 'test', '--host', '127.0.0.1', '--port', port, '--strictPort'], {
       live: true,
       env: { ...childEnv, VITE_SUPABASE_URL: apiUrl, VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: publicKey, VITE_APP_ENV: 'production', APP_ENV: 'test', DEMO_RESET_ENABLED: 'false' },
     });

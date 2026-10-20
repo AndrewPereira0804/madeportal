@@ -15,7 +15,11 @@
     "test:env:verify": "node scripts/test-env.mjs verify",
     "dev:test": "node scripts/test-env.mjs app",
     "test:env:guards": "node --test scripts/test-env-guard.test.mjs",
-    "test:rls": "node --test testing/rls/*.test.mjs"
+    "test:rls": "node --test --test-concurrency=1 testing/rls/*.test.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report",
+    "test:e2e:types": "tsc -p tsconfig.e2e.json"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.111.0",
@@ -28,6 +32,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.64.1",
     "@types/node": "^24.10.13",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

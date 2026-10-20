@@ -10,11 +10,17 @@ Commands (run from the repository root):
   npm run test:env:verify  Compare schema/grants and verify all account logins.
   npm run test:env:status Show local URLs without printing credentials.
   npm run test:env:guards Check rejection of hosted/arbitrary command flags.
+  npm run test:rls         Run expense and application permission tests locally.
+  npm run test:e2e         Start local services and run Chromium browser tests.
+  npm run test:e2e:ui      Open the Playwright test runner for debugging.
+  npm run test:e2e:report  Open the last browser-test HTML report.
+  npm run test:e2e:types   Type-check the Playwright config and tests.
   npm run dev:test         Run Vite against the local test database.
   npm run test:env:stop    Stop only portal-tests, retaining its volumes.
 
 URLs:
   App    http://127.0.0.1:5174  (while dev:test is running)
+  E2E    http://127.0.0.1:5175  (owned by the Playwright runner)
   API    http://127.0.0.1:55431
   Studio http://127.0.0.1:55433
   Mail   http://127.0.0.1:55434
@@ -65,21 +71,97 @@ Auth users via the local admin API and then assigns fictional profiles/records.
 Active users receive their roles before activation to satisfy the real guards.
 Pending/suspended accounts have no assigned roles. RLS policies are not relaxed.
 
-EXPENSE PERMISSION TESTS
+RLS INTEGRATION TESTS
 Run npm run test:rls after test:env:start/reset has completely finished. These
 real-API tests use ordinary anonymous/authenticated clients for assertions;
-service-role access is reserved for creating/removing disposable fixtures.
-They check submitted ownership, manager authority, approval immutability, void
-attribution/reasons, locked reimbursements, House Card rules, parent deletion,
-stale/concurrent approvals, and spending totals. Created test rows are cleaned up.
-Do not run the suite while another process is resetting or modifying fixtures.
+service-role access is reserved for setup, stored-data verification, and cleanup.
+expenses.test.mjs checks submitted ownership, manager authority, approval
+immutability, void attribution/reasons, locked reimbursements, House Card rules,
+parent deletion, stale/concurrent approvals, and spending totals.
+application.test.mjs covers all 18 application tables: profiles and membership
+approval, role hierarchy and escalation, announcements/replies/likes, event
+categories and visibility, calendars, recorder attendance, emergency contacts,
+published/draft wait-ons, budget access/allocation, reference data, and the
+default-denied audit/legacy finance tables. It also checks stale privileged roles
+on inactive profiles, role revocation without re-login, Auth metadata escalation,
+and public legacy helper RPC permissions.
 
-The reviewed baseline now includes the intentional LOCAL expense-lifecycle
-migration 20261020200556. Hosted projects still need that migration and the
-matching frontend rollout before they gain this workflow. Existing hosted
-migration-history differences must be reconciled before an automated db push.
+Tests send real HTTP requests, not mocked policies or service-role assertions.
+Denied writes must return 42501 or affect zero rows and leave stored data intact;
+invalid payload/schema errors do not count as authorization passes. Denied
+updates/deletes must target an existing record. Successful operations are checked
+alongside denials. Expected constraint failures and atomic rollbacks are explicit.
+Denied writes request minimal responses so a SELECT/RETURNING restriction cannot
+hide a missing write restriction; stored rows are checked with the setup client.
+Temporary rows, profiles, role assignments, and metadata are restored in cleanup.
+npm run test:env:verify checks fixture counts across every application table.
+
+The npm command serializes test files because they share the same 12 local users.
+Do not run the suite while another process is testing, resetting, or modifying
+fixtures. No hosted credentials or user data are used by the tests.
+
+CURRENT PERMISSION DISTINCTIONS
+Pending/suspended users retain own-profile reads/edits and own-emergency-contact
+CRUD, plus read-only roles/majors catalogs; they cannot gain access to other
+users' data.
+PR is a valid role assignment but currently grants no announcement publishing.
+Presidents/vice presidents and HSM can read others' emergency contacts; only
+admins can edit/delete others' contacts. Recorder attendance access requires the
+recorder role, including for an app admin. Presidents can delete others'
+announcements but only authors/admins can edit them. These are existing rules;
+the expanded tests do not change policies, grants, or hosted schemas.
+
+The reviewed baseline includes expense-lifecycle migration 20261020200556.
+Applied through Supabase MCP on 2026-10-20: demo version 20261020203631,
+production version 20261020203900, both named enforce_expense_lifecycle.
+The matching frontend must be deployed for approval/void UI compatibility.
+Existing hosted migration-history differences must be reconciled before an
+automated db push; do not reapply this migration under its local version.
 Privileged server maintenance (including fictional demo resets) can still manage
 records; ordinary application admins cannot bypass lifecycle protections.
 
-Broader non-expense RLS tests, automated Playwright tests, and GitHub Actions
-remain subsequent work. Browser checks of the expense workflow are manual UI QA.
+PLAYWRIGHT BROWSER TESTS
+The installed Playwright browser binaries include Chromium. If they are missing
+after npm ci, run npx playwright install chromium once. Docker Desktop
+must be running with Linux containers. npm run test:e2e starts/resumes only the
+portal-tests stack, refreshes/verifies fictional fixtures, and launches the real
+app on dedicated port 5175. Keep that port free; another server is never reused.
+It does not stop the retained local database after testing. Use test:env:stop
+when finished. Do not run RLS tests or modify local fixtures during browser tests.
+
+The 15 initial Chromium tests cover protected navigation, failed login,
+login/reload/logout, pending/suspended screens, management and budget access,
+submitted-expense creation/edit/delete/validation, approval confirmation and
+cancellation, retained voids and budget totals, locked reimbursements, House Card
+requests, stale approval after a real browser edit, and the mobile approval popup.
+Every test gets a fresh browser context. Expense records have unique vendor tags
+and are removed in fixture teardown, including after assertion failures. Global
+teardown verifies the reviewed schema and all fixture counts/statuses/roles.
+
+The browser uses real password login and the real local Auth/REST APIs. The local
+service-role client stays in the Node test process for setup and stored-data
+verification/cleanup. Browser HTTP requests may reach only app port 5175 and API
+port 55431. The known Vercel analytics script is fulfilled with an inert local
+response; all other external requests are blocked and fail the test. No Auth or
+database responses are mocked. Uncaught browser errors also fail the test.
+
+Screenshots, videos and traces are retained on failures under test-results/;
+playwright-report/ contains the HTML report. Both are ignored by Git. Tests run
+with one worker and no automatic retries. The normal interactive dev:test server
+on 5174 can remain open, but do not use it to edit shared fixtures during tests.
+In UI mode, stopping the runner before teardown finishes can leave test data;
+use test:env:reset to recover if fixture verification reports leftovers.
+
+GITHUB ACTIONS
+The installer-generated .github/workflows/playwright.yml now runs type checks,
+the app build, local test safeguards, the RLS suite, fixture verification, and
+the Playwright suite on pushes/PRs to main or manual dispatch. The Ubuntu runner
+uses its own disposable Docker database; no hosted Supabase secrets are required.
+It uploads browser reports/failure artifacts for 7 days and stops its local stack.
+The workflow has not been exercised on GitHub until these files are pushed.
+Full-repository lint is not yet a CI gate because of the previously identified
+React effect lint failures. Required branch checks and deployment gates remain
+separate repository/hosting settings; this workflow does not deploy anything.
+
+These suites do not yet test Storage, Realtime, Auth configuration, server API
+routes, or every possible combination of roles, browsers, and payloads.

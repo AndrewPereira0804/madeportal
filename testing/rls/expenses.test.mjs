@@ -3,6 +3,7 @@ import test from 'node:test';
 import { localClients } from '../local-clients.mjs';
 import { accounts, fixturePassword, recordIds } from '../fixtures.mjs';
 import { calculateBudgetSummary } from '../../src/lib/budget.ts';
+import { permissionDenied } from './helpers.mjs';
 
 test('expense RLS and lifecycle through the real local Supabase API', async t => {
   const { admin, client, manifest } = localClients();
@@ -24,16 +25,19 @@ test('expense RLS and lifecycle through the real local Supabase API', async t =>
     created.add(row.id);
     return row;
   }
-  async function deniedUpdate(actor, row, patch) {
+  async function deniedUpdate(actor, row, patch, expectedCode = '42501') {
     const before = await read(row.id);
-    const result = await actor.from('budget_transactions').update(patch).eq('id', row.id).select('id');
-    assert.ok(result.error || result.data.length === 0, 'Unauthorized update unexpectedly succeeded');
+    const result = await actor.from('budget_transactions').update(patch, { count: 'exact' }).eq('id', row.id);
+    if (expectedCode !== '42501') assert.ok(result.error, 'Expected the explicit lifecycle validation error');
+    if (result.error) assert.equal(result.error.code, expectedCode, result.error.message);
+    else assert.equal(result.count, 0, 'Unauthorized update unexpectedly succeeded');
     assert.deepEqual(await read(row.id), before, 'Denied update changed the record');
   }
   async function deniedDelete(actor, row) {
     const before = await read(row.id);
-    const result = await actor.from('budget_transactions').delete().eq('id', row.id).select('id');
-    assert.ok(result.error || result.data.length === 0, 'Retained expense was deleted');
+    const result = await actor.from('budget_transactions').delete({ count: 'exact' }).eq('id', row.id);
+    if (result.error) permissionDenied(result);
+    else assert.equal(result.count, 0, 'Retained expense was deleted');
     assert.deepEqual(await read(row.id), before);
   }
   try {
@@ -164,7 +168,7 @@ test('expense RLS and lifecycle through the real local Supabase API', async t =>
     await t.test('only budget managers may void; a reason and original approval are preserved', async () => {
       const row = await expense({ status: 'approved' });
       await deniedUpdate(signedIn.chair, row, { status: 'voided', void_reason: 'Not allowed' });
-      await deniedUpdate(signedIn.treasurer, row, { status: 'voided', void_reason: '  ' });
+      await deniedUpdate(signedIn.treasurer, row, { status: 'voided', void_reason: '  ' }, 'P0001');
       const voided = ok(await signedIn.treasurer.from('budget_transactions').update({ status: 'voided', void_reason: '  Duplicate entry  ' }).eq('id', row.id).select('*').single());
       assert.equal(voided.void_reason, 'Duplicate entry');
       assert.equal(voided.voided_by, users.treasurer.id);
@@ -187,7 +191,7 @@ test('expense RLS and lifecycle through the real local Supabase API', async t =>
     });
     await t.test('House Card expenses can be voided but cannot be reimbursed', async () => {
       const row = await expense({ status: 'approved', is_house_card: true });
-      await deniedUpdate(signedIn.treasurer, row, { status: 'reimbursed' });
+      await deniedUpdate(signedIn.treasurer, row, { status: 'reimbursed' }, 'P0001');
       assert.equal(ok(await signedIn.treasurer.from('budget_transactions').update({ status: 'voided', void_reason: 'Duplicate card charge entry' }).eq('id', row.id).select('*').single()).status, 'voided');
     });
     await t.test('deleting a budget account or cycle cannot cascade away financial history', async () => {
