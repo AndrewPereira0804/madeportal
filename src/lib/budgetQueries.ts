@@ -46,6 +46,7 @@ const validTransactionStatuses = new Set<BudgetTransactionStatus>([
   "approved",
   "denied",
   "reimbursed",
+  "voided",
 ]);
 
 function toStringOrNull(value: unknown) {
@@ -160,6 +161,10 @@ function normalizeBudgetTransaction(row: RawRow): BudgetTransaction {
     approved_at: toStringOrNull(row.approved_at),
     denial_reason: toStringOrNull(row.denial_reason),
     created_at: toStringOrNull(row.created_at),
+    updated_at: toRequiredString(row.updated_at),
+    voided_by: toStringOrNull(row.voided_by),
+    voided_at: toStringOrNull(row.voided_at),
+    void_reason: toStringOrNull(row.void_reason),
   };
 }
 
@@ -185,7 +190,7 @@ export async function getAllBudgetCycles() {
     .order("start_date", { ascending: false });
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   return ((data ?? []) as RawRow[]).map(normalizeBudgetCycle);
@@ -195,7 +200,7 @@ export async function getActiveBudgetCycle() {
   const { data, error } = await supabase.from("budget_cycles").select("*");
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   return chooseActiveBudgetCycle(((data ?? []) as RawRow[]).map(normalizeBudgetCycle));
@@ -215,7 +220,7 @@ export async function createBudgetCycle(input: CreateBudgetCycleInput) {
     .single();
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   const cycle = normalizeBudgetCycle(data as RawRow);
@@ -259,7 +264,7 @@ export async function getBudgetAccountsForCycle(cycleId: string) {
     .order("role_slug", { ascending: true });
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   return ((data ?? []) as RawRow[]).map(normalizeBudgetAccount);
@@ -273,14 +278,14 @@ export async function getTransactionsForAccounts(accountIds: string[]) {
   const { data, error } = await supabase
     .from("budget_transactions")
     .select(
-      "id, budget_account_id, submitted_by, amount, vendor, category, description, transaction_date, status, is_house_card, receipt_url, approved_by, approved_at, denial_reason, created_at"
+      "id, budget_account_id, submitted_by, amount, vendor, category, description, transaction_date, status, is_house_card, receipt_url, approved_by, approved_at, denial_reason, created_at, updated_at, voided_by, voided_at, void_reason"
     )
     .in("budget_account_id", accountIds)
     .order("transaction_date", { ascending: false })
     .order("created_at", { ascending: false });
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   return ((data ?? []) as RawRow[]).map(normalizeBudgetTransaction);
@@ -294,7 +299,7 @@ export async function getBudgetAccount(accountId: string) {
     .maybeSingle();
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   return data ? normalizeBudgetAccount(data as RawRow) : null;
@@ -308,7 +313,7 @@ export async function getRoles() {
   const { data, error } = await supabase.from("roles").select("slug,name").order("name", { ascending: true });
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   return ((data ?? []) as RawRow[]).map(normalizeBudgetRole);
@@ -326,7 +331,7 @@ export async function getBudgetTransactionsByStatus(statuses: BudgetTransactionS
     const { data, error } = await supabase
       .from("budget_transactions")
       .select(
-        "id, budget_account_id, submitted_by, amount, vendor, category, description, transaction_date, status, is_house_card, receipt_url, approved_by, approved_at, denial_reason, created_at"
+        "id, budget_account_id, submitted_by, amount, vendor, category, description, transaction_date, status, is_house_card, receipt_url, approved_by, approved_at, denial_reason, created_at, updated_at, voided_by, voided_at, void_reason"
       )
       .in("status", statuses)
       .order("created_at", { ascending: false })
@@ -334,7 +339,7 @@ export async function getBudgetTransactionsByStatus(statuses: BudgetTransactionS
       .range(offset, offset + pageSize - 1);
 
     if (error) {
-      throw error;
+      throw new Error(error.message);
     }
 
     const rows = (data ?? []) as RawRow[];
@@ -357,7 +362,7 @@ export async function getBudgetAccountsByIds(accountIds: string[]) {
     .order("role_slug", { ascending: true });
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   return ((data ?? []) as RawRow[]).map(normalizeBudgetAccount);
@@ -374,7 +379,7 @@ export async function getSubmitterProfilesByIds(userIds: string[]) {
     .in("user_id", userIds);
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   return ((data ?? []) as RawRow[]).map(normalizeSubmitterProfile);
@@ -394,7 +399,7 @@ export async function submitBudgetTransaction(input: SubmittedBudgetTransactionI
   });
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 }
 
@@ -412,7 +417,7 @@ export async function createBudgetAccount(input: CreateBudgetAccountInput) {
     .single();
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   return normalizeBudgetAccount(data as RawRow);
@@ -431,7 +436,7 @@ export async function updateBudgetAccount(accountId: string, input: UpdateBudget
     .eq("id", accountId);
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   if (count === 0) {
@@ -446,7 +451,8 @@ export async function deleteBudgetAccount(accountId: string) {
     .eq("id", accountId);
 
   if (error) {
-    throw error;
+    if (error.code === "23503") throw new Error("This account contains expenses. Remove submitted expenses first; accounts with retained expense history cannot be deleted.");
+    throw new Error(error.message);
   }
 
   if (count === 0) {
@@ -455,18 +461,19 @@ export async function deleteBudgetAccount(accountId: string) {
 }
 
 async function updateBudgetTransactionStatus(
-  transactionId: string,
-  payload: Partial<Pick<BudgetTransaction, "status" | "approved_by" | "approved_at" | "denial_reason">>,
+  transaction: BudgetTransaction,
+  payload: Partial<Pick<BudgetTransaction, "status" | "void_reason">>,
   currentStatus: BudgetTransactionStatus
 ) {
   const { count, error } = await supabase
     .from("budget_transactions")
     .update(payload, { count: "exact" })
-    .eq("id", transactionId)
-    .eq("status", currentStatus);
+    .eq("id", transaction.id)
+    .eq("status", currentStatus)
+    .eq("updated_at", transaction.updated_at);
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   if (count === 0) {
@@ -474,28 +481,26 @@ async function updateBudgetTransactionStatus(
   }
 }
 
-export async function approveBudgetTransaction(transactionId: string, approverId: string) {
+export async function approveBudgetTransaction(transaction: BudgetTransaction) {
   await updateBudgetTransactionStatus(
-    transactionId,
+    transaction,
     {
       status: "approved",
-      approved_by: approverId,
-      approved_at: new Date().toISOString(),
-      denial_reason: null,
     },
     "submitted"
   );
 }
 
-export async function denyBudgetTransaction(transactionId: string) {
+export async function denyBudgetTransaction(transaction: BudgetTransaction) {
   const { count, error } = await supabase
     .from("budget_transactions")
     .delete({ count: "exact" })
-    .eq("id", transactionId)
-    .eq("status", "submitted");
+    .eq("id", transaction.id)
+    .eq("status", "submitted")
+    .eq("updated_at", transaction.updated_at);
 
   if (error) {
-    throw error;
+    throw new Error(error.message);
   }
 
   if (count === 0) {
@@ -503,6 +508,22 @@ export async function denyBudgetTransaction(transactionId: string) {
   }
 }
 
-export async function markBudgetTransactionReimbursed(transactionId: string) {
-  await updateBudgetTransactionStatus(transactionId, { status: "reimbursed" }, "approved");
+export async function markBudgetTransactionReimbursed(transaction: BudgetTransaction) {
+  await updateBudgetTransactionStatus(transaction, { status: "reimbursed" }, "approved");
+}
+
+export async function voidBudgetTransaction(transaction: BudgetTransaction, reason: string) {
+  if (!reason.trim()) throw new Error("A reason is required to void an expense.");
+  await updateBudgetTransactionStatus(transaction, { status: "voided", void_reason: reason.trim() }, "approved");
+}
+
+export async function editSubmittedBudgetTransaction(
+  transaction: BudgetTransaction,
+  input: Omit<SubmittedBudgetTransactionInput, "budget_account_id" | "submitted_by">
+) {
+  const { count, error } = await supabase.from("budget_transactions")
+    .update(input, { count: "exact" }).eq("id", transaction.id)
+    .eq("status", "submitted").eq("updated_at", transaction.updated_at);
+  if (error) throw new Error(error.message);
+  if (count === 0) throw new Error("This expense changed or was approved. Refresh before editing it.");
 }

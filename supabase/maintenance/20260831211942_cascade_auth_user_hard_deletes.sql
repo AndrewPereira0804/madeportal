@@ -1,3 +1,9 @@
+-- ARCHIVED ONE-TIME CLEANUP: excluded from the active migration sequence.
+-- Retained only as a record of the pre-launch cleanup approach. Do not run on
+-- production or use for routine offboarding; it can erase financial/audit history.
+-- Neither hosted environment recorded this migration as applied at the
+-- 2026-10-20 review. Ongoing schema changes preserve their existing history rules.
+--
 -- Make hard-deleting a Supabase Auth user fully destructive for test-account
 -- cleanup. Normal member removal should continue to use profiles.status =
 -- 'suspended', which removes role access while preserving chapter history.

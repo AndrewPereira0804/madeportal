@@ -4676,3 +4676,16 @@ button:disabled {
     transform: none !important;
   }
 }
+/* Expense review uses an accessible modal, with the reviewed version held fixed. */
+.expense-decision-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  padding: 0;
+  border: 0;
+  border-radius: 1rem;
+  background: transparent;
+}
+.expense-decision-dialog::backdrop { background: rgb(0 0 0 / 60%); }

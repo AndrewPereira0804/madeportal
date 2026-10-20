@@ -34,7 +34,7 @@ const budgetTools = [
   {
     path: "history",
     title: "Expense history",
-    description: "View approved expenses, House Card purchases, and reimbursements from every budget cycle.",
+    description: "View approved, reimbursed, and voided expenses from every budget cycle.",
     meta: "Records",
   },
   {

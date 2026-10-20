@@ -6,6 +6,7 @@ const statusLabels: Record<BudgetTransactionStatus, string> = {
   approved: "Approved",
   denied: "Denied",
   reimbursed: "Reimbursed",
+  voided: "Voided",
 };
 
 const statusVariants: Record<
@@ -16,6 +17,7 @@ const statusVariants: Record<
   approved: "info",
   denied: "danger",
   reimbursed: "success",
+  voided: "danger",
 };
 
 export default function BudgetStatusBadge({ status }: { status: BudgetTransactionStatus }) {

@@ -1,0 +1,3 @@
+{
+  "20260823185114_add_announcement_replies_to_demo.sql": "Demo's alternative rollout duplicates the earlier announcement reply table, policies, counts, function, and trigger. Retain the original historical file, but replay the earlier canonical migrations locally. The final grants migration sets production permissions."
+}

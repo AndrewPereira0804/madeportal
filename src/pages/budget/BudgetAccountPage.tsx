@@ -6,12 +6,13 @@ import {
   canManageBudgets,
 } from "../../auth/roleAccess";
 import useRoles from "../../auth/useRoles";
+import { useAuth } from "../../auth/authContext";
 import BudgetSummaryCards from "../../components/budget/BudgetSummaryCards";
 import BudgetTransactionTable from "../../components/budget/BudgetTransactionTable";
 import SubmitExpenseForm from "../../components/budget/SubmitExpenseForm";
 import { Button, Card, EmptyState, PageHeader, SectionHeader } from "../../components/ui";
 import { calculateBudgetSummary, type BudgetAccount, type BudgetTransaction } from "../../lib/budget";
-import { getBudgetAccount, getTransactionsForAccount } from "../../lib/budgetQueries";
+import { denyBudgetTransaction, getBudgetAccount, getTransactionsForAccount } from "../../lib/budgetQueries";
 
 type BudgetAccountPageProps = {
   accountIdOverride?: string;
@@ -26,6 +27,10 @@ export default function BudgetAccountPage({
 }: BudgetAccountPageProps = {}) {
   const { accountId: routeAccountId } = useParams<{ accountId: string }>();
   const accountId = accountIdOverride ?? routeAccountId;
+  const { session } = useAuth();
+  const [editingExpense, setEditingExpense] = useState<BudgetTransaction | null>(null);
+  const [savingExpense, setSavingExpense] = useState(false);
+  const [expenseError, setExpenseError] = useState<string | null>(null);
   const { roles, loading: rolesLoading } = useRoles();
   const [account, setAccount] = useState<BudgetAccount | null>(null);
   const [transactions, setTransactions] = useState<BudgetTransaction[]>([]);
@@ -99,6 +104,15 @@ export default function BudgetAccountPage({
   );
   const hasBudgetAdminAccess = canManageBudgets(roles);
 
+  async function deleteExpense(transaction: BudgetTransaction) {
+    if (!window.confirm(`Delete this submitted expense for ${transaction.vendor ?? "this vendor"}?`)) return;
+    setSavingExpense(true);
+    setExpenseError(null);
+    try { await denyBudgetTransaction(transaction); await refreshTransactions(); }
+    catch (error) { setExpenseError(error instanceof Error ? error.message : "Could not delete expense."); }
+    finally { setSavingExpense(false); }
+  }
+
   if (!rolesLoading && !canAccessBudgets(roles)) {
     return <Navigate to="/app" replace />;
   }
@@ -117,7 +131,7 @@ export default function BudgetAccountPage({
       <PageHeader
         eyebrow={eyebrow}
         title={account ? account.role_slug : "Budget account"}
-        subtitle={account?.notes ?? "Read-only account details and transaction activity."}
+        subtitle={account?.notes ?? "Account details and expense history."}
         bordered
         actions={<Button to={returnPath} variant="outline-secondary">Back</Button>}
       />
@@ -130,6 +144,7 @@ export default function BudgetAccountPage({
       )}
 
       {errorMessage && <div className="accounts-alert budget-alert">{errorMessage}</div>}
+      {expenseError && <div className="accounts-alert budget-alert">{expenseError}</div>}
 
       {!loading && !errorMessage && !account && (
         <EmptyState
@@ -142,14 +157,20 @@ export default function BudgetAccountPage({
         <>
           <BudgetSummaryCards summary={summary} />
 
-          <SubmitExpenseForm budgetAccountId={account.id} onSubmitted={refreshTransactions} />
+          <SubmitExpenseForm
+            key={editingExpense ? `${editingExpense.id}-${editingExpense.updated_at}` : "new"}
+            budgetAccountId={account.id} expense={editingExpense ?? undefined}
+            onCancel={editingExpense ? () => setEditingExpense(null) : undefined}
+            onSubmitted={async () => { await refreshTransactions(); setEditingExpense(null); }}
+          />
 
           <SectionHeader
             title="Transactions"
             description={`Showing ${transactions.length} transaction${transactions.length === 1 ? "" : "s"} returned by Supabase.`}
           />
 
-          <BudgetTransactionTable transactions={transactions} />
+          <BudgetTransactionTable transactions={transactions} currentUserId={session?.user.id}
+            canManage={hasBudgetAdminAccess} saving={savingExpense} onEdit={setEditingExpense} onDelete={deleteExpense} />
         </>
       )}
     </Card>

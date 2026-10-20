@@ -31,3 +31,6 @@ dist-ssr
 
 # Markdowns
 *.md
+
+# Disposable local integration-test workspace, generated credentials and manifests
+.test-env/

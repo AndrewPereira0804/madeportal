@@ -7,7 +7,15 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:env:start": "node scripts/test-env.mjs start",
+    "test:env:reset": "node scripts/test-env.mjs reset",
+    "test:env:stop": "node scripts/test-env.mjs stop",
+    "test:env:status": "node scripts/test-env.mjs status",
+    "test:env:verify": "node scripts/test-env.mjs verify",
+    "dev:test": "node scripts/test-env.mjs app",
+    "test:env:guards": "node --test scripts/test-env-guard.test.mjs",
+    "test:rls": "node --test testing/rls/*.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.111.0",

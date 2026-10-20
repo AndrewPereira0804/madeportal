@@ -65,6 +65,7 @@ const ROLE_SEEDS: RoleSeed[] = [
   { slug: "philo-chair", name: "Philanthropy Chairman" },
   { slug: "alumni-chair", name: "Alumni Chairman" },
   { slug: "rush-chair", name: "Rush Chairman" },
+  { slug: "pr", name: "PR Chairman" },
   { slug: "scholarship", name: "Scholarship Chairman" },
   { slug: "prof-dev", name: "Professional Development Chairman" },
   { slug: "chapter-dev", name: "Chapter Development" },

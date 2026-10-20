@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useAuth } from "../../auth/authContext";
-import { submitBudgetTransaction } from "../../lib/budgetQueries";
+import { editSubmittedBudgetTransaction, submitBudgetTransaction } from "../../lib/budgetQueries";
+import type { BudgetTransaction } from "../../lib/budget";
 import { Button, Card, Input, SectionHeader, Select, Textarea } from "../ui";
 
 const categories = [
@@ -18,6 +19,8 @@ const categories = [
 type SubmitExpenseFormProps = {
   budgetAccountId: string;
   onSubmitted: () => Promise<void>;
+  expense?: BudgetTransaction;
+  onCancel?: () => void;
 };
 
 type ExpenseDraft = {
@@ -65,9 +68,12 @@ function validateDraft(draft: ExpenseDraft) {
   return null;
 }
 
-export default function SubmitExpenseForm({ budgetAccountId, onSubmitted }: SubmitExpenseFormProps) {
+export default function SubmitExpenseForm({ budgetAccountId, onSubmitted, expense, onCancel }: SubmitExpenseFormProps) {
   const { session } = useAuth();
-  const [draft, setDraft] = useState<ExpenseDraft>(emptyDraft);
+  const [draft, setDraft] = useState<ExpenseDraft>(() => expense ? {
+    amount: String(expense.amount), vendor: expense.vendor ?? "", category: expense.category ?? "",
+    description: expense.description ?? "", transactionDate: expense.transaction_date ?? "", isHouseCard: expense.is_house_card,
+  } : emptyDraft);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -94,31 +100,31 @@ export default function SubmitExpenseForm({ budgetAccountId, onSubmitted }: Subm
     setSuccessMessage(null);
 
     try {
-      await submitBudgetTransaction({
-        budget_account_id: budgetAccountId,
-        submitted_by: userId,
+      const details = {
         amount: Number(draft.amount),
         vendor: toNullableText(draft.vendor),
         category: draft.category,
         description: draft.description.trim(),
         transaction_date: draft.transactionDate,
         is_house_card: draft.isHouseCard,
-      });
+      };
+      if (expense) await editSubmittedBudgetTransaction(expense, details);
+      else await submitBudgetTransaction({ ...details, budget_account_id: budgetAccountId, submitted_by: userId });
     } catch (error) {
       const message = error instanceof Error ? error.message : "An unexpected error occurred.";
-      setErrorMessage(`Could not submit expense: ${message}`);
+      setErrorMessage(`Could not save expense: ${message}`);
       setSaving(false);
       return;
     }
 
-    setDraft(emptyDraft);
-    setSuccessMessage("Expense submitted for review.");
+    if (!expense) setDraft(emptyDraft);
+    setSuccessMessage(expense ? "Expense updated." : "Expense submitted for review.");
 
     try {
       await onSubmitted();
     } catch (error) {
       const message = error instanceof Error ? error.message : "An unexpected error occurred.";
-      setErrorMessage(`Expense was submitted, but transactions could not be refreshed: ${message}`);
+      setErrorMessage(`Expense was saved, but transactions could not be refreshed: ${message}`);
     } finally {
       setSaving(false);
     }
@@ -129,8 +135,8 @@ export default function SubmitExpenseForm({ budgetAccountId, onSubmitted }: Subm
       <form className="budget-submit-form" onSubmit={handleSubmit}>
         <SectionHeader
           size="sm"
-          title="Submit expense"
-          description="Expenses are submitted for review before they count as approved."
+          title={expense ? "Edit submitted expense" : "Submit expense"}
+          description="Submitted expenses can be edited or deleted. Approval locks the details."
         />
 
         {errorMessage && <div className="alert alert-danger mb-0">{errorMessage}</div>}
@@ -211,8 +217,9 @@ export default function SubmitExpenseForm({ budgetAccountId, onSubmitted }: Subm
         </div>
 
         <Button type="submit" loading={saving}>
-          {saving ? "Submitting..." : "Submit expense"}
+          {saving ? "Saving..." : expense ? "Save changes" : "Submit expense"}
         </Button>
+        {onCancel && <Button type="button" variant="outline-secondary" disabled={saving} onClick={onCancel}>Cancel</Button>}
       </form>
     </Card>
   );

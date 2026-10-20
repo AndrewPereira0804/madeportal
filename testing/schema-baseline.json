@@ -1,0 +1,45 @@
+{
+  "source": "Reviewed production catalog (2026-10-20) plus the reviewed local 20261020200556 expense lifecycle migration. That migration is not yet deployed to hosted projects. Platform extensions, schema ACLs, and default privileges are excluded.",
+  "objects": {
+    "column": {
+      "count": 121,
+      "sha256": "036d34ee93cd2a3d3506853ba1527592c218fad99c6ba5e37cc095e057993ead"
+    },
+    "column_grant": {
+      "count": 1228,
+      "sha256": "8e65ace626391bc6f40dcf8c272e97288ef750dfa6653145a8735b7a71fe19a5"
+    },
+    "constraint": {
+      "count": 75,
+      "sha256": "6a4151950270fda9430dc25eb008913f52fa096b5e2b8989c308db8acad72d50"
+    },
+    "enum": {
+      "count": 1,
+      "sha256": "5e24f98c20ae3e0c04844fd08fcc354960b5de77a8f7e323c5c34fd79f74b3c4"
+    },
+    "function": {
+      "count": 45,
+      "sha256": "a64d1fd371c70d378ff397c11c2b7f0e9f6c3a402b5bbd975863b4e44115e3fc"
+    },
+    "index": {
+      "count": 33,
+      "sha256": "c98c37a87514995f39761f535848edb1f85f409070132c2c2e5ae2cc405c880c"
+    },
+    "policy": {
+      "count": 58,
+      "sha256": "5f661d8ff93302b2f494f03f111ae6bb7046120c62a5a71565b3dd036425276d"
+    },
+    "relation": {
+      "count": 21,
+      "sha256": "1136256b35b28f4618f89d33475a2561d7521a9452b90d06ab916a82bd169b4f"
+    },
+    "table_grant": {
+      "count": 291,
+      "sha256": "e3b8c1e3e153f6318b43d1d735df32ad3def9e19fe0b198d4980352da497f08c"
+    },
+    "trigger": {
+      "count": 13,
+      "sha256": "f17bfc5488706e2a5c1d6cbb71fc9cf61367d7baf3e2c8c986b8309714e13bad"
+    }
+  }
+}

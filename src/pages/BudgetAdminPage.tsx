@@ -5,6 +5,8 @@ import { canManageBudgets } from "../auth/roleAccess";
 import { useAuth } from "../auth/authContext";
 import useRoles from "../auth/useRoles";
 import BudgetStatusBadge from "../components/budget/BudgetStatusBadge";
+import SubmitExpenseForm from "../components/budget/SubmitExpenseForm";
+import ExpenseDecisionDialog from "../components/budget/ExpenseDecisionDialog";
 import {
   Badge,
   Button,
@@ -48,6 +50,7 @@ import {
   setActiveBudgetCycle,
   type BudgetSubmitterProfile,
   updateBudgetAccount,
+  voidBudgetTransaction,
 } from "../lib/budgetQueries";
 
 type BudgetAdminRow = {
@@ -55,6 +58,7 @@ type BudgetAdminRow = {
   account: BudgetAccount | null;
   cycle: BudgetCycle | null;
   submitter: BudgetSubmitterProfile | null;
+  voider: BudgetSubmitterProfile | null;
 };
 
 type CycleDraft = {
@@ -109,7 +113,7 @@ function formatDate(value: string | null, includeTime = false) {
     return "No date";
   }
 
-  const date = new Date(value);
+  const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value);
   if (!Number.isFinite(date.getTime())) {
     return value;
   }
@@ -201,7 +205,7 @@ function getModeHeader(mode: BudgetAdminMode) {
     case "history":
       return {
         title: "Expense History",
-        subtitle: "Review approved expenses from every budget cycle, including House Card purchases and reimbursements.",
+        subtitle: "Review approved, reimbursed, and voided expenses from every budget cycle.",
       };
     case "cycles":
       return {
@@ -242,6 +246,8 @@ export default function BudgetAdminPage({
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [editingExpense, setEditingExpense] = useState<BudgetTransaction | null>(null);
+  const [expenseDecision, setExpenseDecision] = useState<{ action: "approve" | "void"; transaction: BudgetTransaction } | null>(null);
 
   const hasBudgetAccess = canManageBudgets(userRoles);
   const activeCycle = cycles.find((cycle) => cycle.is_active) ?? null;
@@ -260,7 +266,7 @@ export default function BudgetAdminPage({
     try {
       const [requestTransactions, historyTransactions, nextCycles, nextRoles] = await Promise.all([
         getBudgetTransactionsByStatus(["submitted", "approved"]),
-        showHistory ? getBudgetTransactionsByStatus(["approved", "reimbursed"]) : Promise.resolve([]),
+        showHistory ? getBudgetTransactionsByStatus(["approved", "reimbursed", "voided"]) : Promise.resolve([]),
         getAllBudgetCycles(),
         getRoles(),
       ]);
@@ -270,7 +276,7 @@ export default function BudgetAdminPage({
       const nextActiveAccounts = active ? await getBudgetAccountsForCycle(active.id) : [];
       const [requestAccounts, submitters, nextAccountTransactions] = await Promise.all([
         getBudgetAccountsByIds(uniqueStrings(visibleTransactions.map((transaction) => transaction.budget_account_id))),
-        getSubmitterProfilesByIds(uniqueStrings(visibleTransactions.map((transaction) => transaction.submitted_by))),
+        getSubmitterProfilesByIds(uniqueStrings(visibleTransactions.flatMap((transaction) => [transaction.submitted_by, transaction.voided_by]))),
         getTransactionsForAccounts(nextActiveAccounts.map((account) => account.id)),
       ]);
 
@@ -284,6 +290,7 @@ export default function BudgetAdminPage({
           account,
           cycle: account ? cyclesById.get(account.cycle_id) ?? null : null,
           submitter: transaction.submitted_by ? submittersById.get(transaction.submitted_by) ?? null : null,
+          voider: transaction.voided_by ? submittersById.get(transaction.voided_by) ?? null : null,
         };
       };
       const rows = requestTransactions.map(toAdminRow);
@@ -349,21 +356,17 @@ export default function BudgetAdminPage({
     }
   }
 
-  function approveRequest(transactionId: string) {
+  function approveRequest(transaction: BudgetTransaction) {
     const userId = session?.user?.id;
     if (!userId) {
       setErrorMessage("You must be signed in to approve a request.");
       return;
     }
 
-    void runAction(
-      `approve-${transactionId}`,
-      () => approveBudgetTransaction(transactionId, userId),
-      "Expense request approved."
-    );
+    setExpenseDecision({ action: "approve", transaction });
   }
 
-  function denyRequest(transactionId: string) {
+  function denyRequest(transaction: BudgetTransaction) {
     const userId = session?.user?.id;
     if (!userId) {
       setErrorMessage("You must be signed in to deny a request.");
@@ -375,18 +378,31 @@ export default function BudgetAdminPage({
     }
 
     void runAction(
-      `deny-${transactionId}`,
-      () => denyBudgetTransaction(transactionId),
+      `deny-${transaction.id}`,
+      () => denyBudgetTransaction(transaction),
       "Expense request denied and removed."
     );
   }
 
-  function markReimbursed(transactionId: string) {
+  function markReimbursed(transaction: BudgetTransaction) {
     void runAction(
-      `reimburse-${transactionId}`,
-      () => markBudgetTransactionReimbursed(transactionId),
+      `reimburse-${transaction.id}`,
+      () => markBudgetTransactionReimbursed(transaction),
       "Expense marked reimbursed."
     );
+  }
+
+  function voidExpense(transaction: BudgetTransaction) {
+    setExpenseDecision({ action: "void", transaction });
+  }
+
+  function confirmExpenseDecision(reason: string) {
+    if (!expenseDecision) return;
+    const { action, transaction } = expenseDecision;
+    setExpenseDecision(null);
+    void runAction(`${action}-${transaction.id}`,
+      () => action === "approve" ? approveBudgetTransaction(transaction) : voidBudgetTransaction(transaction, reason),
+      action === "approve" ? "Expense request approved." : "Expense voided and retained in history.");
   }
 
   function handleCreateCycle() {
@@ -564,12 +580,20 @@ export default function BudgetAdminPage({
 
       {errorMessage && <div className="alert alert-danger budget-alert">{errorMessage}</div>}
       {successMessage && <div className="alert alert-success budget-alert">{successMessage}</div>}
+      {expenseDecision && <ExpenseDecisionDialog key={`${expenseDecision.action}-${expenseDecision.transaction.id}`}
+        transaction={expenseDecision.transaction} action={expenseDecision.action}
+        onCancel={() => setExpenseDecision(null)} onConfirm={confirmExpenseDecision} />}
 
       {showMetrics && (
         <BudgetAdminMetrics pendingCount={pendingRows.length} pendingTotal={totals.pending} approvedCount={approvedRows.length} approvedTotal={totals.approved} />
       )}
 
       {showRequestReview && (
+        <>
+        {editingExpense && <SubmitExpenseForm key={`${editingExpense.id}-${editingExpense.updated_at}`}
+          budgetAccountId={editingExpense.budget_account_id} expense={editingExpense}
+          onCancel={() => setEditingExpense(null)}
+          onSubmitted={async () => { await loadAdminData(); setEditingExpense(null); }} />}
         <BudgetRequestSection
           title="Pending Requests"
           emptyText="No pending requests."
@@ -578,12 +602,13 @@ export default function BudgetAdminPage({
           savingKey={savingKey}
           actions={(transaction) => (
             <>
+              <Button size="sm" variant="outline-secondary" disabled={savingKey !== null || editingExpense !== null} onClick={() => setEditingExpense(transaction)}>Edit</Button>
               <Button
                 type="button"
                 size="sm"
                 loading={savingKey === `approve-${transaction.id}`}
-                disabled={savingKey === `approve-${transaction.id}`}
-                onClick={() => approveRequest(transaction.id)}
+                disabled={savingKey !== null || editingExpense !== null}
+                onClick={() => approveRequest(transaction)}
               >
                 Approve
               </Button>
@@ -592,14 +617,15 @@ export default function BudgetAdminPage({
                 size="sm"
                 variant="danger"
                 loading={savingKey === `deny-${transaction.id}`}
-                disabled={savingKey === `deny-${transaction.id}`}
-                onClick={() => denyRequest(transaction.id)}
+                disabled={savingKey !== null || editingExpense !== null}
+                onClick={() => denyRequest(transaction)}
               >
                 Deny
               </Button>
             </>
           )}
         />
+        </>
       )}
 
       {showReimbursements && (
@@ -614,8 +640,8 @@ export default function BudgetAdminPage({
               type="button"
               size="sm"
               loading={savingKey === `reimburse-${transaction.id}`}
-              disabled={savingKey === `reimburse-${transaction.id}`}
-              onClick={() => markReimbursed(transaction.id)}
+              disabled={savingKey !== null}
+              onClick={() => markReimbursed(transaction)}
             >
               Mark Reimbursed
             </Button>
@@ -626,11 +652,13 @@ export default function BudgetAdminPage({
       {showHistory && (
         <BudgetRequestSection
           title="Saved Expenses"
-          description="Approved expenses stay in history before and after reimbursement. House Card purchases are included; denied requests are removed."
+          description="Approved and voided expenses stay in history. Voids do not count toward spending. Reimbursed expenses are locked."
           emptyText="No approved expenses yet."
           rows={historyRows}
           roles={roles}
           savingKey={savingKey}
+          actions={(transaction) => transaction.status === "approved" ?
+            <Button size="sm" variant="danger" disabled={savingKey !== null} loading={savingKey === `void-${transaction.id}`} onClick={() => voidExpense(transaction)}>Void expense</Button> : null}
         />
       )}
 
@@ -726,7 +754,7 @@ function BudgetRequestSection({
         <EmptyState compact title={emptyText} />
       ) : (
         <div className="budget-admin-list">
-          {rows.map(({ transaction, account, cycle, submitter }) => (
+          {rows.map(({ transaction, account, cycle, submitter, voider }) => (
             <Card
               key={transaction.id}
               variant="flat"
@@ -749,7 +777,9 @@ function BudgetRequestSection({
                   <dd>
                     {transaction.is_house_card
                       ? "House Card — no reimbursement"
-                      : transaction.status === "reimbursed"
+                      : transaction.status === "voided"
+                        ? "Personal — voided"
+                        : transaction.status === "reimbursed"
                         ? "Personal — reimbursed"
                         : "Personal — reimbursement requested"}
                   </dd>
@@ -783,6 +813,10 @@ function BudgetRequestSection({
                   <dd>{transaction.description ?? "No description provided."}</dd>
                 </div>
               </dl>
+
+              {transaction.void_reason && <div className="alert alert-secondary mb-0">
+                Voided {formatDate(transaction.voided_at, true)} by {voider?.name ?? voider?.email ?? "a budget manager"}: {transaction.void_reason}
+              </div>}
 
               {actions && (
                 <div className="budget-request-actions">

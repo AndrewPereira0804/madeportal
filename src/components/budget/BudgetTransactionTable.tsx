@@ -1,6 +1,7 @@
 import { formatMoney, type BudgetTransaction } from "../../lib/budget";
 import {
   EmptyState,
+  Button,
   Table,
   TableBody,
   TableCell,
@@ -12,6 +13,11 @@ import BudgetStatusBadge from "./BudgetStatusBadge";
 
 type BudgetTransactionTableProps = {
   transactions: BudgetTransaction[];
+  onEdit?: (transaction: BudgetTransaction) => void;
+  onDelete?: (transaction: BudgetTransaction) => void;
+  currentUserId?: string;
+  canManage?: boolean;
+  saving?: boolean;
 };
 
 function formatTransactionDate(value: string | null) {
@@ -19,7 +25,7 @@ function formatTransactionDate(value: string | null) {
     return "No date";
   }
 
-  const date = new Date(value);
+  const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value);
   if (!Number.isFinite(date.getTime())) {
     return value;
   }
@@ -31,7 +37,7 @@ function formatTransactionDate(value: string | null) {
   });
 }
 
-export default function BudgetTransactionTable({ transactions }: BudgetTransactionTableProps) {
+export default function BudgetTransactionTable({ transactions, onEdit, onDelete, currentUserId, canManage, saving }: BudgetTransactionTableProps) {
   if (transactions.length === 0) {
     return (
       <EmptyState
@@ -52,6 +58,7 @@ export default function BudgetTransactionTable({ transactions }: BudgetTransacti
           <TableHeaderCell>Description</TableHeaderCell>
           <TableHeaderCell>Amount</TableHeaderCell>
           <TableHeaderCell>Status</TableHeaderCell>
+          {(onEdit || onDelete) && <TableHeaderCell>Actions</TableHeaderCell>}
         </TableRow>
       </TableHead>
       <TableBody>
@@ -68,6 +75,7 @@ export default function BudgetTransactionTable({ transactions }: BudgetTransacti
               {transaction.denial_reason && (
                 <div className="budget-table-meta">Denial reason: {transaction.denial_reason}</div>
               )}
+              {transaction.void_reason && <div className="budget-table-meta">Voided: {transaction.void_reason}</div>}
             </TableCell>
             <TableCell className="budget-transaction-amount">{formatMoney(transaction.amount)}</TableCell>
             <TableCell>
@@ -76,6 +84,12 @@ export default function BudgetTransactionTable({ transactions }: BudgetTransacti
                 <div className="budget-table-meta">House Card — no reimbursement</div>
               )}
             </TableCell>
+            {(onEdit || onDelete) && <TableCell>
+              {transaction.status === "submitted" && (canManage || transaction.submitted_by === currentUserId) && <>
+                {onEdit && <Button size="sm" variant="outline-secondary" disabled={saving} onClick={() => onEdit(transaction)}>Edit</Button>}
+                {onDelete && <Button size="sm" variant="danger" disabled={saving} onClick={() => onDelete(transaction)}>Delete</Button>}
+              </>}
+            </TableCell>}
           </TableRow>
         ))}
       </TableBody>

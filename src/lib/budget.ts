@@ -1,4 +1,4 @@
-export type BudgetTransactionStatus = "submitted" | "approved" | "denied" | "reimbursed";
+export type BudgetTransactionStatus = "submitted" | "approved" | "denied" | "reimbursed" | "voided";
 
 export type BudgetCycle = {
   id: string;
@@ -38,6 +38,10 @@ export type BudgetTransaction = {
   approved_at: string | null;
   denial_reason: string | null;
   created_at: string | null;
+  updated_at: string;
+  voided_by: string | null;
+  voided_at: string | null;
+  void_reason: string | null;
 };
 
 export type BudgetSummary = {
