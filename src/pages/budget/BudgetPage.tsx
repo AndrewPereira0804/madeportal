@@ -89,9 +89,6 @@ export default function BudgetPage({
     }
 
     if (rolesLoading || !canAccessBudgets(roles)) {
-      if (!rolesLoading) {
-        setLoading(false);
-      }
       return;
     }
 

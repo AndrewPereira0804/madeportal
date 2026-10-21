@@ -129,11 +129,12 @@ app on dedicated port 5175. Keep that port free; another server is never reused.
 It does not stop the retained local database after testing. Use test:env:stop
 when finished. Do not run RLS tests or modify local fixtures during browser tests.
 
-The 15 initial Chromium tests cover protected navigation, failed login,
+The 16 Chromium tests cover protected navigation, failed login,
 login/reload/logout, pending/suspended screens, management and budget access,
 submitted-expense creation/edit/delete/validation, approval confirmation and
 cancellation, retained voids and budget totals, locked reimbursements, House Card
-requests, stale approval after a real browser edit, and the mobile approval popup.
+requests, stale approval after a real browser edit, the mobile approval popup,
+and published wait-on week selection, browser history, and reload.
 Every test gets a fresh browser context. Expense records have unique vendor tags
 and are removed in fixture teardown, including after assertion failures. Global
 teardown verifies the reviewed schema and all fixture counts/statuses/roles.
@@ -153,14 +154,13 @@ In UI mode, stopping the runner before teardown finishes can leave test data;
 use test:env:reset to recover if fixture verification reports leftovers.
 
 GITHUB ACTIONS
-The installer-generated .github/workflows/playwright.yml now runs type checks,
-the app build, local test safeguards, the RLS suite, fixture verification, and
+The .github/workflows/playwright.yml workflow runs type checks, full-repository
+lint, the app build, local test safeguards, the RLS suite, fixture verification, and
 the Playwright suite on pushes/PRs to main or manual dispatch. The Ubuntu runner
 uses its own disposable Docker database; no hosted Supabase secrets are required.
 It uploads browser reports/failure artifacts for 7 days and stops its local stack.
-The workflow has not been exercised on GitHub until these files are pushed.
-Full-repository lint is not yet a CI gate because of the previously identified
-React effect lint failures. Required branch checks and deployment gates remain
+The existing workflow has passed on GitHub; the full-repository lint gate takes
+effect when this update is pushed. Required branch checks and deployment gates remain
 separate repository/hosting settings; this workflow does not deploy anything.
 
 These suites do not yet test Storage, Realtime, Auth configuration, server API

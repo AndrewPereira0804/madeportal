@@ -24,8 +24,8 @@ jobs:
       run: npm ci
     - name: Check browser test types
       run: npm run test:e2e:types
-    - name: Lint browser tests
-      run: npx eslint playwright.config.ts tests/e2e/*.ts
+    - name: Lint
+      run: npm run lint
     - name: Build app
       run: npm run build
     - name: Install Chromium

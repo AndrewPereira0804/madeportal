@@ -125,7 +125,6 @@ export default function StewardWaitOnTool({ ownerLabel, returnPath }: StewardWai
     }
 
     if (!canManage) {
-      setLoading(false);
       return () => {
         ignore = true;
       };
