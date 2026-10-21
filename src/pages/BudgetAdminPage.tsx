@@ -242,7 +242,8 @@ export default function BudgetAdminPage({
   const [accountDraft, setAccountDraft] = useState<AccountDraft>(emptyAccountDraft);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [accountEditDraft, setAccountEditDraft] = useState<AccountEditDraft | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadedMode, setLoadedMode] = useState<BudgetAdminMode | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -250,6 +251,7 @@ export default function BudgetAdminPage({
   const [expenseDecision, setExpenseDecision] = useState<{ action: "approve" | "void"; transaction: BudgetTransaction } | null>(null);
 
   const hasBudgetAccess = canManageBudgets(userRoles);
+  const loading = refreshing || loadedMode !== mode;
   const activeCycle = cycles.find((cycle) => cycle.is_active) ?? null;
   const modeHeader = getModeHeader(mode);
   const showRequestReview = mode === "all" || mode === "requests";
@@ -259,11 +261,8 @@ export default function BudgetAdminPage({
   const showAllocations = mode === "all" || mode === "allocations";
   const showMetrics = showRequestReview || showReimbursements;
 
-  const loadAdminData = useCallback(async () => {
-    setLoading(true);
-    setErrorMessage(null);
-
-    try {
+  const loadAdminData = useCallback((isCurrent: () => boolean = () => true) => {
+    async function fetchAdminData() {
       const [requestTransactions, historyTransactions, nextCycles, nextRoles] = await Promise.all([
         getBudgetTransactionsByStatus(["submitted", "approved"]),
         showHistory ? getBudgetTransactionsByStatus(["approved", "reimbursed", "voided"]) : Promise.resolve([]),
@@ -295,14 +294,21 @@ export default function BudgetAdminPage({
       };
       const rows = requestTransactions.map(toAdminRow);
 
+      return { rows, historyRows: historyTransactions.map(toAdminRow), nextCycles, nextRoles, nextActiveAccounts, nextAccountTransactions };
+    }
+
+    return fetchAdminData().then(({ rows, historyRows, nextCycles, nextRoles, nextActiveAccounts, nextAccountTransactions }) => {
+      if (!isCurrent()) return;
+      setErrorMessage(null);
       setPendingRows(rows.filter((row) => row.transaction.status === "submitted"));
       setApprovedRows(rows.filter((row) => row.transaction.status === "approved" && !row.transaction.is_house_card));
-      setHistoryRows(historyTransactions.map(toAdminRow));
+      setHistoryRows(historyRows);
       setCycles(nextCycles);
       setRoles(nextRoles);
       setActiveAccounts(nextActiveAccounts);
       setActiveAccountTransactions(nextAccountTransactions);
-    } catch (error) {
+    }).catch((error: unknown) => {
+      if (!isCurrent()) return;
       const message = error instanceof Error ? error.message : "An unexpected error occurred.";
       setPendingRows([]);
       setApprovedRows([]);
@@ -312,18 +318,30 @@ export default function BudgetAdminPage({
       setActiveAccounts([]);
       setActiveAccountTransactions([]);
       setErrorMessage(`Could not load budget admin data: ${message}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [showHistory]);
+    }).finally(() => {
+      if (isCurrent()) setLoadedMode(mode);
+    });
+  }, [mode, showHistory]);
 
   useEffect(() => {
     if (rolesLoading || !hasBudgetAccess) {
       return;
     }
 
-    void loadAdminData();
+    let ignore = false;
+    void loadAdminData(() => !ignore);
+    return () => { ignore = true; };
   }, [hasBudgetAccess, loadAdminData, rolesLoading]);
+
+  async function refreshAdminData() {
+    setRefreshing(true);
+    setErrorMessage(null);
+    try {
+      await loadAdminData();
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   const totals = useMemo(
     () => ({
@@ -347,7 +365,7 @@ export default function BudgetAdminPage({
     try {
       await action();
       setSuccessMessage(success);
-      await loadAdminData();
+      await refreshAdminData();
     } catch (error) {
       const message = error instanceof Error ? error.message : "An unexpected error occurred.";
       setErrorMessage(message);
@@ -593,7 +611,7 @@ export default function BudgetAdminPage({
         {editingExpense && <SubmitExpenseForm key={`${editingExpense.id}-${editingExpense.updated_at}`}
           budgetAccountId={editingExpense.budget_account_id} expense={editingExpense}
           onCancel={() => setEditingExpense(null)}
-          onSubmitted={async () => { await loadAdminData(); setEditingExpense(null); }} />}
+          onSubmitted={async () => { await refreshAdminData(); setEditingExpense(null); }} />}
         <BudgetRequestSection
           title="Pending Requests"
           emptyText="No pending requests."

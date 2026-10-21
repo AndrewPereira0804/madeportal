@@ -30,9 +30,21 @@ function buildAssignmentsBySlot(assignments: WaitOnAssignment[]) {
 
 export default function WaitOnSchedule() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialWeekStart = normalizeWeekStartInput(searchParams.get("week") ?? getCurrentWeekStartValue());
+  const weekStart = normalizeWeekStartInput(searchParams.get("week") ?? getCurrentWeekStartValue());
 
-  const [weekStart, setWeekStart] = useState(initialWeekStart);
+  return (
+    <PublishedWaitOnWeek
+      key={weekStart}
+      weekStart={weekStart}
+      onWeekChange={(value) => setSearchParams({ week: normalizeWeekStartInput(value) })}
+    />
+  );
+}
+
+function PublishedWaitOnWeek({ weekStart, onWeekChange }: {
+  weekStart: string;
+  onWeekChange: (value: string) => void;
+}) {
   const [schedule, setSchedule] = useState<WaitOnScheduleRow | null>(null);
   const [assignments, setAssignments] = useState<WaitOnAssignment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,17 +53,9 @@ export default function WaitOnSchedule() {
   const assignmentsBySlot = useMemo(() => buildAssignmentsBySlot(assignments), [assignments]);
 
   useEffect(() => {
-    const nextWeekStart = normalizeWeekStartInput(searchParams.get("week") ?? getCurrentWeekStartValue());
-    setWeekStart(nextWeekStart);
-  }, [searchParams]);
-
-  useEffect(() => {
     let ignore = false;
 
     async function loadPublishedWaitOns() {
-      setLoading(true);
-      setErrorMessage(null);
-
       try {
         const scheduleData = await getPublishedWaitOnScheduleForWeek(weekStart);
         if (!ignore) {
@@ -78,12 +82,6 @@ export default function WaitOnSchedule() {
     };
   }, [weekStart]);
 
-  function handleWeekChange(value: string) {
-    const normalized = normalizeWeekStartInput(value);
-    setWeekStart(normalized);
-    setSearchParams({ week: normalized });
-  }
-
   return (
     <Card className="wait-on-form-page">
       <PageHeader
@@ -99,7 +97,7 @@ export default function WaitOnSchedule() {
           label="Week of"
           type="date"
           value={weekStart}
-          onChange={(event) => handleWeekChange(event.target.value)}
+          onChange={(event) => onWeekChange(event.target.value)}
           disabled={loading}
         />
         <div className="wait-on-status-strip">
