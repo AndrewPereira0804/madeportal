@@ -325,7 +325,20 @@ export function ChairToolPage() {
   );
   const budgetAccountPath = account ? `/app/tools/treasurer/accounts/${account.id}` : "/app/tools";
 
-  if (!rolesLoading && (!normalizedRoleSlug || !isChairRoleSlug(normalizedRoleSlug))) {
+  // Resolve the workspace guard before mounting tools with their own role reads.
+  // Otherwise parent and child redirects can race to different destinations.
+  if (rolesLoading) {
+    return (
+      <Card className="tools-page">
+        <div className="budget-loading">
+          <div className="spinner-border spinner-border-sm text-primary" role="status" />
+          <span>Loading chair tools...</span>
+        </div>
+      </Card>
+    );
+  }
+
+  if (!normalizedRoleSlug || !isChairRoleSlug(normalizedRoleSlug)) {
     return (
       <Card className="tools-page">
         <PageHeader
@@ -340,7 +353,7 @@ export function ChairToolPage() {
     );
   }
 
-  if (!rolesLoading && !canViewTool) {
+  if (!canViewTool) {
     return <Navigate to="/app/tools" replace />;
   }
 
