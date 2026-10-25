@@ -44,12 +44,50 @@ for (const key of ['pending', 'suspended'] as const) {
 test('ordinary members cannot open member management or treasurer tools', async ({ page }) => {
   await login(page, 'member');
   await expect(page.getByRole('link', { name: /Management/ })).toHaveCount(0);
-  for (const path of ['/app/manage/members', requestsPath, accountPath()]) {
-    await page.goto(path);
-    await expect(page).toHaveURL(path === requestsPath ? /\/app\/tools$/ : /\/app$/);
-    await expect(page.getByRole('heading', { name: path === requestsPath ? 'No chair tools assigned' : 'Welcome, Test member', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Approve', exact: true })).toHaveCount(0);
+  for (const { path, destination, heading } of [
+    { path: '/app/manage/members', destination: /\/app$/, heading: 'Welcome, Test member' },
+    { path: requestsPath, destination: /\/app\/tools$/, heading: 'No chair tools assigned' },
+    { path: accountPath(), destination: /\/app\/tools$/, heading: 'No chair tools assigned' },
+  ]) {
+    await test.step(`Deny ${path}`, async () => {
+      await page.goto(path);
+      await expect(page).toHaveURL(destination);
+      await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Approve', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Submit expense', exact: true })).toHaveCount(0);
+    });
   }
+});
+
+test('chair permissions resolve before a nested budget screen is mounted', async ({ page }) => {
+  await login(page, 'member');
+  await expect(page.getByRole('heading', { name: 'Welcome, Test member', exact: true })).toBeVisible();
+  let releaseRoles!: () => void;
+  let reportHeldRequest!: () => void;
+  const roleGate = new Promise<void>(resolve => { releaseRoles = resolve; });
+  const heldRequest = new Promise<void>(resolve => { reportHeldRequest = resolve; });
+  let roleRequests = 0;
+  await page.route('http://127.0.0.1:55431/rest/v1/user_roles?*', async route => {
+    // Let the app-level access check finish, then hold the nested role reads.
+    // Real responses are delayed; their data and authorization are unchanged.
+    if (++roleRequests > 1) {
+      reportHeldRequest();
+      await roleGate;
+    }
+    await route.continue();
+  });
+  try {
+    await page.goto(accountPath());
+    await heldRequest;
+    await expect(page).toHaveURL(new RegExp(`${accountPath()}$`));
+    await expect(page.getByText('Loading chair tools...', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Budget account', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Submit expense', exact: true })).toHaveCount(0);
+  } finally {
+    releaseRoles();
+  }
+  await expect(page).toHaveURL(/\/app\/tools$/);
+  await expect(page.getByRole('heading', { name: 'No chair tools assigned', exact: true })).toBeVisible();
 });
 
 test('a chair can open their own budget but cannot read another chair’s account', async ({ page }) => {

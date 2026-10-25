@@ -129,12 +129,14 @@ app on dedicated port 5175. Keep that port free; another server is never reused.
 It does not stop the retained local database after testing. Use test:env:stop
 when finished. Do not run RLS tests or modify local fixtures during browser tests.
 
-The 16 Chromium tests cover protected navigation, failed login,
+The 17 Chromium tests cover protected navigation, failed login,
 login/reload/logout, pending/suspended screens, management and budget access,
 submitted-expense creation/edit/delete/validation, approval confirmation and
 cancellation, retained voids and budget totals, locked reimbursements, House Card
 requests, stale approval after a real browser edit, the mobile approval popup,
-and published wait-on week selection, browser history, and reload.
+published wait-on week selection, browser history, and reload, and chair-tool
+permission loading before nested screens mount. That regression test delays real
+role responses to exercise the loading state without changing response data.
 Every test gets a fresh browser context. Expense records have unique vendor tags
 and are removed in fixture teardown, including after assertion failures. Global
 teardown verifies the reviewed schema and all fixture counts/statuses/roles.
